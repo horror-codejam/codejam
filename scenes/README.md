@@ -20,4 +20,5 @@ One folder per scene of the game, numbered in play order: `NN-short-name/` (for 
 |---|---|---|---|
 | 1 | [01-shipwreck](01-shipwreck/) | Storm at sea, the boat sinks, you black out | Blockout done, dialogue drafted |
 | 2 | (not created yet) | Next scene, sketch in progress | Not started |
+| 3 | [03-watch-room](03-watch-room/) | The watch room where the player survives each night | Gray box done, cameras placed |
 | Final | [99-final-cage-hall](99-final-cage-hall/) | The twist: caged victims and monsters, seen from inside a cage (lose) or outside (win) | Blockout done, script drafted |
