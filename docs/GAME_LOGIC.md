@@ -5,7 +5,7 @@ This file defines exactly how the game works: every state, timer, number and rul
 ## 1. The game in 30 seconds
 - Each night runs from 12:00 AM to 6:00 AM. Survive to 6:00 AM to win the night. Survive 5 nights to win the game.
 - Ram tries to get in through one of 3 entries: the left WINDOW, the right HATCH (a floor hatch over a fixed ladder), or the rear BALCONY.
-- One power slot: CHUD can power one lock or the lamp beam, never two things at once.
+- One power slot: CHUD can power one magnetic lock or the lights (the beacon beam plus the room's caged bulbs), never two things at once.
 - You defend an entry in one of two ways:
   - CHUD locks it. Fast, but only if CHUD cooperates.
   - You hold it by hand. Always works, but you are away from the desk and cannot type.
@@ -85,10 +85,13 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 
 ## 6. The player
 
+Controls proposal under playtest (not adopted): see [docs/CONTROLS_PROPOSAL.md](CONTROLS_PROPOSAL.md). Until it is adopted, this section stays the source of truth.
+
 ### 6.1 Views
 - The player turns between `DESK`, `WINDOW` (left), `HATCH` (right) and `BALCONY` (behind). Turning takes 0.25 s (a pan).
 - **The chat box only works in the `DESK` view.** CHUD's replies show as subtitles in every view, and its voice plays from the desk.
-- Without the beam, entry views are near-black. During `AT_ENTRY`, the entry's visual tell is faintly visible in that view (section 7.4). With the beam on, a view also shows Ram during `APPROACHING` if he is heading to that entry.
+- `BEAM` powers the lights circuit: the beacon beam and the watch room's caged bulbs. With power on a lock or `NONE`, the bulbs and the beacon are dark, the room is lit only by CHUD's screen, entry views are near-black, and during `AT_ENTRY` the entry's visual tell is only faintly visible (section 7.4). With power on `BEAM`, the tell is clearly visible, and a view also shows a hint of Ram during `APPROACHING` if he is heading to that entry.
+- Locks are magnetic. Their state is shown on a lock dashboard on CHUD's screen (design to come).
 - Beacon sweep: while power = `BEAM`, the `DESK` view shows the beacon's amber light sweeping across the rain and sea through the front glazing every few seconds, with a faint pass of light through the room. When power moves to a lock or `NONE`, the sweep stops and the view goes dark. This is the player's visual readout of the power slot.
 
 ### 6.2 Typing to CHUD
@@ -155,10 +158,10 @@ any state --(6:00 AM)--> night won, visit cancelled
 | Phase | Audio | Visual |
 |---|---|---|
 | AWAY | Storm and waves only | Nothing |
-| APPROACHING | Splashing and climbing on wet rock. Same sound for every target, not directional | With beam on: Ram's silhouette visible in the view of his current target |
-| AT_ENTRY, HATCH | Metal rungs clatter below right, then the lid knocks. Loud | The lid shudders. If it lifts, fingers catch the edge |
-| AT_ENTRY, WINDOW | Soft tapping on glass, left. Quiet, and the storm masks it more on nights 4 and 5 | Fog and a hand print on the glass (faint without beam, clear with beam) |
-| AT_ENTRY, BALCONY | Scraping on the rail, behind. Medium | Partial silhouette at the rail (faint without beam, clear with beam) |
+| APPROACHING | Splashing and climbing on wet rock. Same sound for every target, not directional | With power on `BEAM`: a hint of Ram in the view of his current target (a shape beyond the window glass, a shadow under the balcony door, movement at the hatch seam) |
+| AT_ENTRY, HATCH | Metal rungs clatter below right, then the lid knocks. Loud | If the hatch is not locked: the lid lifts a crack and his fingers curl over the rim. If locked: the lid jolts and bangs but stays shut. Faint without the lights, clear with them |
+| AT_ENTRY, WINDOW | Soft tapping on glass, left. Quiet, and the storm masks it more on nights 4 and 5 | A hand pressed flat on the glass in fogged condensation; in the hold view, part of his face. Never the whole face. Faint without the lights, clear with them |
+| AT_ENTRY, BALCONY | Scraping on the rail, then the handle rattles, behind. Medium | The door handle is held fully down for the whole attempt, the door shifts against the magnetic lock, and the shadow of his feet shows in the gap under the door. Faint without the lights, clear with them |
 | RETREATING | Ram shouts through the entry ("Don't trust it!"), then footsteps fade | Tell disappears |
 
 ### 7.5 Resolving an attempt
@@ -341,7 +344,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 3. CHUD never lies in WARM.
 4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s.
 5. Repeating the location question never reveals a lie (one decision per visit).
-6. The beam never lies: with the beam on, the visual shows Ram's true current target.
+6. The lights never lie: with power on `BEAM`, the visual shows Ram's true current target.
 7. Visits never overlap. Ram is in one place at a time.
 8. Win and loss are decided only by code (section 7.5). No LLM output can change game state.
 9. 6:00 AM always wins, even mid-attempt.
