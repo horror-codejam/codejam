@@ -1,6 +1,6 @@
 # codejam
 
-Browser horror game for McGill CodeJam 16 (Nov 20 to 22, 2026). Working title HOMI, name not final.
+Lighthouse horror browser game for McGill CodeJam 16 (Nov 20 to 22, 2026). Name not final.
 
 ## Start here
 - Game design: [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)

@@ -3,7 +3,7 @@
 Shared working rules for every AI assistant used on this repo. Project owners: the team (all 3 members, equal say). Any decision reserved for the project owner needs agreement from the team.
 
 ## Project context
-- Project: browser horror game for McGill CodeJam 16 (Nov 20 to 22, 2026). Working title HOMI, name not final.
+- Project: lighthouse horror browser game for McGill CodeJam 16 (Nov 20 to 22, 2026). Name not final.
 - docs/GAME_DESIGN.md: the current game design (working draft). Source of truth for story, rules and AI architecture.
 - docs/STATUS.md: what works, who is on what, blockers, next steps. One section per person.
 - docs/DECISIONS.md: append-only log of decisions, one line each (date, decision, why).
