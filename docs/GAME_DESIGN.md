@@ -56,7 +56,8 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
 - One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. At night all its power goes to the lighthouse beacon by default, so every lock steals power from the light. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. While the beam is powered, its amber light sweeps across the sea through the front glazing every few seconds.
-- Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen (design to come).
+- Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen.
+- The CHUD terminal (scenes/03b-chud-terminal/): click the computer in the desk view to open it full screen. Chat with CHUD in the center, a top-down lighthouse map of the entrances on the right, the clock top right, a music player on the left (creepy messages and weird lyrics slip into the songs), and a power bar bottom right. Open conflicts with GAME_LOGIC.md are listed in the scene sheet.
 
 ## Player actions
 1. Type to the AI: ask where Ram is, ask it to lock an entry or turn on the beam, answer its questions.
