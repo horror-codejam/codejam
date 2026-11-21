@@ -138,11 +138,53 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - Before the demo: run a test kit of about 30 known injection strings and confirm none changes game state.
 - Model: a fast model with 1 to 2 sentence replies. Test latency with our own key early.
 
+## Tech stack
+- Approach: 2.5D, FNAF style. Pre-rendered 3D stills from Blender shown in a 2D web app with a perspective shader. No real-time 3D, no game engine.
+- Art: Blender (Cycles), Blender MCP, Poly Haven (CC0 textures, props, HDRIs), AI 3D generators (Rodin, Tripo or Meshy) for a few hero props only.
+- Frontend: Vite + TypeScript + PixiJS (perspective shader, grain, flicker), Howler.js or the Web Audio API (positional sound).
+- Backend: Node + Express or Hono. One /turn endpoint runs the judge call, game logic and the voice call. Holds the API key.
+- Hosting: Vercel (frontend plus serverless backend, one link for judges).
+- Why not Godot: AI coding tools are weaker at Godot scene files and editor workflows, and its web export has reported audio quirks. Why not real-time 3D: high risk in 36 hours, no visual gain for this style.
+
 ## Art and sound
-- FNAF-like look: dark, grainy, desaturated static images with heavy shadows, plus short scare frame sequences. Very little real animation.
-- Estimated 20 to 30 images: watch room, 3 entry views in lit and dark versions, Ram at each entry, the AI's face in 4 moods, beam-lit rocks, endings.
-- Made with Blender renders or AI image generation (check the AI-asset rule first).
-- Sound carries half the game: storm, waves, footsteps on stairs, pounding, glass taps, scraping, Ram's voice, the AI's chime, radio static, helicopter.
+Reference: FNAF 4 is pre-rendered 3D stills in a simple 2D engine (Clickteam Fusion 2.5) with a perspective effect. The fear comes from the renders, lighting, darkness and sound, not the engine. Do not claim more about FNAF internals than that, the rest is unverified.
+
+What makes it scary (design rules):
+- Darkness, one harsh light source per view, near-black ambient.
+- Sound over sight: the player listens, then decides whether to look.
+- Short decision windows (3 to 4 seconds).
+- Only ever see part of the threat.
+
+Blender pipeline:
+1. Build (about 3 h): one room shell (round watch room, stone walls, spiral stairs down, cottage passage, ladder to roof hatch). Real CC0 textures and props from Poly Haven via Blender MCP. 3 to 5 AI-generated hero props (radio, keeper's chair, lantern, crates), kept in shadow and away from camera, scale fixed by hand. AI images are for concept art and mood references only, not final assets.
+2. Light (about 3 h): one harsh source per view (PC glow, lamp beam sweeping past the window, lightning, moonlight through the cottage glass). Light volumetric fog. Rain on glass, wet stone.
+3. Render: Cycles around 128 samples with denoiser (Eevee only if out of time). Render wider than 16:9 so views can pan. WebP around 1920 px wide.
+4. Post in Blender compositor: slight lens distortion with chromatic aberration, vignette, desaturated cold-blue grade with warm lamp highlights. Film grain and flicker are added live in the browser shader.
+
+Render list (about 25 to 40 images):
+| View | States |
+|---|---|
+| Watch room (center, PC) | Normal, lightning flash |
+| Stairs to ground door | Dark, beam lit, Ram on the stairs |
+| Cottage window | Dark, lit, Ram's hand on the glass, Ram's face at the glass |
+| Roof hatch | Dark, lit, Ram's shadow over the hatch |
+| Jumpscare | 6 to 15 frames per entry |
+| Endings | Helicopter shot, Ram on the rocks |
+
+Showing Ram: never fully. Silhouette in the beam, hand on glass, eyes on the dark stairs, shadow over the hatch. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
+
+CHUD's face: drawn in code on the PC screen as UI states (warm, hurt, jealous, furious), not 3D.
+
+In the browser:
+- Perspective shader on each view, slight mouse pan and camera sway.
+- Positional audio (headphones): storm and waves, footsteps on metal stairs below, scraping above, taps on glass to the side, Ram's voice, CHUD's chime, radio static, helicopter.
+- "Click to begin" title screen (browsers block audio until first click). Preload jumpscare frames before each night.
+
+Workflow:
+- Art director loop: Claude via Blender MCP builds or lights a scene and renders a low-sample preview, a human reviews ("darker", "more fog"), repeat. Final high-sample render once per view.
+- Keep Blender MCP prompts small and save before each one (it can run arbitrary code and large prompts freeze Blender).
+- One person owns the .blend file. Commit renders as WebP or PNG.
+- Lock camera angles by hour 6. Render time is the bottleneck, queue finals on the strongest GPU.
 
 ## Scope fallbacks
 - If time runs short: cut to 3 nights, keep the suspicion meter and the judge/voice split.
@@ -150,7 +192,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 
 ## Open questions
 - Game name.
-- Tech stack and engine.
+- Whether CC0 pre-made assets count as allowed under the build-from-scratch rule (ask organizers).
 - LLM provider and model (latency test needed).
 - Number of nights in the demo build (3 or 5).
 - Whether AI-generated art is allowed.

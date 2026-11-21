@@ -7,7 +7,8 @@ Shared working rules for every AI assistant used on this repo. Project owners: t
 - docs/GAME_DESIGN.md: the current game design (working draft). Source of truth for story, rules and AI architecture.
 - docs/STATUS.md: what works, who is on what, blockers, next steps. One section per person.
 - docs/DECISIONS.md: append-only log of decisions, one line each (date, decision, why).
-- Tech stack: not decided yet. Record it in docs/DECISIONS.md once chosen, then add build and run commands here.
+- Tech stack: 2.5D pre-rendered. Blender (Cycles) plus Blender MCP for art, Vite + TypeScript + PixiJS frontend, Howler.js or Web Audio, Node (Express or Hono) backend with one /turn endpoint, hosted on Vercel. Details in docs/GAME_DESIGN.md (Tech stack, Art and sound).
+- Build and run commands: add here once the project is scaffolded.
 
 ## Session protocol
 - At session start: read docs/STATUS.md and docs/GAME_DESIGN.md before doing any work.

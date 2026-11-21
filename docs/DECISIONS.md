@@ -13,3 +13,4 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-20: The lighthouse AI does not want the player dead, it wants to be needed. It withholds protection when it suspects the player is leaving. Why: removes the "wants you as keeper but wants you dead" contradiction.
 - 2026-11-20: 5 nights (was 4). Why: matches the 5-day rescue wait.
 - 2026-11-20: Names: the founder is Ram Altman (was Loki), the AI is CHUD, short for Continuous Helping Unit Deployment. Why: team choice.
+- 2026-11-20: Tech stack: 2.5D pre-rendered Blender (Cycles) stills plus Blender MCP, Vite + TypeScript + PixiJS frontend, Howler.js or Web Audio, Node (Express or Hono) /turn backend, Vercel. Why: matches how FNAF 4 was built (pre-rendered stills in a 2D engine), AI coding tools are strongest at web code, lowest 36-hour risk. Godot and real-time 3D rejected.
