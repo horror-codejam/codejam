@@ -85,6 +85,8 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 
 ## 6. The player
 
+Controls proposal under playtest (not adopted): see [docs/CONTROLS_PROPOSAL.md](CONTROLS_PROPOSAL.md). Until it is adopted, this section stays the source of truth.
+
 ### 6.1 Views
 - The player turns between `DESK`, `WINDOW` (left), `HATCH` (right) and `BALCONY` (behind). Turning takes 0.25 s (a pan).
 - **The chat box only works in the `DESK` view.** CHUD's replies show as subtitles in every view, and its voice plays from the desk.
