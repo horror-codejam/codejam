@@ -9,6 +9,7 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-20: FNAF-style art (dark static images), not pixel art. Why: team preference, low animation cost.
 - 2026-11-20: Game name is not final. Why: still deciding.
 - 2026-11-20: No game code before Friday Nov 20, 7 PM. Why: event rule, build from scratch.
-- 2026-11-20: Replaced the smart-apartment premise (HOMI, the Neighbors) with a lighthouse premise: stranded sailor, attached lighthouse AI, its ex-founder Loki trying to break in. Why: clearer reason to stay (stranded until rescue) and a more realistic threat. Same core loop: 3 entries, one power slot, suspicion meter.
+- 2026-11-20: Replaced the smart-apartment premise (HOMI, the Neighbors) with a lighthouse premise: stranded sailor, attached lighthouse AI, its ex-founder (now Ram Altman) trying to break in. Why: clearer reason to stay (stranded until rescue) and a more realistic threat. Same core loop: 3 entries, one power slot, suspicion meter.
 - 2026-11-20: The lighthouse AI does not want the player dead, it wants to be needed. It withholds protection when it suspects the player is leaving. Why: removes the "wants you as keeper but wants you dead" contradiction.
 - 2026-11-20: 5 nights (was 4). Why: matches the 5-day rescue wait.
+- 2026-11-20: Names: the founder is Ram Altman (was Loki), the AI is CHUD, short for Continuous Helping Unit Deployment. Why: team choice.
