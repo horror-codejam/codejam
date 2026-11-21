@@ -6,8 +6,8 @@ import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
-import type { Entry, GameEvent, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
-import { loadArt } from "./ui/art";
+import type { Band, Entry, GameEvent, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
+import { artUrl, loadArt } from "./ui/art";
 import { Sound } from "./ui/audio";
 import { H, W } from "./ui/layout";
 import { Scene } from "./ui/scene";
@@ -25,7 +25,12 @@ const ui = {
   power: $("power"),
   chudStatus: $("chud-status"),
   hint: $("hint"),
-  desk: $("desk-panel"),
+  desk: $("terminal"),
+  face: $("t-face"),
+  band: $("t-band"),
+  tClock: $("t-clock"),
+  map: $("t-map"),
+  powerCells: $("t-power"),
   log: $("log"),
   question: $("question"),
   questionLabel: $("question-label"),
@@ -50,6 +55,13 @@ const ui = {
 };
 
 const NAME: Record<Entry, string> = { WINDOW: "window", HATCH: "hatch", BALCONY: "balcony" };
+
+// CHUD's face: Vidush's four-mood sheet (2172 x 724, WARM HURT JEALOUS FURIOUS left to right),
+// one 540 px square frame per band, shown through CSS background-position.
+const FACE_URL = artUrl("chud_faces");
+const FACE_SHEET = { w: 2172, h: 724, frame: 540, top: 90, left: [20, 550, 1080, 1610] };
+const BAND_INDEX: Record<Band, number> = { WARM: 0, HURT: 1, JEALOUS: 2, FURIOUS: 3 };
+const FACE_GLYPH: Record<Band, string> = { WARM: "( ^_^ )", HURT: "( ._. )", JEALOUS: "( >_< )", FURIOUS: "( X_X )" };
 
 // UI-only state
 let voiceLog = "";
@@ -297,10 +309,11 @@ function renderHud(t: number): void {
   show(ui.hint, playing && t < hintUntil);
   if (t > noteUntil) setText(ui.chatNote, "");
 
-  // desk controls
+  // CHUD's terminal on the desk screen, following the camera pan
   const deskOn = deskView;
   show(ui.desk, deskOn);
   if (deskOn) {
+    renderTerminal(t);
     ui.chat.disabled = !p.chudOnline;
     for (const b of ui.desk.querySelectorAll<HTMLButtonElement>("[data-quick]")) b.disabled = !p.chudOnline;
     ui.kill.classList.toggle("off", !p.generatorOn);
@@ -342,6 +355,61 @@ function renderHud(t: number): void {
   }
 }
 
+let faceKey = "";
+
+function renderTerminal(t: number): void {
+  const s = engine.state;
+  const p = s.power;
+
+  const r = scene.deskScreenRect();
+  ui.desk.style.transform = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px)`;
+  ui.desk.style.opacity = String(1 - scene.fadeAlpha);
+
+  // face by band; blank while offline, a reboot readout while rebooting
+  const band = s.chud.band;
+  let key: string;
+  if (p.chudOnline) key = band;
+  else if (p.rebootingUntil !== null) key = `REBOOT ${Math.round((1 - Math.max(0, p.rebootingUntil - s.clock.elapsed) / CONFIG.REBOOT_TIME) * 100)}%`;
+  else key = "OFFLINE";
+  if (key !== faceKey) {
+    faceKey = key;
+    const f = ui.face;
+    f.classList.toggle("off", !p.chudOnline);
+    f.classList.toggle("furious", p.chudOnline && band === "FURIOUS");
+    if (!p.chudOnline) {
+      f.textContent = key;
+    } else if (FACE_URL) {
+      const k = f.clientWidth / FACE_SHEET.frame || 120 / FACE_SHEET.frame;
+      f.textContent = "";
+      f.style.backgroundImage = `url("${FACE_URL}")`;
+      f.style.backgroundSize = `${FACE_SHEET.w * k}px ${FACE_SHEET.h * k}px`;
+      f.style.backgroundPosition = `${-FACE_SHEET.left[BAND_INDEX[band]] * k}px ${-FACE_SHEET.top * k}px`;
+    } else {
+      f.textContent = FACE_GLYPH[band];
+    }
+    setText(ui.band, p.chudOnline ? band : "");
+  }
+  ui.face.classList.toggle("talking", p.chudOnline && t < scene.speakingUntil);
+
+  setText(ui.tClock, clockText().split("· ")[1] ?? "");
+
+  // map: entries and lock state only, never Ram
+  const cooling = s.clock.elapsed < s.player.holdCooldownUntil;
+  for (const g of ui.map.querySelectorAll<SVGGElement>(".entry")) {
+    const lock = `LOCK_${g.dataset.entry}` as PowerSlot;
+    g.classList.toggle("locked", p.slot === lock);
+    g.classList.toggle("pending", p.pending?.target === lock);
+    g.classList.toggle("cooling", cooling);
+  }
+
+  // power bar: 4 cells, green = what the one slot feeds now; all red = NONE; flashing red on a cut
+  ui.powerCells.classList.toggle("cut", t < powerAlarmUntil && Math.floor(t * 6) % 2 === 0);
+  for (const c of ui.powerCells.querySelectorAll<HTMLElement>("i")) {
+    c.classList.toggle("on", p.slot === c.dataset.cell);
+    c.classList.toggle("pending", p.pending?.target === c.dataset.cell);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Screens
 
@@ -355,8 +423,12 @@ const CAUSE: Record<LossInfo["cause"], (l: LossInfo) => string> = {
   POWER_OFF: () => "The generator was off.",
 };
 
-function card(html: string, cls = ""): void {
+function card(html: string, cls = "", art: string | null = null): void {
   ui.screen.innerHTML = `<div class="card ${cls}">${html}</div>`;
+  // a render behind the card (intro, endings); none means the plain dark overlay
+  const url = art ? artUrl(art) : null;
+  ui.screen.classList.toggle("art", !!url);
+  ui.screen.style.backgroundImage = url ? `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.55)), url("${url}")` : "";
   show(ui.screen, true);
 }
 
@@ -374,7 +446,10 @@ function showScreen(phase: Phase): void {
         <p>A storm. A lighthouse. A voice from the console.</p>
         <p style="color:var(--crt)">"Hello, keeper. What should I call you?"</p>
         <form id="name-form"><input id="name" maxlength="24" placeholder="Your name" autofocus /><br /><button>Begin</button></form>
-        <p class="small">Headphones on. Sound tells you where he is.</p>`);
+        <p class="small">Headphones on. Sound tells you where he is.</p>`,
+        "",
+        "intro",
+      );
       const form = $<HTMLFormElement>("name-form");
       form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -407,6 +482,7 @@ function showScreen(phase: Phase): void {
         <p>${esc(CAUSE[l.cause](l))}</p>${claim}
         <button id="go">Retry night ${n}</button>`,
         "lost",
+        "ending_lose",
       );
       $("go").addEventListener("click", () => engine.retryNight());
       $("go").focus();
@@ -426,7 +502,10 @@ function showScreen(phase: Phase): void {
         <h1>FIRST LIGHT</h1>
         <p>The helicopter lifts you off the rock. Below, a man stands in the surf, staring up.</p>
         <p>The lamp blinks behind you. Long, short, long.</p>
-        <button id="go">Play again</button>`);
+        <button id="go">Play again</button>`,
+        "",
+        "ending_win",
+      );
       $("go").addEventListener("click", () => window.location.reload());
       break;
     case "SAFETY_PAUSE":
@@ -468,6 +547,10 @@ function wireInput(): void {
     b.addEventListener("click", () => engine.startHold(b.dataset.hold as Entry));
   }
   ui.kill.addEventListener("click", () => engine.toggleGenerator());
+  // map dots start a hold of that entry (GAME_LOGIC 6.4 allows holds from the desk)
+  for (const g of ui.map.querySelectorAll<SVGGElement>(".entry")) {
+    g.addEventListener("click", () => engine.startHold(g.dataset.entry as Entry));
+  }
   ui.back.addEventListener("click", () => engine.backToDesk());
   ui.navLeft.addEventListener("click", () => engine.turn("WINDOW"));
   ui.navRight.addEventListener("click", () => engine.turn("HATCH"));

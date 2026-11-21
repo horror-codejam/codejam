@@ -81,6 +81,16 @@ describe("engine smoke", () => {
     expect(e.state.run.factsCheckpoint).toEqual(e.state.chud.facts);
   });
 
+  it("each night starts with power on BEAM (GAME_LOGIC 5.1), also after a retry", () => {
+    const e = playing();
+    expect(e.state.power.slot).toBe("BEAM");
+    e.pressQuick("LOCK_HATCH");
+    run(e, 120);
+    expect(e.state.phase).toBe("BREACH");
+    e.retryNight();
+    expect(e.state.power.slot).toBe("BEAM");
+  });
+
   it("an undefended visit breaches with cause UNLOCKED", () => {
     const e = playing();
     run(e, 120);

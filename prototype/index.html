@@ -17,22 +17,47 @@
         </div>
         <div id="hint" class="hidden"></div>
 
-        <div id="desk-panel" class="hidden">
-          <div id="log"></div>
-          <div id="question" class="hidden"><span id="question-label">CHUD is waiting for an answer</span><div class="bar"><i id="question-bar"></i></div></div>
-          <form id="chat-form" autocomplete="off">
-            <input id="chat" maxlength="200" placeholder="Type to CHUD and press Enter" />
-          </form>
-          <div id="chat-note"></div>
-          <div id="quick">
-            <button data-quick="ASK_LOCATION">Where is he?</button>
-            <button data-quick="LOCK_WINDOW">Lock window</button>
-            <button data-quick="LOCK_HATCH">Lock hatch</button>
-            <button data-quick="LOCK_BALCONY">Lock balcony</button>
-            <button data-quick="BEAM">Beam</button>
-            <button data-quick="POWER_OFF">Power off</button>
+        <!-- CHUD's terminal: sits on the desk render's screen (DESK_SCREEN) and follows the camera pan. -->
+        <div id="terminal" class="hidden">
+          <div id="t-left">
+            <div id="t-title">CHUD v0.3</div>
+            <div id="t-face"></div>
+            <div id="t-band"></div>
+            <button id="kill" title="Generator kill switch">GENERATOR <b>ON</b></button>
           </div>
-          <button id="kill" title="Generator kill switch">GENERATOR<br /><b>ON</b></button>
+          <div id="t-center">
+            <div id="log"></div>
+            <div id="question" class="hidden"><span id="question-label">CHUD is waiting for an answer</span><div class="bar"><i id="question-bar"></i></div></div>
+            <form id="chat-form" autocomplete="off">
+              <input id="chat" maxlength="200" placeholder="Type to CHUD and press Enter" />
+            </form>
+            <div id="chat-note"></div>
+            <div id="quick">
+              <button data-quick="ASK_LOCATION">Where is he?</button>
+              <button data-quick="LOCK_WINDOW">Lock window</button>
+              <button data-quick="LOCK_HATCH">Lock hatch</button>
+              <button data-quick="LOCK_BALCONY">Lock balcony</button>
+              <button data-quick="BEAM">Beam</button>
+              <button data-quick="POWER_OFF">Power off</button>
+            </div>
+          </div>
+          <div id="t-right">
+            <div id="t-clock">12:00</div>
+            <!-- Top-down map of the watch room. Entries and lock state only: never Ram. -->
+            <svg id="t-map" viewBox="0 0 100 100" aria-label="Watch room map">
+              <circle cx="50" cy="50" r="46" class="wall" />
+              <circle cx="50" cy="50" r="11" class="core" />
+              <path d="M 28 16 A 40 40 0 0 1 72 16" class="desk" />
+              <circle cx="50" cy="13" r="3.2" class="me" />
+              <g class="entry" data-entry="WINDOW"><circle cx="7" cy="50" r="6" /><text x="16" y="53">W</text></g>
+              <g class="entry" data-entry="HATCH"><circle cx="93" cy="50" r="6" /><text x="78" y="53">H</text></g>
+              <g class="entry" data-entry="BALCONY"><rect x="44" y="84" width="12" height="12" /><text x="47" y="80">B</text></g>
+            </svg>
+            <div id="t-power-label">POWER</div>
+            <div id="t-power">
+              <i data-cell="LOCK_WINDOW">W</i><i data-cell="LOCK_HATCH">H</i><i data-cell="LOCK_BALCONY">B</i><i data-cell="BEAM">BEAM</i>
+            </div>
+          </div>
         </div>
 
         <div id="nav" class="hidden">

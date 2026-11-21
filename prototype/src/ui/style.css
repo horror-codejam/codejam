@@ -32,48 +32,99 @@ button:disabled { opacity: 0.35; cursor: default; }
 #chud-status { color: var(--dim); min-width: 160px; text-align: right; }
 
 #hint {
-  position: absolute; top: 48px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
   background: rgba(255, 196, 107, 0.12); border: 1px solid var(--amber); color: var(--amber);
   padding: 6px 16px; font-size: 16px; letter-spacing: 0.06em;
 }
 
-/* desk */
-#log {
-  position: absolute; left: 340px; top: 412px; width: 600px; height: 128px; overflow: hidden;
-  display: flex; flex-direction: column; justify-content: flex-end; gap: 3px;
-  background: var(--panel); border: 1px solid var(--line); padding: 8px 10px; font-size: 14px;
+/* CHUD terminal: DOM on the desk render's screen. Positioned by main.ts each frame (follows the pan).
+   Size = DESK_SCREEN (644 x 188 plate px) x K (1.68) = 1082 x 316 stage px. */
+#terminal {
+  position: absolute; left: 0; top: 0; width: 1082px; height: 316px; will-change: transform;
+  display: grid; grid-template-columns: 168px 1fr 250px; gap: 12px; padding: 10px 14px;
+  background: #020604; color: var(--crt); font-size: 13px; pointer-events: none;
+  box-shadow: inset 0 0 40px rgba(77, 255, 136, 0.08);
 }
-#log .me { color: var(--dim); }
+#terminal::after { /* scanlines */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+}
+#terminal button { border-color: #1f4a2e; background: #06120b; color: var(--crt); }
+#terminal button:hover { border-color: var(--crt); background: #0b1d12; }
+#t-left { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#t-title { align-self: stretch; font-size: 12px; letter-spacing: 0.2em; border-bottom: 2px solid var(--crt); padding-bottom: 3px; }
+#t-face {
+  width: 120px; height: 120px; background-repeat: no-repeat; background-color: #000;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; letter-spacing: 0.1em; text-align: center;
+}
+#t-face.talking { animation: talk 0.18s infinite alternate; }
+#t-face.furious { animation: flicker 0.25s steps(2) infinite; }
+#t-face.off { background-image: none !important; color: #2a7a46; }
+@keyframes talk { from { transform: scale(1); } to { transform: scale(1.04, 0.97); } }
+@keyframes flicker { 0% { opacity: 1; } 50% { opacity: 0.55; } }
+#t-band { font-size: 12px; letter-spacing: 0.15em; min-height: 14px; }
+#kill {
+  margin-top: auto; width: 150px; font-size: 11px; padding: 6px 4px;
+  background: #241414 !important; border: 2px solid #5a2a2a !important; color: var(--ink) !important;
+}
+#kill b { font-size: 16px; color: #ff6a5a; margin-left: 4px; }
+#kill.off b { color: var(--dim); }
+
+#t-center { display: flex; flex-direction: column; min-width: 0; }
+#log {
+  flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px;
+  border: 1px solid #143322; padding: 6px 8px; font-size: 13px;
+}
+#log .me { color: var(--dim); text-align: right; }
 #log .chud { color: var(--crt); }
 #log .ram { color: #e8d0c0; font-style: italic; }
 #log .typing { color: #2a7a46; font-style: italic; }
 #log .radio { color: var(--amber); }
-#question { position: absolute; left: 340px; top: 544px; width: 600px; font-size: 12px; color: var(--crt); }
+#question { font-size: 11px; color: var(--crt); margin-top: 3px; }
 .bar { height: 4px; background: #1b2026; margin-top: 3px; }
 .bar i { display: block; height: 100%; background: var(--crt); width: 100%; }
-#chat-form { position: absolute; left: 340px; top: 566px; width: 600px; }
+#chat-form { margin-top: 4px; }
 #chat {
-  width: 100%; font: inherit; font-size: 15px; color: var(--crt); background: #05090a; border: 1px solid #1f4a2e;
-  padding: 8px 10px; outline: none;
+  width: 100%; font: inherit; font-size: 14px; color: var(--crt); background: #05090a; border: 1px solid #1f4a2e;
+  padding: 6px 8px; outline: none;
 }
 #chat:focus { border-color: var(--crt); }
 #chat:disabled { opacity: 0.4; }
-#chat-note { position: absolute; left: 340px; top: 604px; width: 600px; font-size: 12px; color: #ff9a3c; height: 16px; }
-#quick { position: absolute; left: 290px; top: 624px; width: 700px; display: flex; gap: 6px; justify-content: center; }
-#quick button { font-size: 13px; padding: 7px 9px; }
-#kill {
-  position: absolute; left: 1020px; top: 470px; width: 130px; height: 100px; font-size: 12px;
-  background: #241414; border: 2px solid #5a2a2a; line-height: 1.6;
+#chat-note { font-size: 11px; color: #ff9a3c; height: 14px; }
+#quick { display: flex; gap: 4px; justify-content: space-between; }
+#quick button { font-size: 11px; padding: 4px 5px; flex: 1; white-space: nowrap; }
+
+#t-right { display: flex; flex-direction: column; align-items: center; }
+#t-clock { align-self: flex-end; font-size: 22px; letter-spacing: 0.08em; }
+#t-map { width: 150px; height: 150px; overflow: visible; }
+#t-map .wall { fill: none; stroke: var(--crt); stroke-width: 2; }
+#t-map .core { fill: none; stroke: #2a7a46; stroke-width: 1.5; }
+#t-map .desk { fill: none; stroke: #2a7a46; stroke-width: 4; }
+#t-map .me { fill: var(--crt); }
+#t-map .entry { pointer-events: auto; cursor: pointer; }
+#t-map .entry circle, #t-map .entry rect { fill: #c0392b; stroke: #ff6a5a; stroke-width: 1; }
+#t-map .entry.locked circle, #t-map .entry.locked rect { fill: #2ecc71; stroke: var(--crt); }
+#t-map .entry.pending circle, #t-map .entry.pending rect { fill: var(--amber); }
+#t-map .entry.cooling { opacity: 0.4; cursor: default; }
+#t-map .entry:hover circle, #t-map .entry:hover rect { stroke: #fff; stroke-width: 2; }
+#t-map text { fill: var(--crt); font-size: 8px; font-family: inherit; pointer-events: none; }
+#t-power-label { align-self: flex-start; margin: 6px 0 2px 18px; font-size: 13px; letter-spacing: 0.25em; }
+#t-power { display: flex; gap: 3px; padding: 3px; border: 2px solid var(--crt); }
+#t-power i {
+  font-style: normal; font-size: 10px; width: 46px; height: 22px; display: flex; align-items: center; justify-content: center;
+  background: #5a1a14; color: #ffb0a0;
 }
-#kill b { font-size: 20px; color: #ff6a5a; }
-#kill.off b { color: var(--dim); }
+#t-power i:last-child { width: 56px; }
+#t-power i.on { background: #2ecc71; color: #021006; }
+#t-power i.pending { background: #7a5a1a; color: var(--amber); }
+#t-power.cut i { background: #ff3b3b; color: #fff; }
 
 /* navigation */
 .nav.side { position: absolute; top: 250px; width: 64px; height: 200px; font-size: 13px; writing-mode: vertical-rl; background: rgba(21, 26, 32, 0.55); }
 .nav.left { left: 0; transform: rotate(180deg); }
 .nav.right { right: 0; }
-.nav.down { position: absolute; bottom: 0; left: 500px; width: 280px; height: 34px; font-size: 13px; background: rgba(21, 26, 32, 0.55); }
-#holds { position: absolute; left: 80px; top: 470px; display: flex; flex-direction: column; gap: 6px; }
+.nav.down { position: absolute; top: 42px; left: 500px; width: 280px; height: 34px; font-size: 13px; background: rgba(21, 26, 32, 0.55); }
+#holds { position: absolute; left: 80px; top: 150px; display: flex; flex-direction: column; gap: 6px; }
 #holds.single { left: 540px; top: 600px; }
 #holds button { font-size: 13px; border-color: #5a4a3a; }
 
@@ -95,6 +146,9 @@ button:disabled { opacity: 0.35; cursor: default; }
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.72);
 }
+/* ending and intro renders behind a card: the image, darkened so the text stays readable */
+#screen.art { background-size: cover; background-position: center; }
+#screen.art .card { background: rgba(0, 0, 0, 0.6); padding: 18px 28px; }
 #screen .card { width: 640px; text-align: center; }
 #screen h1 { font-size: 30px; letter-spacing: 0.18em; margin: 0 0 18px; font-weight: normal; }
 #screen p { font-size: 16px; line-height: 1.5; color: var(--ink); }

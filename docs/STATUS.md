@@ -11,12 +11,10 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
-- Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3).
-- Game logic prototype (branch proto/game-logic, folder prototype/): M1 done. Pure TypeScript engine implementing GAME_LOGIC.md (src/sim/engine.ts), keyword command parser, offline keyword judge, canned CHUD lines, voice logs, question banks. 159 tests pass (npm test). Gap fills documented in prototype/IMPLEMENTATION_NOTES.md.
-- Prototype next: M2 playable UI (canvas views, 1.5 s dash, hold views, chat, quick buttons, Web Audio cues, end screens, dev panel on backtick). M3 local Hono /turn server calling Claude Haiku for judge and voice (key in prototype/.env, gitignored), tuned prompts, injection test kit. M4 playtest and tune config.ts only.
-- Working on: Blender watch room environment, starting with the gray box.
-- Blockers: none. Poly Haven is still switched off in the MCP for Blender tab (needs ticking before real textures).
-- Next: gray box of the watch room, lock the 4 camera angles (cam_desk, cam_window, cam_stairs, cam_balcony), then materials and lighting. Blender files are kept out of git, renders go in art/renders/.
+- Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
+- Working on: watch room look pass.
+- Blockers: none. Poly Haven is switched on in the MCP for Blender tab.
+- Next: real materials from Poly Haven (wet stone, worn metal, glass), then moody lighting per camera, then the hands and animated props.
 - Blender MCP setup per person: install uv, run `claude mcp add -s user blender uvx mcp-for-blender` (or `codex mcp add blender -- uvx mcp-for-blender`), run `uvx mcp-for-blender install-addon`, open Blender once first, enable "MCP for Blender" in Preferences, Add-ons, press N and start the MCP server, restart the AI tool.
 
 ## Vidush (Vidush-jpg)
@@ -30,7 +28,8 @@ Last updated: 2026-11-21 (late night)
 - Art slots: drop a render named after its slot into prototype/assets/ (list in prototype/assets/README.md) and it replaces the placeholder on reload. No code change.
 - CHUD is conversable: Claude Haiku 5.5 judges every typed message and voices CHUD's conversational replies, through a Hono API mounted in the Vite dev server. Needs ANTHROPIC_API_KEY in prototype/.env (gitignored); without it the game falls back to the offline judge and canned lines. Details in prototype/IMPLEMENTATION_NOTES.md.
 - Blockers: none.
-- Next: playtest nights 1 and 2 with the LLM on, tune prompts and numbers, then swap in the first real render or sound. Later: deploy the same Hono app as a Vercel function.
+- Prototype 3.0 (branch proto/v3-2.5d, uncommitted, merge from main staged): the 2.5D renderer works. The team's watch room renders from scenes/ load automatically (desk, window, hatch, balcony, the three hold views, dash floor) with mouse pan, a perspective warp, a night grade (dark blue without the beam, warm with it) and the beacon sweep across the desk glazing while power is on BEAM. CHUD's terminal is DOM on the desk screen and follows the pan: Vidush's mood faces by band, chat, quick buttons, kill switch, clock, a top-down map whose entry dots start holds and go green when that lock is powered (never shows Ram), and the 4-cell power bar. Loss, win and name screens show the cage hall and shipwreck renders behind the text. tsc, 160 tests and the build pass; smoke-checked in the browser. Details in prototype/IMPLEMENTATION_NOTES.md, handoff in prototype/HANDOFF_V3.md.
+- Next: playtest Prototype 3.0 and tune the look (grade, tell placement, sweep), then ask the team before committing and pushing. Later: deploy the same Hono app as a Vercel function.
 
 ## Codex (art pre-production)
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.

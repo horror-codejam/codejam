@@ -1,25 +1,30 @@
 # Art slots
 
-Drop a render here with one of these exact names and it replaces the coded placeholder on the next reload. No code change needed. Any missing file falls back to the placeholder, so art can land one image at a time.
+Slots now load the team's renders from `scenes/` automatically (map `SCENE_ART` in `src/ui/art.ts`). Re-render a file in `scenes/` under the same name and the game picks it up on reload. No copy step.
 
-Format: PNG, WebP or JPG. Full views are drawn to cover a 1280 x 720 stage (wider renders are fine, they are centered). Overlays (tells, silhouettes) must have a transparent background and the same framing as their view.
+Each slot resolves, in order, to:
+1. a file in this folder named after the slot (`.png`, `.webp` or `.jpg`): a manual override, for testing an image without touching `scenes/`
+2. the team render in `scenes/` listed below
+3. a coded placeholder (`src/ui/placeholders.ts`)
 
-| File name (any of .png .webp .jpg) | What it is |
-|---|---|
-| `view_desk` | Desk view: CHUD's CRT, desk, ocean behind. CHUD's face is drawn in code on top, inside the CRT rectangle (see `src/ui/layout.ts`) |
-| `view_window` | Left window, dark (no beam) |
-| `view_window_beam` | Left window, lit by the beam |
-| `view_hatch` | Right floor hatch, dark |
-| `view_hatch_beam` | Right floor hatch, lit |
-| `view_balcony` | Rear balcony door and rail, dark |
-| `view_balcony_beam` | Rear balcony, lit |
-| `tell_window` | Overlay: fog and hand print on the glass (shown faint without beam, full with beam) |
-| `tell_hatch` | Overlay: fingers at the lid seam |
-| `tell_balcony` | Overlay: Ram's partial silhouette at the rail |
-| `approach_window` / `approach_hatch` / `approach_balcony` | Overlay: Ram climbing toward that entry, only visible with the beam on |
-| `hold_window` / `hold_hatch` / `hold_balcony` | Close-up hold view: the player's hands bracing that entry |
-| `hold_tell_window` / `hold_tell_hatch` / `hold_tell_balcony` | Overlay on the hold view while Ram is at that entry |
-| `dash_floor` | The floor the camera tips toward during the 1.5 s dash |
-| `jumpscare_window` / `jumpscare_hatch` / `jumpscare_balcony` | Single frame shown on breach (frame sequences later) |
+Format: views are 2:1 plates fitted to 960 x 480 (the Blender cameras render 960 x 480). Overlays (tells, silhouettes) must have a transparent background and the same 960 x 480 framing as their view. The game pans across the plate, so keep important things away from the outer 10 % on the left and right.
 
-Renders from Blender go to `art/renders/` per STATUS.md. Copy the game-ready export here under the slot name.
+| Slot | Loads from scenes/ | What it is |
+|---|---|---|
+| `view_desk` | `03-watch-room/render_blockout_cam_desk.png` | Desk view. CHUD's terminal is DOM drawn over the green screen (`DESK_SCREEN` in `src/ui/layout.ts`) |
+| `view_window` | `03-watch-room/render_blockout_cam_window.png` | Left window |
+| `view_hatch` | `03-watch-room/render_blockout_cam_hatch.png` | Right floor hatch |
+| `view_balcony` | `03-watch-room/render_blockout_cam_balcony.png` | Rear balcony door |
+| `view_window_beam` / `view_hatch_beam` / `view_balcony_beam` | none yet | Optional lit version. Without it the game warms the grade and adds an amber wash |
+| `hold_window` / `hold_hatch` / `hold_balcony` | `03-watch-room/render_hold_*.png` | Close-up hold views |
+| `dash_floor` | `03-watch-room/render_dash_floor.png` | The floor the camera tips toward during the 1.5 s dash |
+| `chud_faces` | `03-watch-room/chud_smiley_four_moods.png` | CHUD's four mood faces (WARM, HURT, JEALOUS, FURIOUS) on one sheet |
+| `ending_lose` | `99-final-cage-hall/render_lose_in_cage.png` | Behind the loss screen |
+| `ending_win` | `99-final-cage-hall/render_win_outside.png` | Behind the win screen |
+| `intro` | `01-shipwreck/render_blockout.png` | Behind the name prompt |
+| `tell_window` / `tell_hatch` / `tell_balcony` | none yet (coded overlay) | Ram at the entry: hand print, fingers at the lid seam, figure in the door gap |
+| `approach_window` / `approach_hatch` / `approach_balcony` | none yet (coded overlay) | Ram on his way, only visible with the beam on |
+| `hold_tell_window` / `hold_tell_hatch` / `hold_tell_balcony` | none yet (coded overlay) | Ram's tell on the hold view |
+| `jumpscare_window` / `jumpscare_hatch` / `jumpscare_balcony` | none yet (coded) | Single frame shown on breach |
+
+To wire a new file from `scenes/`, add its path to the glob and to `SCENE_ART` in `src/ui/art.ts`.
