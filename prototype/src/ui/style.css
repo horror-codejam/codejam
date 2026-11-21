@@ -31,6 +31,14 @@ button:disabled { opacity: 0.35; cursor: default; }
 #power.cut { color: #ff5a4a; }
 #chud-status { color: var(--dim); min-width: 160px; text-align: right; }
 
+/* pause: top right of the stage, under the status line, clear of Behind (top center) and the terminal */
+#pause-btn { position: absolute; top: 44px; right: 18px; font-size: 12px; padding: 5px 10px; background: rgba(21, 26, 32, 0.55); }
+#pause { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.94); pointer-events: auto; }
+#pause .card { text-align: center; }
+#pause h1 { font-size: 30px; letter-spacing: 0.18em; margin: 0 0 10px; font-weight: normal; }
+#pause .small { font-size: 13px; color: var(--dim); margin: 0 0 14px; }
+#pause button { font-size: 16px; padding: 10px 22px; margin: 0 6px; }
+
 #hint {
   position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
   background: rgba(255, 196, 107, 0.12); border: 1px solid var(--amber); color: var(--amber);

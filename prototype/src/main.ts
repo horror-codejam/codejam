@@ -52,6 +52,8 @@ const ui = {
   dev: $("dev"),
   devText: $("dev-text"),
   devBtns: $("dev-btns"),
+  pauseBtn: $<HTMLButtonElement>("pause-btn"),
+  pause: $("pause"),
 };
 
 const NAME: Record<Entry, string> = { WINDOW: "window", HATCH: "hatch", BALCONY: "balcony" };
@@ -76,6 +78,8 @@ let powerAlarmUntil = 0;
 let speed = 1;
 let devOpen = false;
 let devNextAt = 0;
+let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
+let skipDt = false; // first frame after a resume gets dt 0
 let nightToken = 0; // drops LLM replies that arrive after a night restarts
 let convo: string[] = []; // recent "Keeper: ..." / "CHUD: ..." lines, context for the voice
 const now = (): number => performance.now() / 1000;
@@ -111,8 +115,15 @@ function fit(): void {
 
 function frame(dt: number): void {
   const t = now();
+  // Anything that leaves PLAYING (a judge verdict that triggers the safety pause, a dev jump) ends the pause.
+  if (paused && engine.state.phase !== "PLAYING") setPaused(false);
+  if (skipDt) {
+    dt = 0;
+    skipDt = false;
+  }
+  // Paused: no tick, so the night clock, Ram, CHUD timers and silence all stand still. Replies still apply.
   // Clamp so a hidden tab (no frames) does not fast-forward the night.
-  engine.tick(Math.min(dt, 0.1) * speed);
+  if (!paused) engine.tick(Math.min(dt, 0.1) * speed);
   for (const ev of engine.drainEvents()) onEvent(ev, t);
   const phase = engine.state.phase;
   if (phase !== lastPhase) {
@@ -290,6 +301,8 @@ function renderHud(t: number): void {
   const atDesk = pos.kind === "DESK";
   const view = s.player.view;
 
+  show(ui.pauseBtn, playing && !paused);
+  show(ui.pause, paused);
   show(ui.hud, s.phase !== "NAME_PROMPT");
   setText(ui.clock, clockText());
 
@@ -464,7 +477,7 @@ function showScreen(phase: Phase): void {
         <h1>NIGHT ${n}</h1>
         <p>12:00 AM. SURVIVE UNTIL 6 AM.</p>
         <p class="log">${esc(voiceLog)}</p>
-        <p class="small">At the desk: type to CHUD (Enter to focus, Esc to leave) or use the buttons.<br />A / D / S: look at the window, hatch, balcony. 1 2 3 or Space: hold an entry. \` : dev panel.</p>
+        <p class="small">At the desk: type to CHUD (Enter to focus, Esc to leave) or use the buttons. Esc with chat unfocused pauses.<br />A / D / S: look at the window, hatch, balcony. 1 2 3 or Space: hold an entry. \` : dev panel.</p>
         <button id="go">Start night ${n}</button>`);
       $("go").addEventListener("click", () => {
         sound.unlock();
@@ -523,6 +536,29 @@ function showScreen(phase: Phase): void {
 }
 
 // ---------------------------------------------------------------------------
+// Pause (UI only; the engine knows nothing about it)
+
+function setPaused(on: boolean): void {
+  if (on === paused) return;
+  if (on && engine.state.phase !== "PLAYING") return;
+  paused = on;
+  // inert keeps Tab and Space from reaching the controls behind the overlay
+  for (const id of ["terminal", "nav", "hold-panel"]) $(id).toggleAttribute("inert", on);
+  if (on) {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    sound.suspend();
+    show(ui.pause, true);
+    show(ui.pauseBtn, false);
+    ui.pauseBtn.blur();
+    ui.pause.querySelector<HTMLButtonElement>("#pause-resume")!.focus();
+  } else {
+    skipDt = true; // no giant dt on the first frame back
+    sound.resume();
+    show(ui.pause, false);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Input
 
 function wireInput(): void {
@@ -556,6 +592,16 @@ function wireInput(): void {
   ui.navRight.addEventListener("click", () => engine.turn("HATCH"));
   ui.navDown.addEventListener("click", () => engine.turn(engine.state.player.view === "DESK" ? "BALCONY" : "DESK"));
 
+  ui.pauseBtn.addEventListener("click", () => setPaused(true));
+  $("pause-resume").addEventListener("click", () => setPaused(false));
+  $("pause-restart").addEventListener("click", () => {
+    if (!paused) return;
+    setPaused(false);
+    engine.retryNight(); // same path as the loss screen; emits NIGHT_CARD, which also drops late LLM replies
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) setPaused(true); // the player resumes manually
+  });
   window.addEventListener("keydown", onKey);
 }
 
@@ -573,6 +619,12 @@ function onKey(e: KeyboardEvent): void {
   if (e.target instanceof HTMLInputElement) return;
   const s = engine.state;
   if (s.phase !== "PLAYING") return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    setPaused(!paused);
+    return;
+  }
+  if (paused) return;
   const pos = s.player.position;
   const k = e.key.toLowerCase();
   const turn = (v: View): void => {

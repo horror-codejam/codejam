@@ -91,6 +91,16 @@ describe("engine smoke", () => {
     expect(e.state.power.slot).toBe("BEAM");
   });
 
+  it("retryNight also restarts a night in progress (UI pause menu), from the checkpoint", () => {
+    const e = playing();
+    run(e, 20);
+    expect(e.state.phase).toBe("PLAYING");
+    e.retryNight();
+    expect(e.state.phase).toBe("NIGHT_CARD");
+    expect(e.state.run.night).toBe(1);
+    expect(e.state.clock.elapsed).toBe(0);
+  });
+
   it("an undefended visit breaches with cause UNLOCKED", () => {
     const e = playing();
     run(e, 120);

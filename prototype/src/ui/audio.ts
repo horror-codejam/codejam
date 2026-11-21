@@ -13,6 +13,15 @@ export class Sound {
   private loops = new Map<string, () => void>();
   windowMask = 1; // the storm masks the window more on nights 4 and 5
 
+  // UI pause: freeze every scheduled sound and loop, resume where they were.
+  suspend(): void {
+    if (this.ctx) void this.ctx.suspend();
+  }
+
+  resume(): void {
+    if (this.ctx) void this.ctx.resume();
+  }
+
   unlock(): void {
     if (this.ctx) {
       void this.ctx.resume();
