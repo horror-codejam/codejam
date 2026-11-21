@@ -215,7 +215,7 @@ export class GameEngine implements IGameEngine {
         lastMessageAt: -Infinity,
         lastQuickAt: -Infinity,
       },
-      power: { slot: "NONE", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null },
+      power: { slot: "BEAM", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null },
       ram: {
         state: "AWAY",
         target: null,

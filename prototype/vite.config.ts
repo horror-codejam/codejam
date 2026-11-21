@@ -26,7 +26,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, "");
   return {
     plugins: [chudApi(env.ANTHROPIC_API_KEY || undefined)],
-    server: { port: 5173 },
+    // The game reads the team's renders straight from ../scenes, outside the Vite root.
+    server: { port: 5173, fs: { allow: [fileURLToPath(new URL("..", import.meta.url))] } },
     test: {
       globals: true,
       environment: "node",
