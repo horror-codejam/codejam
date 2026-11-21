@@ -25,6 +25,6 @@ Last updated: 2026-11-21
 - Next: TBD.
 
 ## Codex (art pre-production)
-- Done: lighthouse style guide, three scale schematics based on the team whiteboard, and a catalog of 20 private reference targets.
+- Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.
 - Blockers: screenshot hosts were unreachable from the workspace. No reference images were saved locally.
 - Next: review the schematics, then prepare gameplay concepts in ChatGPT image generation.

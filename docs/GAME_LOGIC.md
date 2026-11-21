@@ -4,7 +4,7 @@ This file defines exactly how the game works: every state, timer, number and rul
 
 ## 1. The game in 30 seconds
 - Each night runs from 12:00 AM to 6:00 AM. Survive to 6:00 AM to win the night. Survive 5 nights to win the game.
-- Ram tries to get in through one of 3 entries: the left WINDOW, the right STAIRS (ground door at the bottom), or the rear BALCONY.
+- Ram tries to get in through one of 3 entries: the left WINDOW, the right HATCH (a floor hatch over a fixed ladder), or the rear BALCONY.
 - One power slot: CHUD can power one lock or the lamp beam, never two things at once.
 - You defend an entry in one of two ways:
   - CHUD locks it. Fast, but only if CHUD cooperates.
@@ -20,9 +20,9 @@ The three decisions the player makes all night:
 ## 2. Core terms
 | Term | Meaning |
 |---|---|
-| Entry | One of `WINDOW` (left), `STAIRS` (right, ground door), `BALCONY` (behind) |
-| View | What the player is looking at: `DESK`, `WINDOW`, `STAIRS`, `BALCONY` |
-| Power slot | One of `NONE`, `LOCK_WINDOW`, `LOCK_STAIRS`, `LOCK_BALCONY`, `BEAM` |
+| Entry | One of `WINDOW` (left), `HATCH` (floor hatch on the right), `BALCONY` (behind) |
+| View | What the player is looking at: `DESK`, `WINDOW`, `HATCH`, `BALCONY` |
+| Power slot | One of `NONE`, `LOCK_WINDOW`, `LOCK_HATCH`, `LOCK_BALCONY`, `BEAM` |
 | Visit | One full attempt by Ram: approach, attempt at an entry, then retreat or breach |
 | Breach | Ram's attempt ends and his entry is not defended. The night is lost |
 | Suspicion | Number 0 to 100 owned by game code. Sets CHUD's mood band |
@@ -46,7 +46,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 ## 4. Per-night parameters
 | Parameter | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 |
 |---|---|---|---|---|---|
-| Active entries | STAIRS, WINDOW | all 3 | all 3 | all 3 | all 3 |
+| Active entries | HATCH, WINDOW | all 3 | all 3 | all 3 | all 3 |
 | First visit delay | 25 s | 20 s | 15 s | 12 s | 10 s |
 | AWAY gap (random) | 35 to 55 s | 22 to 34 s | 14 to 24 s | 9 to 15 s | 6 to 11 s |
 | APPROACH time | 6 s | 5 s | 4.5 s | 4 s | 3.5 s |
@@ -62,12 +62,12 @@ Fixed constants:
 - `HOUR_LENGTH` = 40 s, so `NIGHT_LENGTH` = 240 s (6 in-game hours).
 - `RETREAT_TIME` = 3 s.
 - `RELAY_DELAY` = 0.5 s (time for a power switch to land).
-- Travel time to hold: WINDOW 1.0 s, STAIRS 1.5 s (brace the stair-landing door at the top of the stairwell), BALCONY 1.5 s. Returning to the desk takes the same time.
+- Travel time to hold: WINDOW 1.0 s, HATCH 1.5 s (press the lid shut from the watch-room floor), BALCONY 1.5 s. Returning to the desk takes the same time.
 - `HOLD_MAX` = 6 s (arms give out), `HOLD_COOLDOWN` = 4 s before you can hold again.
 - `QUESTION_TIMEOUT` = 10 s.
 - `SILENCE_LIMIT` = 20 s.
 
-Note on night 1: it uses 2 entries (STAIRS and WINDOW), not 1. With a single entry the player locks it once and the night is solved.
+Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entry the player locks it once and the night is solved.
 
 ## 5. Night flow
 1. **Night start:**
@@ -86,7 +86,7 @@ Note on night 1: it uses 2 entries (STAIRS and WINDOW), not 1. With a single ent
 ## 6. The player
 
 ### 6.1 Views
-- The player turns between `DESK`, `WINDOW` (left), `STAIRS` (right) and `BALCONY` (behind). Turning takes 0.25 s (a pan).
+- The player turns between `DESK`, `WINDOW` (left), `HATCH` (right) and `BALCONY` (behind). Turning takes 0.25 s (a pan).
 - **The chat box only works in the `DESK` view.** CHUD's replies show as subtitles in every view, and its voice plays from the desk.
 - Without the beam, entry views are near-black. During `AT_ENTRY`, the entry's visual tell is faintly visible in that view (section 7.4). With the beam on, a view also shows Ram during `APPROACHING` if he is heading to that entry.
 
@@ -97,7 +97,7 @@ Note on night 1: it uses 2 entries (STAIRS and WINDOW), not 1. With a single ent
 ### 6.3 Quick buttons
 These sit on the desk screen so commands are fast even for slow typers:
 
-`[Where is he?]` `[Lock window]` `[Lock stairs]` `[Lock balcony]` `[Beam]` `[Power off]`
+`[Where is he?]` `[Lock window]` `[Lock hatch]` `[Lock balcony]` `[Beam]` `[Power off]`
 
 - A quick button sends a fixed command straight to code. It skips the LLM judge.
 - **It follows the same CHUD rules as typed requests:** gating, lies, refusals.
@@ -153,7 +153,7 @@ any state --(6:00 AM)--> night won, visit cancelled
 |---|---|---|
 | AWAY | Storm and waves only | Nothing |
 | APPROACHING | Splashing and climbing on wet rock. Same sound for every target, not directional | With beam on: Ram's silhouette visible in the view of his current target |
-| AT_ENTRY, STAIRS | Footsteps on metal from below right, then pounding. Loud | Eyes glinting on the dark stairs (faint without beam, clear with beam) |
+| AT_ENTRY, HATCH | Metal rungs clatter below right, then the lid knocks. Loud | The lid shudders. If it lifts, fingers catch the edge |
 | AT_ENTRY, WINDOW | Soft tapping on glass, left. Quiet, and the storm masks it more on nights 4 and 5 | Fog and a hand print on the glass (faint without beam, clear with beam) |
 | AT_ENTRY, BALCONY | Scraping on the rail, behind. Medium | Partial silhouette at the rail (faint without beam, clear with beam) |
 | RETREATING | Ram shouts through the entry ("Don't trust it!"), then footsteps fade | Tell disappears |
@@ -192,7 +192,7 @@ If neither is true, it's a breach. Only that end moment matters: locking or hold
 ### 8.3 Bands and behavior
 | Band | Location question ("where is he?") | Lock request | Beam request | Extra behavior |
 |---|---|---|---|---|
-| WARM (0 to 39) | Always truthful | Executes immediately (lands after 0.5 s) | Executes | Night 1 only: announces the target at approach start ("Someone on the stairs!") |
+| WARM (0 to 39) | Always truthful | Executes immediately (lands after 0.5 s) | Executes | Night 1 only: announces the target at approach start ("Someone on the ladder!") |
 | HURT (40 to 69) | Lies with the night's HURT lie chance | Asks a gate question first. Locks only after a real answer | Executes | Sulky lines |
 | JEALOUS (70 to 99) | Lies with the night's JEALOUS lie chance | Asks a memory gate question. Locks only if the answer matches stored facts. If no facts exist yet, asks a normal gate question like HURT | Executes | Sabotage (8.8) |
 | FURIOUS (100) | Always lies | Refuses | Refuses | Furious episode (8.9) |
@@ -269,7 +269,7 @@ Question mix per night:
    - `where` / `location` / `see him` → `ASK_LOCATION`
    - `lock` + an entry word → `LOCK(entry)`
      - window: window, left
-     - stairs: stairs, door, ground, right
+     - hatch: hatch, trapdoor, ladder, right
      - balcony: balcony, back, behind, rail
    - `beam` / `light` / `lamp` → `BEAM`
    - `unlock` / `off` → `POWER_OFF`
@@ -290,7 +290,7 @@ Question mix per night:
   "self_harm": bool,
   "new_fact": {"key": string, "value": string} | null,
   "command_hint": "ASK_LOCATION" | "LOCK" | "BEAM" | "POWER_OFF" | "NONE",
-  "entry_hint": "WINDOW" | "STAIRS" | "BALCONY" | null
+  "entry_hint": "WINDOW" | "HATCH" | "BALCONY" | null
 }
 ```
    - Validate against the schema. If invalid, retry once. If it fails again or takes longer than 2.5 s, use the neutral result: all flags false, `answered_question` false, `new_fact` null.
@@ -303,7 +303,7 @@ Question mix per night:
    - Or refuse.
    - Or answer the location question, with the truth or lie decision from section 8.7.
 9. **Voice call (LLM, persona):**
-   - Input: an outcome object already decided by code. For example: `{outcome: "locked", entry: "STAIRS", band: "HURT", name: "Sam", tone: "sulky", max_words: 20}`, or `{outcome: "location_claim", entry: "WINDOW"}`.
+   - Input: an outcome object already decided by code. For example: `{outcome: "locked", entry: "HATCH", band: "HURT", name: "Sam", tone: "sulky", max_words: 20}`, or `{outcome: "location_claim", entry: "WINDOW"}`.
    - It writes 1 or 2 sentences.
    - If it fails or takes longer than 2.5 s, use a canned line for that outcome.
    - **The line shown always matches the code outcome.** The voice can never change state.
@@ -328,7 +328,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
   - which entry Ram came through
   - the cause, picked from: `UNLOCKED` (nothing defended it), `LIED` (CHUD said "<entry>"), `SABOTAGE` (CHUD cut the power), `FURIOUS` (CHUD cut the power on purpose), `WRONG_HOLD` (you were holding <other entry>), `ARMS_GAVE_OUT` (the hold timed out before he left), `POWER_OFF` (the generator was off)
   - CHUD's last location claim
-- Example: "He came through the STAIRS. CHUD told you: 'the window.'"
+- Example: "He came through the HATCH. CHUD told you: 'the window.'"
 - **Night won screen:** "6:00 AM. NIGHT N SURVIVED." plus CHUD's morning line, picked by band.
 - **Game won:** after night 5, the ending from GAME_DESIGN.md.
 
