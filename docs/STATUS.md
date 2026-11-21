@@ -25,9 +25,12 @@ Last updated: 2026-11-21 (late night)
 - Next: TBD.
 
 ## Siqi (siqi-lYuYl)
-- Working on: TBD.
+- Working on: game logic prototype, iterative (branch proto/playable-loop, off proto/game-logic). Same stack as the final game (Vite + TypeScript + PixiJS), art and gameplay refined a little at a time instead of a final rush.
+- Done: first playable loop. Every night 1 to 5 plays in the browser with coded placeholder art, synthesized Web Audio cues (approach, hatch/window/balcony attempts, relay clunk, shouts, breach), desk chat with the offline judge, quick buttons, kill switch, looking around, the 1.5 s dash and hold views, name prompt, night card, loss and win screens, dev panel on backtick. Run: `cd prototype && npm install && npm run dev`, then open http://localhost:5173.
+- Art slots: drop a render named after its slot into prototype/assets/ (list in prototype/assets/README.md) and it replaces the placeholder on reload. No code change.
+- CHUD is conversable: Claude Haiku 5.5 judges every typed message and voices CHUD's conversational replies, through a Hono API mounted in the Vite dev server. Needs ANTHROPIC_API_KEY in prototype/.env (gitignored); without it the game falls back to the offline judge and canned lines. Details in prototype/IMPLEMENTATION_NOTES.md.
 - Blockers: none.
-- Next: TBD.
+- Next: playtest nights 1 and 2 with the LLM on, tune prompts and numbers, then swap in the first real render or sound. Later: deploy the same Hono app as a Vercel function.
 
 ## Codex (art pre-production)
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.

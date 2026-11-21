@@ -4,9 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHUD prototype</title>
+    <link rel="stylesheet" href="/src/ui/style.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="frame">
+      <div id="stage"></div>
+      <div id="ui">
+        <div id="hud">
+          <div id="clock">NIGHT 1 · 12:00 AM</div>
+          <div id="power">POWER: NONE</div>
+          <div id="chud-status"></div>
+        </div>
+        <div id="hint" class="hidden"></div>
+
+        <div id="desk-panel" class="hidden">
+          <div id="log"></div>
+          <div id="question" class="hidden"><span id="question-label">CHUD is waiting for an answer</span><div class="bar"><i id="question-bar"></i></div></div>
+          <form id="chat-form" autocomplete="off">
+            <input id="chat" maxlength="200" placeholder="Type to CHUD and press Enter" />
+          </form>
+          <div id="chat-note"></div>
+          <div id="quick">
+            <button data-quick="ASK_LOCATION">Where is he?</button>
+            <button data-quick="LOCK_WINDOW">Lock window</button>
+            <button data-quick="LOCK_HATCH">Lock hatch</button>
+            <button data-quick="LOCK_BALCONY">Lock balcony</button>
+            <button data-quick="BEAM">Beam</button>
+            <button data-quick="POWER_OFF">Power off</button>
+          </div>
+          <button id="kill" title="Generator kill switch">GENERATOR<br /><b>ON</b></button>
+        </div>
+
+        <div id="nav" class="hidden">
+          <button id="nav-left" class="nav side left"></button>
+          <button id="nav-right" class="nav side right"></button>
+          <button id="nav-down" class="nav down"></button>
+          <div id="holds">
+            <button data-hold="WINDOW">Hold window</button>
+            <button data-hold="HATCH">Hold hatch</button>
+            <button data-hold="BALCONY">Hold balcony</button>
+          </div>
+        </div>
+
+        <div id="hold-panel" class="hidden">
+          <div id="arms-label">ARMS</div>
+          <div class="bar arms"><i id="arms-bar"></i></div>
+          <button id="back">Back to desk (Space)</button>
+        </div>
+
+        <div id="subtitle"></div>
+        <div id="screen" class="hidden"></div>
+        <div id="dev" class="hidden"><div id="dev-btns"></div><pre id="dev-text"></pre></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

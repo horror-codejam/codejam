@@ -130,3 +130,23 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Quick buttons need position DESK and view DESK. The view stays put during a hold and returns to DESK on arrival.
 - The `morning` line is produced even if CHUD is offline at 6 AM (the win screen needs it). Night 5 emits GAME_WON only.
 - Parser bias: miss a command rather than invent one. Direction words (left, right, back, behind) count only outside idioms like "right now" or "he's back". "off" counts only with a power verb or noun. "where" counts only as a question about him.
+
+## UI layer (playable loop, M2 first pass)
+- `src/main.ts` owns the loop: each frame `engine.tick(min(dt, 0.1) * devSpeed)`, then `drainEvents()` for one-shot effects (sound, subtitles, log, jumpscare), then the scene and HUD redraw from `engine.state`. The UI never changes game state except through `IGameEngine` methods.
+- The dt clamp means a hidden or stalled tab pauses the night instead of fast-forwarding it.
+- `src/ui/scene.ts` (PixiJS) draws views, hold views, the dash, CHUD's face and screen effects. `src/ui/placeholders.ts` holds the coded stand-ins. `src/ui/art.ts` swaps in any render found in `prototype/assets/` by slot name (see `prototype/assets/README.md`).
+- DOM overlay (`index.html`, `src/ui/style.css`) for chat, buttons and screens, on the same 1280 x 720 stage scaled to the window.
+- `src/ui/audio.ts`: Web Audio synth placeholders for every 7.4 cue. Window taps are quieter on nights 4 and 5 (storm masking).
+- `src/chud/judgeClient.ts` is the one seam for the judge. It calls `offlineJudge` now; M3 replaces its body with the `/turn` call and keeps `offlineJudge` as the fallback.
+- At the desk, CHUD lines, Ram shouts and radio go to the chat log and subtitles hide. Away from the desk, subtitles show.
+- Keys: A / D / S look at the window, hatch, balcony. 1 2 3 hold from the desk, Space holds the entry in view or ends a hold. Enter focuses chat, Esc leaves it. Backtick opens the dev panel (jump to night, x1 / x3 / x8 speed, Ram, suspicion, lie decision, facts). In dev builds `window.engine` is exposed for the console.
+
+## LLM judge and voice (M3 first pass)
+- Model: `claude-haiku-5-5`, thinking disabled, effort low, one attempt, 2.4 s server timeout, 2.5 s client timeout. No temperature (the current API rejects non-default sampling on this model).
+- `server/app.ts` is a Hono app (`/api/health`, `/api/judge`, `/api/voice`, 90 POSTs per minute per IP). In dev it is mounted inside the Vite server by a plugin in `vite.config.ts`, so `npm run dev` is one command. The key is read from `prototype/.env` on the server side only.
+- Judge (`server/prompts.ts`): structured outputs with a JSON schema, so the reply is always valid JSON. The schema uses `new_fact_value` (string, "" for none) and `entry_hint` "NONE" instead of nulls; `server/llm.ts` maps them back to `JudgeResult`. `new_fact` is only produced for an answered SEED question and always uses that question's fact key.
+- Client (`src/chud/judgeClient.ts`): LLM judge when available, otherwise or on failure the offline keyword judge (not the neutral result), so a slow call still scores the message sensibly.
+- Voice: only for conversational outcomes (`VOICED` in `src/chud/llmClient.ts`: small talk, warm, rude, leaving, answer ack, manipulation, offensive, silence). The engine's canned line is sent as the meaning to keep; the LLM rewords it in CHUD's mood with the last 6 lines of chat as context. Urgent lines (locks, beam, location claims, questions, sabotage, Furious) stay canned and instant. If the voice fails or is slow, the canned line shows. Replies that arrive after a night restarts are dropped.
+- The voice is never given Ram's position and is told never to claim it locked or powered anything, so it cannot leak a lie or contradict game state.
+- Measured on 2026-11-21 from a home connection: judge 1.2 to 2.2 s (one timeout in about 15 calls), voice 0.7 to 0.9 s. A typed answer that gets a voiced reply takes about 2 to 3 s end to end. Commands found by the code parser still run instantly.
+- Dev panel: "LLM on/off" toggle and the source of the last judge verdict.
