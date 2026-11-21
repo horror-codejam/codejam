@@ -4,6 +4,7 @@ Lighthouse horror browser game for McGill CodeJam 16 (Nov 20 to 22, 2026). Name 
 
 ## Start here
 - Game design: [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)
+- Art direction and layout are in the [style guide](art/style/STYLE_GUIDE.md) and [watch room schematics](art/schematics/README.md).
 - Who is doing what: [docs/STATUS.md](docs/STATUS.md)
 - Decisions so far: [docs/DECISIONS.md](docs/DECISIONS.md)
 - AI rules for every tool: [AGENTS.md](AGENTS.md)

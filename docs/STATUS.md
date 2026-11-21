@@ -2,7 +2,7 @@
 
 Overwrite your own section when your status changes. Do not edit other people's sections. Keep it short.
 
-Last updated: 2026-11-20
+Last updated: 2026-11-21
 
 ## Team
 - Overall: repo and AI setup done. Premise changed to the lighthouse (see docs/GAME_DESIGN.md, working draft).
@@ -23,3 +23,8 @@ Last updated: 2026-11-20
 - Working on: TBD.
 - Blockers: none.
 - Next: TBD.
+
+## Codex (art pre-production)
+- Done: lighthouse style guide, three scale schematics based on the team whiteboard, and a catalog of 20 private reference targets.
+- Blockers: screenshot hosts were unreachable from the workspace. No reference images were saved locally.
+- Next: review the schematics, then prepare gameplay concepts in ChatGPT image generation.

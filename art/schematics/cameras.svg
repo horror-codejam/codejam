@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6.15 -5.22 12.75 10.84" width="1275" height="1084" role="img" aria-labelledby="title desc">
+  <title id="title">Watch room camera plan</title>
+  <desc id="desc">Four views from the same seated pivot. CHUD is forward, the entry window is left, the stairs are right and down, and the player turns 180 degrees to see the balcony behind.</desc>
+  <style>
+    .paper { fill: #f5f6f2; }
+    .room { fill: #e8eeeb; }
+    .wall { fill: none; stroke: #24383f; stroke-width: .075; stroke-linecap: round; stroke-linejoin: round; }
+    .object { fill: #d1dfda; stroke: #334d51; stroke-width: .043; }
+    .line { fill: none; stroke: #405b61; stroke-width: .031; stroke-linecap: round; stroke-linejoin: round; }
+    .glass { fill: none; stroke: #428287; stroke-width: .12; }
+    .rail { fill: none; stroke: #536d73; stroke-width: .04; stroke-linecap: round; }
+    .ocean { fill: none; stroke: #75a0ab; stroke-width: .033; stroke-linecap: round; }
+    .ram { fill: #a93855; stroke: #fff7f8; stroke-width: .03; }
+    .ram-line { fill: none; stroke: #a93855; stroke-width: .026; }
+    text { fill: #183036; font-family: system-ui, sans-serif; font-size: .17px; }
+    .heading { font-size: .37px; font-weight: 750; }
+    .subhead { fill: #466167; font-size: .17px; }
+    .label { font-weight: 700; }
+    .small { font-size: .15px; }
+    .ram-text { fill: #832640; }
+  </style>
+  <defs>
+    <clipPath id="room-clip">
+      <circle r="2.98"/>
+      <rect x="-.92" y="2.85" width="1.84" height="1.19"/>
+    </clipPath>
+  </defs>
+  <style>
+    .desk { color: #467783; }
+    .window { color: #826026; }
+    .stairs { color: #3d765e; }
+    .balcony { color: #735887; }
+    .cone { fill: currentColor; fill-opacity: .15; stroke: currentColor; stroke-opacity: .82; stroke-width: .029; }
+    .axis { fill: none; stroke: currentColor; stroke-width: .03; stroke-dasharray: .12 .08; }
+  </style>
+  <rect class="paper" x="-6.15" y="-5.22" width="12.75" height="10.84"/>
+  <text class="heading" x="-5.72" y="-4.57">Watch room camera plan</text>
+  <text class="subhead" x="-5.72" y="-4.22">1.2 m seated pivot · 65° horizontal field of view · yaw measured from CHUD</text>
+  <g aria-label="Ocean beyond the front glazing">
+    <path class="ocean" d="M-1.55-3.78q.31-.13 .62 0t.62 0t.62 0t.62 0t.62 0 M-1.55-3.59q.31-.13 .62 0t.62 0t.62 0t.62 0t.62 0"/>
+    <text class="small" x="0" y="-3.27" text-anchor="middle">Ocean / front</text>
+  </g>
+  <circle class="room" r="3"/>
+  <path class="room" d="M-.94 2.85 H.94 V4.05 H-.94Z"/>
+  <g clip-path="url(#room-clip)">
+    <path class="desk cone" d="M0 0.55 L-2.579 -3.498 L2.579 -3.498Z"/>
+    <path class="window cone" d="M0 0.55 L-4.647 1.752 L-3.053 -3.154Z"/>
+    <path class="stairs cone" d="M0 0.55 L4.048 -2.029 L4.048 3.129Z"/>
+    <path class="balcony cone" d="M0 0.55 L2.848 5.020 L-2.848 5.020Z"/>
+  </g>
+  <path class="wall" d="M-.94 2.849 A3 3 0 1 1 .94 2.849"/>
+  <path class="glass" d="M-1.34-2.684 A3 3 0 0 1 1.34-2.684"/>
+  <path class="line" d="M-.49-2.9L-.51-3.03 M.49-2.9L.51-3.03"/>
+  <path class="glass" d="M-2.974 .394 A3 3 0 0 1 -2.82-1.024"/>
+  <path class="line" d="M-2.937-.31L-3.058-.325"/>
+  <g aria-label="Curved console and CHUD terminal">
+    <path class="object" d="M-1.29-1.92 Q0-2.53 1.29-1.92 L1.10-1.30 Q0-1.77-1.10-1.30Z"/>
+    <rect class="object" x="-.56" y="-2.03" width="1.12" height=".23" rx=".045"/>
+    <path class="line" d="M-.48-1.86H.48 M-.28-1.63H.28"/>
+    <rect class="line" x="-.96" y="-1.82" width=".28" height=".22" rx=".02"/>
+  </g>
+  <g aria-label="Spiral stairs down to ground door">
+    <circle class="object" cx="1.82" cy=".55" r=".92"/>
+    <path class="line" d="M1.82 .55 L1.52-.32 M1.82 .55 L2.11-.32 M1.82 .55 L2.53-.04 M1.82 .55 L2.73 .43 M1.82 .55 L2.69 .85 M1.82 .55 L2.39 1.27 M1.82 .55 L1.89 1.46 M1.82 .55 L1.36 1.34 M1.82 .55 L.98 .93 M1.82 .55 L.90 .47 M1.82 .55 L1.17-.1"/>
+    <circle class="object" cx="1.82" cy=".55" r=".11"/>
+  </g>
+  <g aria-label="Rear balcony door, deck and rail">
+    <path class="wall" d="M-.94 2.85H-.46 M.46 2.85H.94"/>
+    <path class="glass" d="M-.46 2.85H.46"/>
+    <path class="line" d="M-.46 2.85V2.0 M-.46 2.0 A.85 .85 0 0 1 .39 2.85"/>
+    <path class="rail" d="M-.94 2.85V4.05H.94V2.85 M-.94 3.1H-.83V3.94H.83V3.1H.94 M-.94 3.56H-.83 M.94 3.56H.83 M0 3.94V4.05"/>
+  </g>
+  <g aria-label="Chair and seated player position">
+    <rect class="object" x="-.29" y=".25" width=".58" height=".6" rx=".105"/>
+    <path class="line" d="M-.32 .81Q0 .96 .32 .81"/>
+    <circle cx="0" cy=".55" r=".08" fill="#20575a"/>
+  </g>
+  <path class="desk axis" d="M0 .46 V-1.79"/>
+  <path class="window axis" d="M-.085 .522 L-2.98-.42"/>
+  <path class="stairs axis" d="M.09 .55H2.69"/>
+  <path class="balcony axis" d="M0 .64V3.82"/>
+  <g aria-label="Camera labels and threat positions">
+    <path class="line" d="M.51-1.89 H2.20 L3.04-2.59"/>
+    <text class="label" x="3.16" y="-2.62">cam_desk · forward 0°</text>
+    <text class="small" x="3.16" y="-2.38">Pitch −4° · Ram out of frame</text>
+    <path class="line" d="M-3.02-.58 H-3.38 L-3.76-.98"/>
+    <text class="label" x="-5.72" y="-1.03">cam_window · left 72°</text>
+    <text class="small" x="-5.72" y="-.8">Pitch 0°</text>
+    <path class="ram-line" d="M-3.13-.35 L-3.63-.04 H-4.96"/>
+    <circle class="ram" cx="-3.13" cy="-.35" r=".105"/>
+    <text class="small ram-text" x="-5.72" y=".22">Hand or face outside the glass</text>
+    <path class="line" d="M2.64 .18 H3.26 L3.53-.08"/>
+    <text class="label" x="3.66" y="-.08">cam_stairs · right 90°</text>
+    <text class="small" x="3.66" y=".15">Pitch −32°</text>
+    <path class="ram-line" d="M2.46 .62 H3.52"/>
+    <circle class="ram" cx="2.46" cy=".62" r=".105"/>
+    <text class="small ram-text" x="3.66" y=".67">Eyes below the near rim</text>
+    <path class="line" d="M-.25 .78 L-.8 1.24 H-1.75"/>
+    <text class="small label" x="-1.76" y="1.44">Player pivot</text>
+    <path class="line" d="M-.57 3.28 H-2.61 L-3.19 2.69"/>
+    <text class="label" x="-5.72" y="2.54">cam_balcony · behind 180°</text>
+    <text class="small" x="-5.72" y="2.77">Pitch 0° · turn to face rear door</text>
+    <path class="ram-line" d="M.53 3.48H2.91 L3.12 3.78"/>
+    <circle class="ram" cx=".53" cy="3.48" r=".105"/>
+    <text class="small ram-text" x="3.24" y="3.83">Partial silhouette at the rail</text>
+  </g>
+  <g transform="translate(-5.56 4.97)">
+    <circle class="ram" r=".095"/>
+    <text class="small" x=".16" y=".05">Ram reveal point</text>
+  </g>
+  <text class="small" x="-2.7" y="5.02">Cones clipped to the room and balcony.</text>
+  <g transform="translate(3.91 5.02)">
+    <path class="line" d="M0 0H2 M0-.065V.065 M1-.065V.065 M2-.065V.065"/>
+    <text class="small" x="0" y="-.12" text-anchor="middle">0</text>
+    <text class="small" x="1" y="-.12" text-anchor="middle">1</text>
+    <text class="small" x="2" y="-.12" text-anchor="middle">2 m</text>
+  </g>
+</svg>

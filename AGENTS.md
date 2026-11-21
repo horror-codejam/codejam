@@ -4,14 +4,15 @@ Shared working rules for every AI assistant used on this repo. Project owners: t
 
 ## Project context
 - Project: lighthouse horror browser game for McGill CodeJam 16 (Nov 20 to 22, 2026). Name not final.
-- docs/GAME_DESIGN.md: the current game design (working draft). Source of truth for story, rules and AI architecture.
+- docs/GAME_DESIGN.md: the current game design (working draft). Source of truth for story, art and AI architecture.
+- docs/GAME_LOGIC.md: exact gameplay rules, state machines, timers and numbers. Wins over GAME_DESIGN.md on any rule conflict. Implement from this file.
 - docs/STATUS.md: what works, who is on what, blockers, next steps. One section per person.
 - docs/DECISIONS.md: append-only log of decisions, one line each (date, decision, why).
 - Tech stack: 2.5D pre-rendered. Blender (Cycles) plus Blender MCP for art, Vite + TypeScript + PixiJS frontend, Howler.js or Web Audio, Node (Express or Hono) backend with one /turn endpoint, hosted on Vercel. Details in docs/GAME_DESIGN.md (Tech stack, Art and sound).
 - Build and run commands: add here once the project is scaffolded.
 
 ## Session protocol
-- At session start: read docs/STATUS.md and docs/GAME_DESIGN.md before doing any work.
+- At session start: read docs/STATUS.md and docs/GAME_DESIGN.md before doing any work. Read docs/GAME_LOGIC.md before touching gameplay code.
 - Before finishing a task: update your own section of docs/STATUS.md. Do not edit other people's sections.
 - When a decision changes scope, stack, design or behavior: append one line to docs/DECISIONS.md and update docs/GAME_DESIGN.md if the design changed.
 - Pull before starting work. Work on a branch and open a PR to main, unless the change is docs-only and small.
