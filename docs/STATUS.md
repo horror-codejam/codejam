@@ -23,9 +23,13 @@ Last updated: 2026-11-21 (late night)
 - Next: TBD.
 
 ## Siqi (siqi-lYuYl)
-- Working on: TBD.
+- Working on: game logic prototype, iterative (branch proto/playable-loop, off proto/game-logic). Same stack as the final game (Vite + TypeScript + PixiJS), art and gameplay refined a little at a time instead of a final rush.
+- Done: first playable loop. Every night 1 to 5 plays in the browser with coded placeholder art, synthesized Web Audio cues (approach, hatch/window/balcony attempts, relay clunk, shouts, breach), desk chat with the offline judge, quick buttons, kill switch, looking around, the 1.5 s dash and hold views, name prompt, night card, loss and win screens, dev panel on backtick. Run: `cd prototype && npm install && npm run dev`, then open http://localhost:5173.
+- Art slots: drop a render named after its slot into prototype/assets/ (list in prototype/assets/README.md) and it replaces the placeholder on reload. No code change.
+- CHUD is conversable: Claude Haiku 5.5 judges every typed message and voices CHUD's conversational replies, through a Hono API mounted in the Vite dev server. Needs ANTHROPIC_API_KEY in prototype/.env (gitignored); without it the game falls back to the offline judge and canned lines. Details in prototype/IMPLEMENTATION_NOTES.md.
 - Blockers: none.
-- Next: TBD.
+- Prototype 3.0 (branch proto/v3-2.5d, uncommitted, merge from main staged): the 2.5D renderer works. The team's watch room renders from scenes/ load automatically (desk, window, hatch, balcony, the three hold views, dash floor) with mouse pan, a perspective warp, a night grade (dark blue without the beam, warm with it) and the beacon sweep across the desk glazing while power is on BEAM. CHUD's terminal is DOM on the desk screen and follows the pan: Vidush's mood faces by band, chat, quick buttons, kill switch, clock, a top-down map whose entry dots start holds and go green when that lock is powered (never shows Ram), and the 4-cell power bar. Loss, win and name screens show the cage hall and shipwreck renders behind the text. tsc, 160 tests and the build pass; smoke-checked in the browser. Details in prototype/IMPLEMENTATION_NOTES.md, handoff in prototype/HANDOFF_V3.md.
+- Next: playtest Prototype 3.0 and tune the look (grade, tell placement, sweep), then ask the team before committing and pushing. Later: deploy the same Hono app as a Vercel function.
 
 ## Codex (art pre-production)
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.

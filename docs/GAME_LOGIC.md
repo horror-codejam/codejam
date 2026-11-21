@@ -77,7 +77,7 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
      - power `BEAM` (at night the generator feeds the lighthouse beacon by default), CHUD online, Ram `AWAY` with the first visit delay
      - player at `DESK` facing `DESK`, no pending question
    - Show the card "NIGHT N. 12:00 AM. SURVIVE UNTIL 6 AM." and play that night's voice log (section 10).
-2. **During the night:** the clock runs. Ram, CHUD and the player act by the rules below. There is no pause, except the safety pause (section 9, step 10).
+2. **During the night:** the clock runs. Ram, CHUD and the player act by the rules below. The player can pause with Esc or the pause button: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10).
 3. **At 6:00 AM:** the night ends immediately and is won, even if Ram is mid-attempt. The tide wins. Any visit in progress is cancelled with no breach. Then:
    - Save `facts_checkpoint` = current facts.
    - Go to the next night, or to the win ending after night 5.
