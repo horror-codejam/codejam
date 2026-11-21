@@ -74,7 +74,7 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
    - Reset everything to night-start values:
      - suspicion = starting suspicion
      - facts restored from `facts_checkpoint`
-     - power `NONE`, CHUD online, Ram `AWAY` with the first visit delay
+     - power `BEAM` (at night the generator feeds the lighthouse beacon by default), CHUD online, Ram `AWAY` with the first visit delay
      - player at `DESK` facing `DESK`, no pending question
    - Show the card "NIGHT N. 12:00 AM. SURVIVE UNTIL 6 AM." and play that night's voice log (section 10).
 2. **During the night:** the clock runs. Ram, CHUD and the player act by the rules below. There is no pause, except the safety pause (section 9, step 10).
@@ -89,6 +89,7 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 - The player turns between `DESK`, `WINDOW` (left), `HATCH` (right) and `BALCONY` (behind). Turning takes 0.25 s (a pan).
 - **The chat box only works in the `DESK` view.** CHUD's replies show as subtitles in every view, and its voice plays from the desk.
 - Without the beam, entry views are near-black. During `AT_ENTRY`, the entry's visual tell is faintly visible in that view (section 7.4). With the beam on, a view also shows Ram during `APPROACHING` if he is heading to that entry.
+- Beacon sweep: while power = `BEAM`, the `DESK` view shows the beacon's amber light sweeping across the rain and sea through the front glazing every few seconds, with a faint pass of light through the room. When power moves to a lock or `NONE`, the sweep stops and the view goes dark. This is the player's visual readout of the power slot.
 
 ### 6.2 Typing to CHUD
 - Free text, 200 characters max, paste disabled, at most 1 message per 1.5 s.

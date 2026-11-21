@@ -54,7 +54,9 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Listen for scraping and movement at the rail behind you.
 - Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
+- One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. At night all its power goes to the lighthouse beacon by default, so every lock steals power from the light. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
+- The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. While the beam is powered, its amber light sweeps across the sea through the front glazing every few seconds.
+- Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen (design to come).
 
 ## Player actions
 1. Type to the AI: ask where Ram is, ask it to lock an entry or turn on the beam, answer its questions.
