@@ -2,6 +2,8 @@
 
 Status: working draft. Nothing here is final. Game name not final. Log any change to the design in docs/DECISIONS.md.
 
+Exact rules, timers and numbers live in [docs/GAME_LOGIC.md](GAME_LOGIC.md). If this file and GAME_LOGIC.md disagree on a rule, GAME_LOGIC.md wins.
+
 ## One line
 You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night its abandoned founder, billionaire Ram Altman, tries to break in, and the only thing protecting you is CHUD, the lighthouse AI, which wants you to stay forever and turns on you when it realizes you are leaving.
 
