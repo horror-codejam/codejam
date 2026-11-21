@@ -235,6 +235,39 @@ export class Sound {
     this.burst(this.master, 1.6, "bandpass", 2000, 0.15, 1.5);
   }
 
+  // A fast head turn (edge controls): an air whoosh and the chair creaking. `long` for the turn round to the balcony.
+  turn(long: boolean): void {
+    if (!this.ctx) return;
+    const d = long ? 0.4 : 0.25;
+    this.burst(this.master, d, "bandpass", 350, 0.1, 0.8, long ? 1600 : 1300);
+    // creak: a slow buzz (each saw cycle is one "tick" of the wood) through a narrow band, sagging in pitch
+    const ctx = this.ctx;
+    const t = ctx.currentTime + (long ? 0.06 : 0.02);
+    const dur = long ? 0.42 : 0.26;
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(long ? 34 : 42, t);
+    o.frequency.linearRampToValueAtTime(long ? 22 : 30, t + dur);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 17;
+    const lg = ctx.createGain();
+    lg.gain.value = 8;
+    lfo.connect(lg).connect(o.frequency);
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.value = 1150 + Math.random() * 300;
+    f.Q.value = 7;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f).connect(g).connect(this.master);
+    o.start(t);
+    lfo.start(t);
+    o.stop(t + dur + 0.05);
+    lfo.stop(t + dur + 0.05);
+  }
+
   footsteps(seconds: number): void {
     if (!this.ctx) return;
     const steps = Math.round(seconds / 0.27);

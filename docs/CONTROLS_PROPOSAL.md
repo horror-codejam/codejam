@@ -1,5 +1,7 @@
 # Controls proposal (FNAF 4 style)
 
+Prototype status: implemented for playtest on branch `proto/v3-controls-edge` (cut from `proto/v3-2.5d`, for A/B comparison). Done there: edge turning with a dwell and an edge indicator, slide-and-blur turns with a whoosh and chair creak, press-and-hold left click to brace (only from that entry's view), keyboard for chat only (typing at the desk goes straight to the chat), night 1 hints. Not done: the wider desk panorama, desk object hotspots and close-ups (no art yet), breathing sway beyond the existing idle sway, positional audio changes. Tunables and details: prototype/IMPLEMENTATION_NOTES.md, section "Edge controls (branch proto/v3-controls-edge)".
+
 Status: PROPOSAL, not adopted. To be playtested. If adopted, fold it into docs/GAME_LOGIC.md (section 6) and log it in docs/DECISIONS.md. Until then, docs/GAME_LOGIC.md stays the source of truth.
 
 ## Goal

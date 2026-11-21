@@ -8,9 +8,10 @@
 //         > foreground rain (parallax, moves more than the plate) > jumpscare > fade > grain > vignette
 // CHUD's terminal is DOM (main.ts) placed over DESK_SCREEN with `deskScreenRect()`.
 
-import { Application, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
+import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
+import { CONTROLS } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
@@ -58,7 +59,15 @@ export class Scene {
   private grade = new ColorMatrixFilter();
   private gradeNow: Rgb = [...GRADE_DESK_BEAM];
   private rt: RenderTexture;
+  private rtPrev: RenderTexture; // the last frame of the view being turned away from (edge controls slide)
+  private views = new Container(); // warp + warpPrev, motion-blurred during a turn
   private warp: Mesh;
+  private warpPrev: Mesh;
+  private turnBlur = new BlurFilter({ strengthX: 0, strengthY: 0, quality: 2 });
+  private turnSlide = false; // the current turn slides (edge turn) rather than fades (arriving from a dash)
+  private turnDir = 1; // +1: the picture moves right (turning left), -1: moves left
+  private turnDur = CONTROLS.TURN_TIME;
+  private lastDashing = false;
   private desk = new Container();
   private deskRender: boolean;
   private sweep = new Container();
@@ -154,6 +163,7 @@ export class Scene {
 
     // world -> RenderTexture -> warped mesh on the stage
     this.rt = RenderTexture.create({ width: W, height: H, resolution: app.renderer.resolution });
+    this.rtPrev = RenderTexture.create({ width: W, height: H, resolution: app.renderer.resolution });
     const geo = new PlaneGeometry({ width: W, height: H, verticesX: 33, verticesY: 9 });
     const pos = geo.positions;
     for (let i = 0; i < pos.length; i += 2) {
@@ -162,7 +172,10 @@ export class Scene {
     }
     geo.positions = pos;
     this.warp = new Mesh({ geometry: geo, texture: this.rt });
-    app.stage.addChild(this.warp);
+    this.warpPrev = new Mesh({ geometry: geo, texture: this.rtPrev });
+    this.warpPrev.visible = false;
+    this.views.addChild(this.warpPrev, this.warp);
+    app.stage.addChild(this.views);
 
     // one parallax foreground layer: rain streaks, fading out toward the bottom
     this.rain = new TilingSprite({ texture: makeRainTexture(), width: W + 2 * PAN_X * 1.6, height: H });
@@ -201,7 +214,7 @@ export class Scene {
   // DESK_SCREEN in stage px at the current pan (ignores the small edge warp). For the DOM terminal.
   deskScreenRect(): { x: number; y: number; w: number; h: number } {
     return {
-      x: this.cam.x + (DESK_SCREEN.x - PLATE_W / 2) * K,
+      x: this.warp.x + this.cam.x + (DESK_SCREEN.x - PLATE_W / 2) * K,
       y: this.cam.y + (DESK_SCREEN.y - PLATE_H / 2) * K,
       w: DESK_SCREEN.w * K,
       h: DESK_SCREEN.h * K,
@@ -220,9 +233,22 @@ export class Scene {
     const dashing = pos.kind === "TRAVELING" || pos.kind === "RETURNING";
     const view: View = s.player.view;
     if (view !== this.lastView) {
-      if (this.lastView !== null) this.turnStartedAt = t;
+      if (this.lastView !== null) {
+        this.turnStartedAt = t;
+        // a turn at the desk slides; the snap back to DESK at the end of a dash keeps the fade from black
+        this.turnSlide = s.phase === "PLAYING" && !this.lastDashing && !dashing;
+        this.turnDir = turnDirection(this.lastView, view);
+        this.turnDur = this.lastView === "BALCONY" || view === "BALCONY" ? CONTROLS.TURN_TIME_BALCONY : CONTROLS.TURN_TIME;
+        if (this.turnSlide) {
+          // rt still holds the last frame of the old view: keep it as the outgoing picture
+          [this.rt, this.rtPrev] = [this.rtPrev, this.rt];
+          this.warp.texture = this.rt;
+          this.warpPrev.texture = this.rtPrev;
+        }
+      }
       this.lastView = view;
     }
+    this.lastDashing = dashing;
 
     let grade: Rgb = GRADE_NONE;
     const onDesk = !holding && !dashing && view === "DESK";
@@ -319,8 +345,22 @@ export class Scene {
     this.light.scale.copyFrom(this.cam.scale);
     this.light.rotation = this.cam.rotation;
 
-    const turnK = (t - this.turnStartedAt) / 0.25;
-    if (turnK < 1) black = Math.max(black, 1 - turnK);
+    // turn: a fast slide with motion blur (edge controls), or the old fade from black after a dash
+    const turnK = (t - this.turnStartedAt) / (this.turnSlide ? this.turnDur : 0.25);
+    const sliding = this.turnSlide && turnK < 1;
+    if (sliding) {
+      const e = turnK < 0.5 ? 2 * turnK * turnK : 1 - 2 * (1 - turnK) * (1 - turnK); // ease in-out
+      const bump = Math.sin(Math.PI * turnK);
+      this.warpPrev.x = this.turnDir * W * e;
+      this.warp.x = this.turnDir * W * (e - 1);
+      this.turnBlur.strengthX = CONTROLS.TURN_BLUR * bump;
+      black = Math.max(black, CONTROLS.TURN_DIM * bump);
+    } else {
+      this.warp.x = 0;
+      if (turnK < 1) black = Math.max(black, 1 - turnK);
+    }
+    this.warpPrev.visible = sliding;
+    this.views.filters = sliding ? [this.turnBlur] : null;
     this.fadeAlpha = black * 0.95;
     this.fade.alpha = Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
@@ -343,6 +383,13 @@ export class Scene {
     this.grain.x = -Math.random() * 256;
     this.grain.y = -Math.random() * 256;
   }
+}
+
+// +1 when the head turns left (the picture moves right), -1 when it turns right.
+function turnDirection(from: View, to: View): number {
+  if (to === "WINDOW" || from === "HATCH") return 1;
+  if (to === "HATCH" || from === "WINDOW") return -1;
+  return to === "BALCONY" ? -1 : 1; // turn round to the right, back to the left
 }
 
 function clamp(v: number, lo: number, hi: number): number {

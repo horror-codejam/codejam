@@ -17,6 +17,13 @@
         </div>
         <div id="hint" class="hidden"></div>
 
+        <!-- Edge controls: faint arrows on the stage edges that fill while the mouse dwells there (src/ui/edges.ts). -->
+        <div id="edges" class="hidden">
+          <div class="edge left" data-edge="left"><b>&#9664;</b><span></span><i></i></div>
+          <div class="edge right" data-edge="right"><b>&#9654;</b><span></span><i></i></div>
+          <div class="edge bottom" data-edge="bottom"><b>&#9660;</b><span></span><i></i></div>
+        </div>
+
         <!-- CHUD's terminal: sits on the desk render's screen (DESK_SCREEN) and follows the camera pan. -->
         <div id="terminal" class="hidden">
           <div id="t-left">
@@ -60,21 +67,12 @@
           </div>
         </div>
 
-        <div id="nav" class="hidden">
-          <button id="nav-left" class="nav side left"></button>
-          <button id="nav-right" class="nav side right"></button>
-          <button id="nav-down" class="nav down"></button>
-          <div id="holds">
-            <button data-hold="WINDOW">Hold window</button>
-            <button data-hold="HATCH">Hold hatch</button>
-            <button data-hold="BALCONY">Hold balcony</button>
-          </div>
-        </div>
+        <div id="brace-hint" class="hidden"></div>
 
         <div id="hold-panel" class="hidden">
           <div id="arms-label">ARMS</div>
           <div class="bar arms"><i id="arms-bar"></i></div>
-          <button id="back">Back to desk (Space)</button>
+          <div id="release-hint">Let go to run back</div>
         </div>
 
         <button id="pause-btn" class="hidden" title="Pause (Esc)">&#10074;&#10074; Pause</button>
