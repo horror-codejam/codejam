@@ -63,7 +63,7 @@ Speakers: YOU (the captain, at the wheel), MATE (crew member behind you, voice o
 ## Assets needed
 - Images: opening view, lightning variant (bright flash), rogue wave frame, capsize frame (tilted), blink frames of the lighthouse from water level (2 to 3, blurry to less blurry) with the smiling face in the lantern room, black.
 - Sound: storm and rain, thunder, creaking hull, wheel strain, radio static, mayday call, the crew's voice cut off, huge wave impact, sudden silence, muffled underwater sound and heartbeat for the blinks.
-- Depends on: the CHUD face design (the lighthouse face must match it).
+- Lighthouse face art: use a face from Vidush's CHUD sprite sheet, [`../03-watch-room/chud_smiley_four_moods.png`](../03-watch-room/chud_smiley_four_moods.png). Which mood to use (the WARM smile, or the creepier JEALOUS grin) is open.
 
 ## Open questions
 - Crew size and names, and whether the boat has a name.

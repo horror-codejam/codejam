@@ -1,6 +1,6 @@
 # Scenes
 
-One folder per scene of the game, numbered in play order: `NN-short-name/` (for example `01-shipwreck/`). The final scene uses `99-` until the total number of scenes is known.
+One folder per scene of the game, numbered in play order: `NN-short-name/` (for example `01-shipwreck/`). The final scene uses `99-` until the total number of scenes is known. A sub-view of a scene adds a letter (for example `03b-` for a screen inside scene 3).
 
 ## What goes in each scene folder
 | File | What it is |
@@ -21,4 +21,5 @@ One folder per scene of the game, numbered in play order: `NN-short-name/` (for 
 | 1 | [01-shipwreck](01-shipwreck/) | Storm at sea, the boat sinks, you black out | Blockout done, dialogue drafted |
 | 2 | (not created yet) | Next scene, sketch in progress | Not started |
 | 3 | [03-watch-room](03-watch-room/) | The watch room where the player survives each night | Gray box done, cameras placed |
+| 3b | [03b-chud-terminal](03b-chud-terminal/) | The CHUD terminal panel: chat, entrance map, clock, music player, power | Layout sketched, rule conflicts listed |
 | Final | [99-final-cage-hall](99-final-cage-hall/) | The twist: caged victims and monsters, seen from inside a cage (lose) or outside (win) | Blockout done, script drafted |
