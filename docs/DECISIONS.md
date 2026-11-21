@@ -20,3 +20,4 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-21: Each game scene gets its own folder under scenes/ holding its sketch, Blender file, renders and a scene sheet with dialogue. Why: keeps art and story for each scene in one place.
 - 2026-11-21: The player is a boat captain with a crew. Scene 1 opens first person at the wheel in a storm, the crew is lost and the boat capsizes. Why: team's starting-scene sketch and outline. Rescue wait (7 vs 5 days) still open.
 - 2026-11-21: Rescue wait stays 5 days in the scene 1 coast guard line (not 7). Why: matches the 5 nights.
+- 2026-11-21: Limited the schematics to the upper watch room, moved the chair closer to CHUD, and replaced the right stairs with a fixed ladder under a floor hatch. Why: the player can defend the ladder entrance by bracing the lid from inside the room.
