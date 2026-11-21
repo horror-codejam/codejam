@@ -54,7 +54,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Listen for scraping and movement at the rail behind you.
 - Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. At night all its power goes to the lighthouse beacon by default, so every lock steals power from the light. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
+- One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or the lights circuit (the beacon beam plus the watch room's caged bulbs). At night all its power goes to the lights by default, so every lock steals power from the light and plunges the room into darkness lit only by CHUD's screen. The lights let you see where Ram is. Seeing and locking never happen together.
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. While the beam is powered, its amber light sweeps across the sea through the front glazing every few seconds.
 - Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen.
 - The CHUD terminal (scenes/03b-chud-terminal/): click the computer in the desk view to open it full screen. CHUD's mood face on the left above the music player, chat with CHUD in the center, a top-down lighthouse map of the entrances on the right, the clock top right, a music player on the left (creepy messages and weird lyrics slip into the songs), and a power bar bottom right. Open conflicts with GAME_LOGIC.md are listed in the scene sheet.
@@ -104,7 +104,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 2. 12:40 AM: metal rungs clatter below. Player: "where is he?" AI: "Right hatch, coming up the ladder." Player: "lock the hatch." Locked.
 3. Ram pounds on the hatch: "Don't trust it! It'll never let you go!" He leaves.
 4. 1:30 AM: AI: "You'll stay with me after the storm, won't you?" Player lies: "Of course." Suspicion down.
-5. 2:10 AM: scraping behind the chair. The player turns on the beam, looks back and catches Ram at the balcony rail, then switches power to the balcony door lock.
+5. 2:10 AM: scraping behind the chair. The player turns the lights back on, looks back and sees the balcony door handle held down, then switches power to the balcony door lock.
 6. 3:00 AM: radio: "Coast guard, pickup in 3 days." The AI heard. "...Pickup?" Suspicion jumps.
 7. 4:00 AM: a ladder rung clangs. AI, sulking: "Left window, I think." It is lying. The player hears the lid rattle, catches the lie, and braces the hatch from above.
 8. 6:00 AM: tide goes out, Ram leaves. AI: "Good morning, keeper. Same time tonight?"
@@ -180,13 +180,13 @@ Render list (about 25 to 40 images):
 | View | States |
 |---|---|
 | Front desk and ocean view | Normal, lightning flash |
-| Right floor hatch | Dark, beam lit, lid lifting with Ram's fingers at the seam |
+| Right floor hatch | Dark, lit, lid jolting (locked), lid lifted a crack with Ram's fingers over the rim (unlocked) |
 | Left entry window | Dark, lit, Ram's hand on the glass, Ram's face at the glass |
-| Rear balcony | Dark, lit, Ram partly silhouetted by the rail or doorframe |
+| Rear balcony | Dark, lit, handle held down with a shadow of feet under the door |
 | Jumpscare | 6 to 15 frames per entry |
 | Endings | Helicopter shot, Ram on the rocks |
 
-Showing Ram: never fully. Show fingers under the lifting hatch lid, a hand or part of a face at the left window, or a partial silhouette at the balcony rail. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
+Showing Ram: never fully. Show fingers curling over the rim of the lifting hatch lid (only when the hatch is unlocked), a hand on the glass or part of a face at the left window, or the balcony door handle held down with the shadow of his feet under the door. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
 
 CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, furious), from Vidush's sheet scenes/03-watch-room/chud_smiley_four_moods.png, shown in code, not 3D.
 
