@@ -26,5 +26,6 @@ Format: views are 2:1 plates fitted to 960 x 480 (the Blender cameras render 960
 | `approach_window` / `approach_hatch` / `approach_balcony` | none yet (coded overlay) | Ram on his way, only visible with the beam on |
 | `hold_tell_window` / `hold_tell_hatch` / `hold_tell_balcony` | none yet (coded overlay) | Ram's tell on the hold view |
 | `jumpscare_window` / `jumpscare_hatch` / `jumpscare_balcony` | none yet (coded) | Single frame shown on breach |
+| `brace_arms_window` / `brace_arms_hatch` / `brace_arms_balcony` | none yet (painted overlay, `braceArms` in `src/ui/placeholders.ts`) | The player's forearms and hands pressed on the entry, shown only while bracing. Transparent background, same 960 x 480 framing as `hold_<entry>`, arms entering from the bottom of frame. Keep clear of Ram's hold tell (window: hand print on the left pane around x 280 to 440, y 120 to 300; hatch: fingers at the near seam, x 400 to 575; balcony: the door gap on the left edge, x 120 to 230). The game slides it in from below, shakes it and slips it down with fatigue |
 
 To wire a new file from `scenes/`, add its path to the glob and to `SCENE_ART` in `src/ui/art.ts`.

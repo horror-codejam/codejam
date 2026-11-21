@@ -99,6 +99,8 @@ async function boot(): Promise<void> {
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);
   scene.onThunder = () => sound.thunder();
+  scene.onRamPush = (entry) => sound.bracePush(entry);
+  if (import.meta.env.DEV) Object.assign(window, { scene });
   edges = new EdgeTurner($("stage"));
   fit();
   window.addEventListener("resize", fit);
@@ -217,6 +219,10 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
+      if (ev.position.kind === "HOLDING") sound.braceStart();
+      break;
+    case "HOLD_ENDED":
+      sound.braceEnd(ev.reason === "arms");
       break;
     case "MESSAGE_REJECTED":
       note(ev.reason, t);
@@ -386,7 +392,8 @@ function braceHint(view: View): string | null {
 }
 
 // One small ring on the pointer for whichever timer is running: edge dwell (fills), arms left while bracing
-// (drains, red near the end), faint progress for the dash, the brace rest and HOLD_COOLDOWN. Otherwise hidden.
+// (drains, red near the end), faint progress for the brace rest and HOLD_COOLDOWN. Hidden while walking (the
+// dash to an entry and back) and otherwise.
 function renderRing(): void {
   const s = engine.state;
   const pos = s.player.position;
@@ -401,8 +408,6 @@ function renderRing(): void {
       const left = Math.max(0, pos.since + CONFIG.HOLD_MAX - now);
       k = left / CONFIG.HOLD_MAX;
       color = left <= RING.BRACE_WARN ? RING.BRACE_LOW : RING.BRACE;
-    } else if (pos.kind === "TRAVELING" || pos.kind === "RETURNING") {
-      k = 1 - Math.max(0, pos.until - now) / CONFIG.TRAVEL_TIME;
     } else if (pos.kind === "STANDING" && now < pos.restUntil) {
       k = 1 - (pos.restUntil - now) / CONFIG.BRACE_REST;
     } else if (pos.kind === "DESK" && s.player.view !== "DESK" && now < s.player.holdCooldownUntil) {
@@ -597,6 +602,7 @@ function setPaused(on: boolean): void {
   if (on === paused) return;
   if (on && engine.state.phase !== "PLAYING") return;
   paused = on;
+  scene.paused = on;
   // inert keeps Tab and Space from reaching the controls behind the overlay
   for (const id of ["terminal", "hold-panel"]) $(id).toggleAttribute("inert", on);
   if (on) {
