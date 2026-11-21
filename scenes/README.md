@@ -1,6 +1,6 @@
 # Scenes
 
-One folder per scene of the game, numbered in play order: `NN-short-name/` (for example `01-shipwreck/`).
+One folder per scene of the game, numbered in play order: `NN-short-name/` (for example `01-shipwreck/`). The final scene uses `99-` until the total number of scenes is known.
 
 ## What goes in each scene folder
 | File | What it is |
@@ -20,3 +20,4 @@ One folder per scene of the game, numbered in play order: `NN-short-name/` (for 
 |---|---|---|---|
 | 1 | [01-shipwreck](01-shipwreck/) | Storm at sea, the boat sinks, you black out | Blockout done, dialogue drafted |
 | 2 | (not created yet) | Next scene, sketch in progress | Not started |
+| Final | [99-final-cage-hall](99-final-cage-hall/) | The twist: caged victims and monsters, seen from inside a cage (lose) or outside (win) | Blockout done, script drafted |

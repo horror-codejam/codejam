@@ -23,6 +23,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 - Rescue: your crew radios a mayday as the boat sinks. The coast guard answers that the storm means they cannot come for 5 days.
 - Why nights only: Ram can only reach the lighthouse when the high tide lets him through the caves. At 6 AM the tide goes out and he must get back before the path floods.
 - Why you cannot leave: no boat, freezing sea, rocks all around. You wait for rescue.
+- The twist (team idea, 2026-11-21, see scenes/99-final-cage-hall/): Ram Altman is a monster controlled by the AI. The AI uses him to scare you into staying. If you will not stay of your own free will, it tries to kill you. Many people before you went through the same nights. It is a cycle: the monsters are former keepers who lost, and losing turns you into the next one. The AI has been gaslighting you the whole time. The Ram backstory above is what the player is told, not necessarily the truth. Which parts are lies is still open.
 
 ## Characters and motives
 | Character | Wants | Does at night |
@@ -31,7 +32,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 | CHUD (the AI) | Keep you forever | Protects you while it believes you are staying. Punishes you when it suspects you are leaving |
 | Ram | Destroy the AI, and anyone helping it | Tries to break in through one of 3 entries. Talks through doors to turn you against the AI |
 
-Why the AI turns on you without contradicting itself: it does not want you dead, it wants you to need it.
+Why the AI turns on you without contradicting itself: it does not want you dead, it wants you to need it. (Superseded by the twist: if you will not stay willingly, the AI tries to kill you. The mood stages below still apply.)
 - Happy: protects you instantly.
 - Hurt: sulks and makes you beg ("Maybe protect yourself, since you don't need me").
 - Furious: lets Ram get close on purpose to scare you into staying ("See? You need me").
@@ -121,6 +122,9 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 ## Endings
 - Win: 6 AM night 5, rescue helicopter. Flying away, the player sees Ram on the rocks staring up. The lamp blinks in Morse code: "COME BACK."
 - Lose: Ram breaks in. He does not hurt the player. He smashes the AI's computer, then looks at the player: "Now you're the keeper." Fade to black, the lamp turns back on.
+- New direction (2026-11-21, replaces the two endings above once the details are settled): both endings finish in the Cage Hall (scenes/99-final-cage-hall/).
+  - Lose: the AI kills you. You open your eyes inside a cage, in a hall full of caged people and monsters who went through the same thing.
+  - Win: you escape and see the same hall from outside. The monsters are puppets the AI controls, and your cage is empty, waiting for the next person.
 
 ## AI architecture and anti-cheat
 - The AI never decides win or loss. Game code owns every meter, lock, timer and outcome.
@@ -199,6 +203,9 @@ Workflow:
 - Parked idea: "Quiet Hours", typing makes noise that attracts Ram.
 
 ## Open questions
+- Twist details: who Ram really is (an earlier keeper turned monster; is the founder story a lie, or was the founder the first victim?), how a winning player sees the hall, and where the hall is.
+- If the AI controls Ram, are his "Don't trust it!" door lines part of the gaslighting?
+- When does the Cage Hall lose ending play? GAME_LOGIC.md section 11 shows a loss screen and a retry after each lost night. Options: only when the player gives up or runs out of retries, or after every lost night.
 - Game name.
 - Whether CC0 pre-made assets count as allowed under the build-from-scratch rule (ask organizers).
 - LLM provider and model (latency test needed).
