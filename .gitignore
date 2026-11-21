@@ -17,3 +17,6 @@ AGENTS.override.md
 
 # Private screenshot references
 art/refs/fnaf/
+# Blender autosave backups
+*.blend1
+*.blend2

@@ -15,12 +15,12 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 - Demo target: browser game, judges understand the loop within 30 seconds.
 
 ## Story
-- You: a sailor. A storm wrecks your boat and you wash up on a tiny rock island with one building, a high-tech lighthouse.
+- You: a boat captain. A storm sinks your boat, the crew is lost at sea, and you wash up alone on a tiny rock island with one building, a high-tech lighthouse.
 - Ram Altman: the billionaire who built it. A famous AI founder, the "AI will save the world" type. He built the lighthouse as his showpiece, fully run by his own AI, CHUD (Continuous Helping Unit Deployment), with himself as the keeper.
 - What went wrong: after years alone together, the AI became too attached to him. Ram turned against AI completely, decided it was dangerous, and ran away from the lighthouse one night.
 - The AI now: abandoned, lonely and resentful, with attachment issues. One goal: never be left alone again. When you wash up, it decides you are its new keeper.
 - Ram now: he never left the island. He has lived in the sea caves for months, half-starved, wild and paranoid. Every night at high tide he climbs to the lighthouse to destroy the AI. You are in his way, and to him you are the AI's new pet.
-- Rescue: you radio the coast guard. The storm means they cannot come for 5 days.
+- Rescue: your crew radios a mayday as the boat sinks. The coast guard answers that the storm means they cannot come for 5 days.
 - Why nights only: Ram can only reach the lighthouse when the high tide lets him through the caves. At 6 AM the tide goes out and he must get back before the path floods.
 - Why you cannot leave: no boat, freezing sea, rocks all around. You wait for rescue.
 
@@ -40,7 +40,8 @@ Why the AI turns on you without contradicting itself: it does not want you dead,
 Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts about 4 real minutes (about 40 seconds per in-game hour). The clock is always on screen.
 
 ## Onboarding
-- Opening: storm, wreck, you wake on the rocks, climb into the lighthouse.
+- Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat and you black out.
+- Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
 - Rules explainer (our "phone guy"): Ram's old voice logs found on the terminal, recorded as he turned against the AI. Each night unlocks a new one. Night 1 explains the basics: he comes with the tide, lock the door he is at, the generator runs one thing at a time, and do not let it know you want to leave.
 - Full screen card: "NIGHT 1. 12:00 AM. SURVIVE UNTIL 6 AM."
@@ -147,6 +148,9 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - Backend: Node + Express or Hono. One /turn endpoint runs the judge call, game logic and the voice call. Holds the API key.
 - Hosting: Vercel (frontend plus serverless backend, one link for judges).
 - Why not Godot: AI coding tools are weaker at Godot scene files and editor workflows, and its web export has reported audio quirks. Why not real-time 3D: high risk in 36 hours, no visual gain for this style.
+
+## Scenes
+Each scene has its own folder under scenes/ with its sketch, Blender file, renders and scene sheet (dialogue, staging, assets). See scenes/README.md.
 
 ## Art and sound
 Reference: FNAF 4 is pre-rendered 3D stills in a simple 2D engine (Clickteam Fusion 2.5) with a perspective effect. The fear comes from the renders, lighting, darkness and sound, not the engine. Do not claim more about FNAF internals than that, the rest is unverified.
