@@ -149,12 +149,21 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - Model: a fast model with 1 to 2 sentence replies. Test latency with our own key early.
 
 ## Tech stack
-- Approach: 2.5D, FNAF style. Pre-rendered 3D stills from Blender shown in a 2D web app with a perspective shader. No real-time 3D, no game engine.
-- Art: Blender (Cycles), Blender MCP, Poly Haven (CC0 textures, props, HDRIs), AI 3D generators (Rodin, Tripo or Meshy) for a few hero props only.
-- Frontend: Vite + TypeScript + PixiJS (perspective shader, grain, flicker), Howler.js or the Web Audio API (positional sound).
-- Backend: Node + Express or Hono. One /turn endpoint runs the judge call, game logic and the voice call. Holds the API key.
-- Hosting: Vercel (frontend plus serverless backend, one link for judges).
-- Why not Godot: AI coding tools are weaker at Godot scene files and editor workflows, and its web export has reported audio quirks. Why not real-time 3D: high risk in 36 hours, no visual gain for this style.
+Updated 2026-11-21. The working code lives in `prototype/`.
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Approach | 2.5D, FNAF style | Pre-rendered stills and short rendered loops from Blender, shown in a 2D web app. No real-time 3D, no game engine (browsers have no hardware ray tracing; see docs/DECISIONS.md) |
+| Art | Blender 5.3 + Cycles (GPU, OptiX), Blender MCP driven by Codex and Claude | Source file `scenes/03-watch-room/scene03_watch_room_look.blend` (not shipped). Assets: Poly Haven (CC0) and Sketchfab (CC0 / CC-BY only), credited in `scenes/03-watch-room/CREDITS.md` |
+| Rendered output | WebP stills + WebM loops / frame sequences | Per view and state: idle, lights on, lightning, entry tells, breaches, hold close-ups with hands, dash floor, beacon sweep loop, jumpscares. Cycles light-group passes (screen, beacon, lightning, practicals, storm) so the browser can tint CHUD's glow and switch lights live |
+| Game-side data | JSON exports from Blender | `scenes/03-watch-room/export/cam_desk_screen.json` (CHUD screen corners for the live UI overlay); later: keyboard key positions, per-view state-to-asset map |
+| Frontend | Vite + TypeScript + PixiJS 8 | View switching, mouse edge controls (docs/CONTROLS_PROPOSAL.md), grain, flicker, sway, CHUD face and chat drawn onto the monitor, key-press glow, Vitest for tests |
+| Sound | Howler.js + Web Audio (HRTF panners) | See docs/SOUND_PLAN.md. CHUD canned lines pre-generated with Kokoro (Apache-2.0) |
+| Backend | Node + Hono, one `/turn` endpoint | Runs the judge call, the game rules from docs/GAME_LOGIC.md, then the CHUD voice call. Holds the API key |
+| LLM | Anthropic Claude via `@anthropic-ai/sdk` | As used in `prototype/`. Model chosen by latency test (2.5 s budget per turn, canned fallbacks) |
+| Hosting | Vercel | Static frontend and assets plus the `/turn` serverless function, one link for judges. Check Vercel file and deployment size limits before the final asset export |
+
+- Why not Godot: AI coding tools are weaker at Godot scene files and editor workflows, and its web export has reported audio quirks. Why not real-time 3D: high risk in the time available, browsers cannot do hardware ray tracing, and the seated FNAF-style design does not need free movement.
 
 ## Scenes
 Each scene has its own folder under scenes/ with its sketch, Blender file, renders and scene sheet (dialogue, staging, assets). See scenes/README.md.
