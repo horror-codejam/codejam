@@ -270,8 +270,15 @@ export class GameEngine implements IGameEngine {
   private breach(entry: Entry): void {
     const s = this.state;
     const p = s.player.position;
+    // STANDING at another entry (edge-controls flow) also counts: the player was away from E, at another entry.
     const heldOther =
-      p.kind === "TRAVELING" || p.kind === "HOLDING" ? (p.entry !== entry ? p.entry : null) : p.kind === "RETURNING" && p.from !== entry ? p.from : null;
+      p.kind === "TRAVELING" || p.kind === "HOLDING" || p.kind === "STANDING"
+        ? p.entry !== entry
+          ? p.entry
+          : null
+        : p.kind === "RETURNING" && p.from !== entry
+          ? p.from
+          : null;
     const claim = s.log.visit.claimThisVisit;
     let cause: LossCause;
     if (!s.power.generatorOn || s.power.rebootingUntil !== null) cause = "POWER_OFF";
@@ -457,8 +464,10 @@ export class GameEngine implements IGameEngine {
 
   backToDesk(): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.position.kind !== "HOLDING") return;
-    this.endHold("manual");
+    if (s.phase !== "PLAYING") return;
+    const p = s.player.position;
+    if (p.kind === "STANDING" || (p.kind === "HOLDING" && p.stay)) this.returnToDesk();
+    else if (p.kind === "HOLDING") this.endHold("manual");
   }
 
   private endHold(reason: "manual" | "arms"): void {
@@ -467,9 +476,58 @@ export class GameEngine implements IGameEngine {
     if (p.kind !== "HOLDING") return;
     const t = reason === "arms" ? p.since + this.cfg.HOLD_MAX : this.now;
     if (reason === "arms" && s.ram.state === "AT_ENTRY" && s.ram.target === p.entry) s.log.visit.armsGaveOut = true;
-    s.player.holdCooldownUntil = t + this.cfg.HOLD_COOLDOWN;
-    s.player.position = { kind: "RETURNING", from: p.entry, until: t + this.cfg.TRAVEL_TIME };
+    if (p.stay) {
+      // edge-controls flow: the brace ends, the player stays at the entry and rests before the next brace
+      s.player.position = { kind: "STANDING", entry: p.entry, restUntil: t + this.cfg.BRACE_REST };
+    } else {
+      s.player.holdCooldownUntil = t + this.cfg.HOLD_COOLDOWN;
+      s.player.position = { kind: "RETURNING", from: p.entry, until: t + this.cfg.TRAVEL_TIME };
+    }
     this.emit({ type: "HOLD_ENDED", entry: p.entry, reason });
+    this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+  }
+
+  // ---- Edge-controls flow (docs/CONTROLS_PROPOSAL.md, IMPLEMENTATION_NOTES "Edge controls") ----
+
+  goToEntry(entry: Entry): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK") return;
+    if (this.now < s.player.holdCooldownUntil - EPS) return;
+    if (s.player.view !== entry) return; // look first, then go
+    s.player.position = { kind: "TRAVELING", entry, until: this.now + this.cfg.TRAVEL_TIME, stay: true, braceOnArrival: false };
+    this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+  }
+
+  startBrace(): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING") return;
+    const p = s.player.position;
+    if (p.kind === "TRAVELING" && p.stay) {
+      p.braceOnArrival = true;
+    } else if (p.kind === "STANDING" && this.now >= p.restUntil - EPS) {
+      s.player.position = { kind: "HOLDING", entry: p.entry, since: this.now, stay: true };
+      this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+    }
+  }
+
+  endBrace(): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING") return;
+    const p = s.player.position;
+    if (p.kind === "TRAVELING" && p.stay) p.braceOnArrival = false;
+    else if (p.kind === "HOLDING" && p.stay) this.endHold("manual");
+  }
+
+  returnToDesk(): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING") return;
+    const p = s.player.position;
+    if (p.kind === "HOLDING" && p.stay) this.endHold("manual");
+    const q = s.player.position;
+    if (q.kind !== "STANDING") return;
+    // HOLD_COOLDOWN runs from the start of the return, as in GAME_LOGIC 6.4 (so 2.5 s of it remain at the desk)
+    s.player.holdCooldownUntil = this.now + this.cfg.HOLD_COOLDOWN;
+    s.player.position = { kind: "RETURNING", from: q.entry, until: this.now + this.cfg.TRAVEL_TIME };
     this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
   }
 
@@ -477,7 +535,8 @@ export class GameEngine implements IGameEngine {
     const s = this.state;
     const p = s.player.position;
     if (p.kind === "TRAVELING" && this.due(p.until)) {
-      s.player.position = { kind: "HOLDING", entry: p.entry, since: p.until };
+      if (p.stay && !p.braceOnArrival) s.player.position = { kind: "STANDING", entry: p.entry, restUntil: p.until };
+      else s.player.position = { kind: "HOLDING", entry: p.entry, since: p.until, ...(p.stay ? { stay: true } : {}) };
       this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
     } else if (p.kind === "HOLDING" && this.due(p.since + this.cfg.HOLD_MAX)) {
       this.endHold("arms");

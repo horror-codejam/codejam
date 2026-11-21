@@ -27,6 +27,7 @@ export interface Config {
   TRAVEL_TIME: number;
   HOLD_MAX: number;
   HOLD_COOLDOWN: number;
+  BRACE_REST: number; // edge-controls flow: rest at the entry after a brace ends before the next one
   QUESTION_TIMEOUT: number;
   SILENCE_LIMIT: number;
   SILENCE_PULL: number; // fraction of remaining AWAY time cut per silence tick
@@ -142,6 +143,7 @@ export const CONFIG: Config = {
   TRAVEL_TIME: 1.5,
   HOLD_MAX: 6,
   HOLD_COOLDOWN: 4,
+  BRACE_REST: 1.0,
   QUESTION_TIMEOUT: 10,
   SILENCE_LIMIT: 20,
   SILENCE_PULL: 0.25,

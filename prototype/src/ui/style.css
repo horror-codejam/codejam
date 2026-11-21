@@ -124,34 +124,31 @@ button:disabled { opacity: 0.35; cursor: default; }
 #t-power i.pending { background: #7a5a1a; color: var(--amber); }
 #t-power.cut i { background: #ff3b3b; color: #fff; }
 
-/* edge controls: zone sizes match CONTROLS.EDGE_ZONE_SIDE / EDGE_ZONE_BOTTOM (70 / 40 stage px); --k is the dwell 0..1 */
+/* edge controls: zone sizes match CONTROLS.EDGE_ZONE_SIDE / EDGE_ZONE_BOTTOM (70 / 40 stage px). Static hint only, the dwell shows on #ring */
 .edge {
-  --k: 0; position: absolute; display: flex; align-items: center; justify-content: center; gap: 8px;
-  color: var(--amber); font-size: 11px; letter-spacing: 0.2em; opacity: 0.3; transition: opacity 0.15s; text-shadow: 0 0 4px #000;
+  position: absolute; display: flex; align-items: center; justify-content: center; gap: 8px;
+  color: var(--amber); font-size: 11px; letter-spacing: 0.2em; opacity: 0.22; transition: opacity 0.15s; text-shadow: 0 0 4px #000;
 }
-.edge.on { opacity: 1; }
+.edge.on { opacity: 0.5; }
 .edge b { font-size: 16px; font-weight: normal; }
-.edge i { position: absolute; background: var(--amber); }
 .edge.left, .edge.right { top: 0; bottom: 0; width: 70px; flex-direction: column; }
 .edge.left span, .edge.right span { writing-mode: vertical-rl; }
-.edge.left { left: 0; background: linear-gradient(to right, rgba(255, 196, 107, calc(0.04 + 0.22 * var(--k))), transparent); }
-.edge.right { right: 0; background: linear-gradient(to left, rgba(255, 196, 107, calc(0.04 + 0.22 * var(--k))), transparent); }
-.edge.left i, .edge.right i { top: 50%; width: 3px; height: calc(var(--k) * 100%); transform: translateY(-50%); }
-.edge.left i { left: 0; }
-.edge.right i { right: 0; }
-.edge.bottom { left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(to top, rgba(255, 196, 107, calc(0.04 + 0.22 * var(--k))), transparent); }
-.edge.bottom i { bottom: 0; left: 50%; height: 3px; width: calc(var(--k) * 100%); transform: translateX(-50%); }
+.edge.left { left: 0; }
+.edge.right { right: 0; }
+.edge.bottom { left: 0; right: 0; bottom: 0; height: 40px; }
 #brace-hint {
   position: absolute; left: 50%; top: 124px; transform: translateX(-50%); padding: 5px 14px; font-size: 14px; letter-spacing: 0.1em;
   color: #e0b090; background: rgba(0, 0, 0, 0.45); border: 1px solid #5a4a3a; text-shadow: 0 0 4px #000;
 }
 
 /* holding */
-#hold-panel { position: absolute; left: 490px; top: 600px; width: 300px; text-align: center; }
-#arms-label { font-size: 12px; letter-spacing: 0.2em; color: var(--dim); }
-.bar.arms { height: 8px; margin: 4px 0 10px; }
-#release-hint { font-size: 13px; letter-spacing: 0.1em; color: var(--dim); }
-.bar.arms i { background: #e0b090; }
+#hold-panel { position: absolute; left: 490px; top: 640px; width: 300px; text-align: center; }
+#release-hint { font-size: 13px; letter-spacing: 0.1em; color: var(--dim); text-shadow: 0 0 4px #000; }
+
+/* cursor ring: placed on the pointer by main.ts (size and colors in RING, uiConfig.ts); below #screen and #pause */
+#ring { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+#ring circle { fill: none; }
+#ring .arc { stroke-linecap: round; }
 
 #subtitle {
   position: absolute; left: 190px; right: 190px; bottom: 74px; text-align: center; font-size: 19px; line-height: 1.35;

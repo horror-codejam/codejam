@@ -68,6 +68,7 @@ export class Scene {
   private turnDir = 1; // +1: the picture moves right (turning left), -1: moves left
   private turnDur = CONTROLS.TURN_TIME;
   private lastDashing = false;
+  private braceK = 0; // 0 standing at an entry, 1 bracing it (eased): the camera leans in while bracing
   private desk = new Container();
   private deskRender: boolean;
   private sweep = new Container();
@@ -229,7 +230,9 @@ export class Scene {
     this.lastT = t;
 
     // which picture is up
-    const holding = pos.kind === "HOLDING" ? pos.entry : null;
+    // the hold view shows while bracing (HOLDING) and while standing at the entry (edge controls, STANDING)
+    const holding = pos.kind === "HOLDING" || pos.kind === "STANDING" ? pos.entry : null;
+    const bracing = pos.kind === "HOLDING";
     const dashing = pos.kind === "TRAVELING" || pos.kind === "RETURNING";
     const view: View = s.player.view;
     if (view !== this.lastView) {
@@ -279,7 +282,7 @@ export class Scene {
       const vis = engine.ramVisual(e);
       L.tell.visible = vis === "tell_faint" || vis === "tell_clear";
       L.tell.alpha = vis === "tell_clear" ? 1 : L.render ? 0.6 : 0.45;
-      L.root.y = L.tell.visible ? Math.sin(t * 50) * 2.5 : 0;
+      L.root.y = L.tell.visible && bracing ? Math.sin(t * 50) * 2.5 : 0; // the entry shoves against your arms
     }
     this.dash.visible = dashing;
     if (dashing && this.dashRender) grade = GRADE_DARK;
@@ -333,6 +336,8 @@ export class Scene {
       this.cam.rotation = Math.sin(t * 7) * 0.02;
       zoom = 1.05; // covers the corners while the camera rolls
     } else {
+      this.braceK += ((bracing ? 1 : 0) - this.braceK) * (1 - Math.exp(-dt * 12));
+      if (holding) zoom = 1 + 0.06 * this.braceK; // standing: a step back from the entry, bracing: leaning into it
       ox += Math.sin(t * 0.6) * 4;
       oy += Math.sin(t * 0.43) * 3;
     }

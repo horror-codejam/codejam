@@ -17,11 +17,11 @@
         </div>
         <div id="hint" class="hidden"></div>
 
-        <!-- Edge controls: faint arrows on the stage edges that fill while the mouse dwells there (src/ui/edges.ts). -->
+        <!-- Edge controls: faint static arrows on the stage edges (src/ui/edges.ts). The dwell shows on the cursor ring. -->
         <div id="edges" class="hidden">
-          <div class="edge left" data-edge="left"><b>&#9664;</b><span></span><i></i></div>
-          <div class="edge right" data-edge="right"><b>&#9654;</b><span></span><i></i></div>
-          <div class="edge bottom" data-edge="bottom"><b>&#9660;</b><span></span><i></i></div>
+          <div class="edge left" data-edge="left"><b>&#9664;</b><span></span></div>
+          <div class="edge right" data-edge="right"><b>&#9654;</b><span></span></div>
+          <div class="edge bottom" data-edge="bottom"><b>&#9660;</b><span></span></div>
         </div>
 
         <!-- CHUD's terminal: sits on the desk render's screen (DESK_SCREEN) and follows the camera pan. -->
@@ -70,14 +70,17 @@
         <div id="brace-hint" class="hidden"></div>
 
         <div id="hold-panel" class="hidden">
-          <div id="arms-label">ARMS</div>
-          <div class="bar arms"><i id="arms-bar"></i></div>
-          <div id="release-hint">Let go to run back</div>
+          <div id="release-hint">Let go to stop bracing</div>
         </div>
 
         <button id="pause-btn" class="hidden" title="Pause (Esc)">&#10074;&#10074; Pause</button>
 
         <div id="subtitle"></div>
+        <!-- Cursor ring: edge dwell, arms left while bracing, faint dash and rest progress (main.ts renderRing). -->
+        <svg id="ring" class="hidden" viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="track" cx="18" cy="18" r="15" />
+          <circle class="arc" cx="18" cy="18" r="15" pathLength="1" transform="rotate(-90 18 18)" />
+        </svg>
         <div id="screen" class="hidden"></div>
         <div id="pause" class="hidden">
           <div class="card">
