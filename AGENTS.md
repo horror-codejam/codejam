@@ -8,7 +8,7 @@ Shared working rules for every AI assistant used on this repo. Project owners: t
 - docs/GAME_LOGIC.md: exact gameplay rules, state machines, timers and numbers. Wins over GAME_DESIGN.md on any rule conflict. Implement from this file.
 - docs/STATUS.md: what works, who is on what, blockers, next steps. One section per person.
 - docs/DECISIONS.md: append-only log of decisions, one line each (date, decision, why).
-- Tech stack: 2.5D pre-rendered. Blender (Cycles) plus Blender MCP for art, Vite + TypeScript + PixiJS frontend, Howler.js or Web Audio, Node (Express or Hono) backend with one /turn endpoint, hosted on Vercel. Details in docs/GAME_DESIGN.md (Tech stack, Art and sound).
+- Tech stack: 2.5D pre-rendered (FNAF style). Blender 5.3 (Cycles) plus Blender MCP for art, Vite + TypeScript + PixiJS 8 frontend in prototype/, Howler.js + Web Audio for sound, Node + Hono backend with one /turn endpoint calling Anthropic Claude, hosted on Vercel. Details in docs/GAME_DESIGN.md (Tech stack), docs/SOUND_PLAN.md and docs/CONTROLS_PROPOSAL.md.
 - Build and run commands: add here once the project is scaffolded.
 
 ## Session protocol
