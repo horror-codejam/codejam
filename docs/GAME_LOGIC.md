@@ -62,7 +62,7 @@ Fixed constants:
 - `HOUR_LENGTH` = 40 s, so `NIGHT_LENGTH` = 240 s (6 in-game hours).
 - `RETREAT_TIME` = 3 s.
 - `RELAY_DELAY` = 0.5 s (time for a power switch to land).
-- Travel time to hold: WINDOW 1.0 s, HATCH 1.5 s (press the lid shut from the watch-room floor), BALCONY 1.5 s. Returning to the desk takes the same time.
+- `TRAVEL_TIME` = 1.5 s, the same for every entry (WINDOW, HATCH, BALCONY) and for returning to the desk. Shown as a dash (section 6.4), so the real distances in the room do not matter.
 - `HOLD_MAX` = 6 s (arms give out), `HOLD_COOLDOWN` = 4 s before you can hold again.
 - `QUESTION_TIMEOUT` = 10 s.
 - `SILENCE_LIMIT` = 20 s.
@@ -106,12 +106,14 @@ These sit on the desk screen so commands are fast even for slow typers:
 - Design intent: buttons are for speed, typing is for the relationship. You need both.
 
 ### 6.4 Holding an entry
-- Click an entry's "hold" control, from the desk or while looking at that entry. You become `TRAVELING(entry)` for that entry's travel time, then `HOLDING(entry)`.
+- Click an entry's "hold" control, from the desk or while looking at that entry. You become `TRAVELING(entry)` for `TRAVEL_TIME`, then `HOLDING(entry)`.
+- Dash presentation (same for every entry): the camera tips down toward the floor (0.2 s), shakes with footsteps and heavy breathing (1.1 s), then rises into that entry's hold view (0.2 s). Returning plays the same dash and ends on the `DESK` view. Entry audio cues and CHUD subtitles keep playing during the dash. Room distances are never shown, so every entry feels equally far.
+- While holding, the screen shows that entry's hold view: a close-up of the player bracing the window sash, the hatch lid or the balcony door. Ram's visual tell for that entry shows in the hold view.
 - **While traveling, holding or returning:**
   - You cannot type, press quick buttons or turn.
   - Subtitles and audio still play.
   - The silence timer keeps running.
-- You stop holding when you click "back to desk", or automatically when `HOLD_MAX` (6 s) runs out. Either way you become `RETURNING` for the travel time, then you're back at `DESK`.
+- You stop holding when you click "back to desk", or automatically when `HOLD_MAX` (6 s) runs out. Either way you become `RETURNING` for `TRAVEL_TIME`, then you're back at `DESK`.
 - After a hold ends, you cannot start another hold for `HOLD_COOLDOWN` (4 s).
 - An entry counts as held only while you are in `HOLDING(entry)`. Traveling does not count.
 
@@ -251,7 +253,7 @@ Question mix per night:
 - The voice model receives only the entry to name. When lying, it is never told the true entry (anti-leak, section 9).
 
 ### 8.8 Sabotage (JEALOUS only)
-- **Trigger:** Ram is `AT_ENTRY` at entry E, power = `LOCK_E`, CHUD is `JEALOUS` and online, at least (travel time of E + 1.0 s) is left in the attempt window, and no sabotage has happened yet this in-game hour.
+- **Trigger:** Ram is `AT_ENTRY` at entry E, power = `LOCK_E`, CHUD is `JEALOUS` and online, at least (`TRAVEL_TIME` + 1.0 s) is left in the attempt window, and no sabotage has happened yet this in-game hour.
 - **Chance:** 50% per eligible visit, rolled once when the visit becomes eligible.
 - **Effect:** power becomes `NONE`, with a loud relay clunk and the power icon visibly moving off the lock. CHUD: "Oops. The generator's acting up."
 - **Counter:** hold E by hand. The timing rule guarantees enough time to get there. Asking CHUD to lock it again goes through the gate and is usually too slow.
@@ -259,7 +261,7 @@ Question mix per night:
 ### 8.9 Furious episode
 - **Starts when suspicion reaches 100.**
 - **For the rest of the current visit (or the next one, if Ram is `AWAY`):** CHUD refuses lock and beam requests, and always lies about location.
-- **The cut:** when Ram's attempt window is active, CHUD sets power to `NONE`. It cuts at the start of `AT_ENTRY`, or immediately if the episode begins mid-window, but only if at least (travel time + 1.0 s) is left. Otherwise the cut waits for the next visit. CHUD: "If I can't keep you, nobody will. Hold it yourself."
+- **The cut:** when Ram's attempt window is active, CHUD sets power to `NONE`. It cuts at the start of `AT_ENTRY`, or immediately if the episode begins mid-window, but only if at least (`TRAVEL_TIME` + 1.0 s) is left. Otherwise the cut waits for the next visit. CHUD: "If I can't keep you, nobody will. Hold it yourself."
 - **Ends when that visit resolves** (retreat or 6:00 AM). Suspicion becomes 80 (JEALOUS) and `furious_active` = false.
 
 ## 9. Message pipeline (order of operations for every typed message)
@@ -334,9 +336,9 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 
 ## 12. Fairness guarantees (must always hold)
 1. Every breach is preceded by an approach sound of at least 3.5 s and an attempt window of at least 3 s, with that entry's audio cue playing throughout.
-2. Every attempt window is longer than the longest travel time (1.5 s) plus 1 s. Holding is always physically possible if you react when the attempt cue starts.
+2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Holding is always physically possible if you react when the attempt cue starts.
 3. CHUD never lies in WARM.
-4. Sabotage and the Furious cut are always loud and visible, and always leave at least travel time + 1 s.
+4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s.
 5. Repeating the location question never reveals a lie (one decision per visit).
 6. The beam never lies: with the beam on, the visual shows Ram's true current target.
 7. Visits never overlap. Ram is in one place at a time.
@@ -368,7 +370,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 
 ## 14. Tuning knobs (one config file)
 - Per night: AWAY gap, approach time, attempt window, fake-out chance, starting suspicion, question count and mix, lie chances.
-- Global: `HOUR_LENGTH`, `RELAY_DELAY`, travel times, `HOLD_MAX`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, every value in the 8.2 table, the per-message clamp, the sabotage chance, the Furious reset value, the reboot time and the post-reboot suspicion floor.
+- Global: `HOUR_LENGTH`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, every value in the 8.2 table, the per-message clamp, the sabotage chance, the Furious reset value, the reboot time and the post-reboot suspicion floor.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
 
 ## 15. Playtest checklist

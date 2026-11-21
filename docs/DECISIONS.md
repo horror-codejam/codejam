@@ -21,3 +21,5 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-21: The player is a boat captain with a crew. Scene 1 opens first person at the wheel in a storm, the crew is lost and the boat capsizes. Why: team's starting-scene sketch and outline. Rescue wait (7 vs 5 days) still open.
 - 2026-11-21: Rescue wait stays 5 days in the scene 1 coast guard line (not 7). Why: matches the 5 nights.
 - 2026-11-21: Limited the schematics to the upper watch room, moved the chair closer to CHUD, and replaced the right stairs with a fixed ladder under a floor hatch. Why: the player can defend the ladder entrance by bracing the lid from inside the room.
+- 2026-11-21: Watch room enlarged to 10 m inner diameter and 4 m ceiling (was 6 m and 3 m). Furniture, doors and hatch stay real-world size. Why: the room should feel big, with the entries far apart.
+- 2026-11-21: One travel time for every entry, TRAVEL_TIME = 1.5 s, shown as a FNAF 4-style dash (camera tips to the floor, shakes, rises into a close-up hold view). Why: hides the real distances in the bigger room, keeps every fairness rule intact, simpler code.
