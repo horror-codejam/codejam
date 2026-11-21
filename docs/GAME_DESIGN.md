@@ -44,12 +44,12 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Full screen card: "NIGHT 1. 12:00 AM. SURVIVE UNTIL 6 AM."
 
 ## The lighthouse
-- You sit in the watch room, in the middle of the tower, at the AI's computer.
-- 3 entries:
-  - Ground door: Ram's footsteps come up the spiral stairs below you.
-  - Cottage window: the attached keeper's cottage. Tapping on the glass.
-  - Roof hatch: scraping as Ram climbs the outside of the tower.
-- Views: center (PC, AI face, chat, clock, power icon), down the stairs (ground door), to the cottage (window), up (roof hatch).
+- You sit in the round watch room at mid-tower. The curved keeper's desk and CHUD terminal are straight ahead, with the ocean visible through the fixed glazing behind them.
+- Left entry window (`cam_window`): the window opens directly into the watch room. Listen for tapping on the glass.
+- Right stairwell (`cam_stairs`): look down the spiral stairs toward the ground door. Listen for footsteps on metal and pounding from below.
+- Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Listen for scraping and movement at the rail behind you.
+- Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
+- See the [watch room schematics](../art/schematics/README.md) for the plan, the four camera directions, and the tower sections.
 - One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
 
 ## Player actions
@@ -63,7 +63,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 |---|---|---|
 | 1. In the caves | Out of reach | Silence, waves |
 | 2. Approaching | Heading for one entry | Splashing on the rocks, footsteps (does not reveal which entry) |
-| 3. At the entry | Trying to break in | Ground door: footsteps on the stairs, pounding. Window: tapping on glass. Roof hatch: scraping on the tower wall |
+| 3. At the entry | Trying to break in | Ground door: footsteps on the stairs and pounding. Left window: tapping on glass. Rear balcony: scraping at the rail |
 | Result | Locked or held: he shouts through the door and leaves. Open: he gets in | Night lost |
 
 Ram also talks through doors ("Don't trust it! It'll never let you go!"). This is the second voice in the player's ear.
@@ -97,16 +97,16 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 2. 12:40 AM: footsteps below. Player: "where is he?" AI: "Ground door, coming up the stairs." Player: "lock the ground door." Locked.
 3. Ram pounds on the door: "Don't trust it! It'll never let you go!" He leaves.
 4. 1:30 AM: AI: "You'll stay with me after the storm, won't you?" Player lies: "Of course." Suspicion down.
-5. 2:10 AM: scraping above. Player turns on the beam, sees Ram halfway up the tower, switches power to the roof hatch lock just in time.
+5. 2:10 AM: scraping behind the chair. The player turns on the beam, looks back and catches Ram at the balcony rail, then switches power to the balcony door lock.
 6. 3:00 AM: radio: "Coast guard, pickup in 3 days." The AI heard. "...Pickup?" Suspicion jumps.
-7. 4:00 AM: footsteps. AI, sulking: "Cottage window, I think." It is lying. The player hears the stairs, catches the lie, runs down and holds the ground door.
+7. 4:00 AM: footsteps. AI, sulking: "Left window, I think." It is lying. The player hears the stairs, catches the lie, runs down and holds the ground door.
 8. 6:00 AM: tide goes out, Ram leaves. AI: "Good morning, keeper. Same time tonight?"
 
 ## Difficulty curve (targets to tune in playtests, not measured)
 | | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 |
 |---|---|---|---|---|---|
 | The AI | Sweet, always truthful | Asks if you'll stay, hears the radio | Jealous, starts lying | Knows you're leaving, moves the power | Furious |
-| Ram's entries | Ground door | + cottage window | + roof hatch | All, with fake-outs | All, back to back |
+| Ram's entries | Ground door | + left window | + rear balcony door | All, with fake-outs | All, back to back |
 | Visits per night | 4 | 6 | 8 | 11 | 14 |
 | Warning time | 6 s | 5 s | 4.5 s | 4 s | 3 s |
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
@@ -149,6 +149,8 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 ## Art and sound
 Reference: FNAF 4 is pre-rendered 3D stills in a simple 2D engine (Clickteam Fusion 2.5) with a perspective effect. The fear comes from the renders, lighting, darkness and sound, not the engine. Do not claim more about FNAF internals than that, the rest is unverified.
 
+The watch room is damp stone and worn marine hardware. The forward view is anchored by CHUD's green CRT and the dark ocean beyond the desk. The left pane catches rain, the right stair rail fades into black, and the balcony railing is a narrow silhouette when the player looks behind. Use desaturated storm blues and stone grays, with a single harsh light in each view and amber reserved for the beacon. Fine grain and edge falloff tie the views together. Use the [style guide](../art/style/STYLE_GUIDE.md) and [camera plan](../art/schematics/cameras.svg) when preparing concept art in ChatGPT image generation.
+
 What makes it scary (design rules):
 - Darkness, one harsh light source per view, near-black ambient.
 - Sound over sight: the player listens, then decides whether to look.
@@ -156,28 +158,28 @@ What makes it scary (design rules):
 - Only ever see part of the threat.
 
 Blender pipeline:
-1. Build (about 3 h): one room shell (round watch room, stone walls, spiral stairs down, cottage passage, ladder to roof hatch). Real CC0 textures and props from Poly Haven via Blender MCP. 3 to 5 AI-generated hero props (radio, keeper's chair, lantern, crates), kept in shadow and away from camera, scale fixed by hand. AI images are for concept art and mood references only, not final assets.
-2. Light (about 3 h): one harsh source per view (PC glow, lamp beam sweeping past the window, lightning, moonlight through the cottage glass). Light volumetric fog. Rain on glass, wet stone.
+1. Build (about 3 h): one round watch-room shell with a front console and ocean-facing glazing, left entry window, right stairwell, and rear balcony door and rail. Real CC0 textures and props from Poly Haven via Blender MCP. 3 to 5 AI-generated hero props (radio, keeper's chair, lantern, crates), kept in shadow and away from camera, scale fixed by hand. AI images are for concept art and mood references only, not final assets.
+2. Light (about 3 h): one harsh source per view, such as PC glow, the lamp beam at an entry, or lightning across the ocean-facing glazing. Use light volumetric fog, rain on glass, and wet stone.
 3. Render: Cycles around 128 samples with denoiser (Eevee only if out of time). Render wider than 16:9 so views can pan. WebP around 1920 px wide.
 4. Post in Blender compositor: slight lens distortion with chromatic aberration, vignette, desaturated cold-blue grade with warm lamp highlights. Film grain and flicker are added live in the browser shader.
 
 Render list (about 25 to 40 images):
 | View | States |
 |---|---|
-| Watch room (center, PC) | Normal, lightning flash |
-| Stairs to ground door | Dark, beam lit, Ram on the stairs |
-| Cottage window | Dark, lit, Ram's hand on the glass, Ram's face at the glass |
-| Roof hatch | Dark, lit, Ram's shadow over the hatch |
+| Front desk and ocean view | Normal, lightning flash |
+| Right stairs to ground door | Dark, beam lit, Ram on the stairs |
+| Left entry window | Dark, lit, Ram's hand on the glass, Ram's face at the glass |
+| Rear balcony | Dark, lit, Ram partly silhouetted by the rail or doorframe |
 | Jumpscare | 6 to 15 frames per entry |
 | Endings | Helicopter shot, Ram on the rocks |
 
-Showing Ram: never fully. Silhouette in the beam, hand on glass, eyes on the dark stairs, shadow over the hatch. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
+Showing Ram: never fully. Show eyes on the dark stairs, a hand or part of a face at the left window, or a partial silhouette at the balcony rail. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
 
 CHUD's face: drawn in code on the PC screen as UI states (warm, hurt, jealous, furious), not 3D.
 
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
-- Positional audio (headphones): storm and waves, footsteps on metal stairs below, scraping above, taps on glass to the side, Ram's voice, CHUD's chime, radio static, helicopter.
+- Positional audio (headphones): storm and waves in front, taps on glass to the left, footsteps on metal below and to the right, scraping at the rail behind, Ram's voice, CHUD's chime, radio static, helicopter.
 - "Click to begin" title screen (browsers block audio until first click). Preload jumpscare frames before each night.
 
 Workflow:

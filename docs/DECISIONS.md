@@ -14,3 +14,5 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-20: 5 nights (was 4). Why: matches the 5-day rescue wait.
 - 2026-11-20: Names: the founder is Ram Altman (was Loki), the AI is CHUD, short for Continuous Helping Unit Deployment. Why: team choice.
 - 2026-11-20: Tech stack: 2.5D pre-rendered Blender (Cycles) stills plus Blender MCP, Vite + TypeScript + PixiJS frontend, Howler.js or Web Audio, Node (Express or Hono) /turn backend, Vercel. Why: matches how FNAF 4 was built (pre-rendered stills in a 2D engine), AI coding tools are strongest at web code, lowest 36-hour risk. Godot and real-time 3D rejected.
+- 2026-11-21: Adopted the lighthouse visual style guide and designated the local screenshot folder private and gitignored. Why: keep concept art consistent and keep third-party screenshots out of the repo.
+- 2026-11-21: Adopted the team whiteboard layout, with CHUD in front of the ocean view, a left entry window, a right stairwell to the ground door, and a rear balcony door. Why: the four views follow the player's position in the room and checking the balcony requires looking behind the chair.

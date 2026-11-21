@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.5 -14.0 19.3 15.55" width="1544" height="1244" role="img" aria-labelledby="title desc">
+  <title id="title">Lighthouse tower sections</title>
+  <desc id="desc">Two cuts show the left entry window opposite the right stairwell and the forward ocean view opposite the rear balcony. The tower ground door is below the stairwell, and the lantern room is above both cuts.</desc>
+  <style>
+    .paper { fill: #f5f6f2; }
+    .room { fill: #e8eeeb; }
+    .wall { fill: none; stroke: #24383f; stroke-width: .075; stroke-linecap: round; stroke-linejoin: round; }
+    .object { fill: #d1dfda; stroke: #334d51; stroke-width: .043; }
+    .line { fill: none; stroke: #405b61; stroke-width: .031; stroke-linecap: round; stroke-linejoin: round; }
+    .glass { fill: none; stroke: #428287; stroke-width: .12; }
+    .rail { fill: none; stroke: #536d73; stroke-width: .04; stroke-linecap: round; }
+    .ocean { fill: none; stroke: #75a0ab; stroke-width: .033; stroke-linecap: round; }
+    .ram { fill: #a93855; stroke: #fff7f8; stroke-width: .03; }
+    .ram-line { fill: none; stroke: #a93855; stroke-width: .026; }
+    text { fill: #183036; font-family: system-ui, sans-serif; font-size: .17px; }
+    .heading { font-size: .37px; font-weight: 750; }
+    .subhead { fill: #466167; font-size: .17px; }
+    .label { font-weight: 700; }
+    .small { font-size: .15px; }
+    .ram-text { fill: #832640; }
+  </style>
+  <defs>
+    <g id="lantern">
+      <path class="object" d="M-1.53-9H1.53V-9.43H-1.53Z"/>
+      <path class="object" d="M-1.36-9.43H1.36V-10.98H-1.36Z"/>
+      <path class="line" d="M-.67-9.43V-10.98 M.67-9.43V-10.98"/>
+      <path class="object" d="M-1.63-10.98L0-11.98L1.63-10.98Z"/>
+      <ellipse cx="0" cy="-10.2" rx=".33" ry=".23" fill="#c6a263" stroke="#88652c" stroke-width=".04"/>
+    </g>
+    <g id="seat">
+      <path class="line" d="M-.20-6.85V-6.46H.26 M-.13-6.46V-6.05 M.18-6.46V-6.05"/>
+      <circle cx="0" cy="-7.2" r=".07" fill="#20575a"/>
+    </g>
+  </defs>
+  <rect class="paper" x="-1.5" y="-14" width="19.3" height="15.55"/>
+  <text class="heading" x="-1.05" y="-13.35">Lighthouse tower sections</text>
+  <text class="subhead" x="-1.05" y="-12.96">Room and entry elevations · both cuts at the same scale</text>
+  <path d="M-1.0 .35H16.98L17.35 1.0H-1.0Z" fill="#e1e7df"/>
+  <path class="line" d="M1.37-9H1.72 M1.37-6H1.72"/>
+  <text class="small label" x="1.22" y="-8.95" text-anchor="end">+9.0 m ceiling</text>
+  <text class="small label" x="1.22" y="-5.95" text-anchor="end">+6.0 m watch room</text>
+  <path d="M8.80-12.48V.87" fill="none" stroke="#b7c6c3" stroke-width=".026"/>
+  <g transform="translate(4.72 0)" aria-label="Left to right section through window and stairs">
+    <text class="label" x="-3" y="-12.23">A · left window / right stairs</text>
+    <path class="room" d="M-3 0V-9H3V0Z"/>
+    <path class="object" d="M-5.37 0V-2.66L-4.24-3.47L-3-2.74V0Z"/>
+    <path class="wall" d="M-3 0V-6.85 M-3-8.28V-9H3V-2.18 M3 0H-3"/>
+    <path class="glass" d="M-3-8.28V-6.85"/>
+    <path class="line" d="M-3.13-7.56H-2.87"/>
+    <path class="wall" d="M-3-6H.9 M2.74-6H3"/>
+    <use href="#lantern"/>
+    <use href="#seat"/>
+    <path class="line" d="M.9 0V-6 M1.82 0V-6 M2.74-2.37V-6 M2.74-2.37V0"/>
+    <path class="line" d="M2.74-.23H1.82L.90-.76H1.82L2.74-1.29H1.82L.90-1.82H1.82L2.74-2.35H1.82L.90-2.88H1.82L2.74-3.41H1.82L.90-3.94H1.82L2.74-4.47H1.82L.90-5H1.82L2.74-5.53H1.82L.90-6"/>
+    <rect class="object" x="2.94" y="-2.18" width=".16" height="2.18"/>
+    <path class="glass" d="M3.02-1.96V-1.38"/>
+    <path class="line" d="M-3.08-7.64H-3.39"/>
+    <text class="small label" x="-3.52" y="-7.59" text-anchor="end">Left entry window</text>
+    <text class="small" x="-3.52" y="-7.36" text-anchor="end">Direct to watch room</text>
+    <text class="small label" x="-4.18" y="-1.68" text-anchor="middle">Keeper’s cottage</text>
+    <text class="small" x="-4.18" y="-1.46" text-anchor="middle">Base annex</text>
+    <path class="line" d="M1.14-4.26 H-.57"/>
+    <text class="small label" x="-.69" y="-4.21" text-anchor="end">Right spiral stairs</text>
+    <path class="line" d="M2.92-1.76 H2.34 L2.05-1.03 H1.0"/>
+    <text class="small label" x=".87" y="-.98" text-anchor="end">Ground door at base</text>
+    <text class="small label" x="3" y=".26" text-anchor="end">0.0 m base</text>
+  </g>
+  <g transform="translate(12.45 0)" aria-label="Front to rear section through CHUD and balcony">
+    <text class="label" x="-3" y="-12.23">B · front desk / rear balcony</text>
+    <path class="room" d="M-3 0V-9H3V0Z"/>
+    <path class="wall" d="M-3 0V-7.06 M-3-8.45V-9H3V-8.1H2.85 M3-6V0H-3"/>
+    <path class="glass" d="M-3-8.45V-7.06"/>
+    <path class="wall" d="M-3-6H4.05"/>
+    <path class="glass" d="M2.85-8.1V-6"/>
+    <path class="line" d="M2.85-7.07H2.98"/>
+    <path class="rail" d="M4.05-6V-7.08 M4.05-7.08H3.68 M4.05-6.55H3.7"/>
+    <path class="line" d="M3.0-5.94H3.93 L3.0-5.31"/>
+    <use href="#lantern"/>
+    <use href="#seat" transform="translate(.55 0) scale(-1 1)"/>
+    <path class="object" d="M-2.17-6.77H-1.45V-6.69H-2.17Z M-2.10-6.69H-2.03V-6.03H-2.10Z M-1.58-6.69H-1.51V-6.03H-1.58Z"/>
+    <path class="object" d="M-2.08-7.25H-1.81V-6.84H-2.08Z"/>
+    <path class="line" d="M-1.97-6.84V-6.77"/>
+    <path class="line" d="M-.55-10.25H-1.69"/>
+    <text class="small label" x="-1.82" y="-10.2" text-anchor="end">Lantern room</text>
+    <path class="line" d="M-2.92-7.94H-2.56"/>
+    <text class="small label" x="-2.45" y="-7.90">Ocean glazing</text>
+    <path class="line" d="M-1.8-7.00H-1.18"/>
+    <text class="small label" x="-1.07" y="-6.95">CHUD</text>
+    <path class="line" d="M.62-7.25 L1.03-7.55 H1.32"/>
+    <text class="small label" x="1.43" y="-7.50">Seated eye line</text>
+    <path class="line" d="M2.95-7.83H3.34"/>
+    <text class="small label" x="3.46" y="-7.78">Rear door</text>
+    <path class="line" d="M4.05-6.4H4.31"/>
+    <text class="small label" x="4.42" y="-6.35">Rail</text>
+    <path class="line" d="M2.85-5.13H4.05 M2.85-5.24V-5.02 M4.05-5.24V-5.02"/>
+    <text class="small label" x="3.45" y="-4.85" text-anchor="middle">1.2 m deck</text>
+    <text class="small" x="-2.8" y="-2.06">Tower below</text>
+  </g>
+  <g transform="translate(15.05 1.0)">
+    <path class="line" d="M0 0H2 M0-.065V.065 M1-.065V.065 M2-.065V.065"/>
+    <text class="small" x="0" y="-.12" text-anchor="middle">0</text>
+    <text class="small" x="1" y="-.12" text-anchor="middle">1</text>
+    <text class="small" x="2" y="-.12" text-anchor="middle">2 m</text>
+  </g>
+</svg>
