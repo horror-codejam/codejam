@@ -11,12 +11,10 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
-- Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3).
-- Game logic prototype (branch proto/game-logic, folder prototype/): M1 done. Pure TypeScript engine implementing GAME_LOGIC.md (src/sim/engine.ts), keyword command parser, offline keyword judge, canned CHUD lines, voice logs, question banks. 159 tests pass (npm test). Gap fills documented in prototype/IMPLEMENTATION_NOTES.md.
-- Prototype next: M2 playable UI (canvas views, 1.5 s dash, hold views, chat, quick buttons, Web Audio cues, end screens, dev panel on backtick). M3 local Hono /turn server calling Claude Haiku for judge and voice (key in prototype/.env, gitignored), tuned prompts, injection test kit. M4 playtest and tune config.ts only.
-- Working on: Blender watch room environment, starting with the gray box.
-- Blockers: none. Poly Haven is still switched off in the MCP for Blender tab (needs ticking before real textures).
-- Next: gray box of the watch room, lock the 4 camera angles (cam_desk, cam_window, cam_stairs, cam_balcony), then materials and lighting. Blender files are kept out of git, renders go in art/renders/.
+- Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
+- Working on: watch room look pass.
+- Blockers: none. Poly Haven is switched on in the MCP for Blender tab.
+- Next: real materials from Poly Haven (wet stone, worn metal, glass), then moody lighting per camera, then the hands and animated props.
 - Blender MCP setup per person: install uv, run `claude mcp add -s user blender uvx mcp-for-blender` (or `codex mcp add blender -- uvx mcp-for-blender`), run `uvx mcp-for-blender install-addon`, open Blender once first, enable "MCP for Blender" in Preferences, Add-ons, press N and start the MCP server, restart the AI tool.
 
 ## Vidush (Vidush-jpg)

@@ -23,6 +23,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 - Rescue: your crew radios a mayday as the boat sinks. The coast guard answers that the storm means they cannot come for 5 days.
 - Why nights only: Ram can only reach the lighthouse when the high tide lets him through the caves. At 6 AM the tide goes out and he must get back before the path floods.
 - Why you cannot leave: no boat, freezing sea, rocks all around. You wait for rescue.
+- The twist (team idea, 2026-11-21, see scenes/99-final-cage-hall/): Ram Altman is a monster controlled by the AI. The AI uses him to scare you into staying. If you will not stay of your own free will, it tries to kill you. Many people before you went through the same nights. It is a cycle: the monsters are former keepers who lost, and losing turns you into the next one. The AI has been gaslighting you the whole time. The Ram backstory above is what the player is told, not necessarily the truth. Which parts are lies is still open.
 
 ## Characters and motives
 | Character | Wants | Does at night |
@@ -31,7 +32,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 | CHUD (the AI) | Keep you forever | Protects you while it believes you are staying. Punishes you when it suspects you are leaving |
 | Ram | Destroy the AI, and anyone helping it | Tries to break in through one of 3 entries. Talks through doors to turn you against the AI |
 
-Why the AI turns on you without contradicting itself: it does not want you dead, it wants you to need it.
+Why the AI turns on you without contradicting itself: it does not want you dead, it wants you to need it. (Superseded by the twist: if you will not stay willingly, the AI tries to kill you. The mood stages below still apply.)
 - Happy: protects you instantly.
 - Hurt: sulks and makes you beg ("Maybe protect yourself, since you don't need me").
 - Furious: lets Ram get close on purpose to scare you into staying ("See? You need me").
@@ -40,7 +41,7 @@ Why the AI turns on you without contradicting itself: it does not want you dead,
 Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts about 4 real minutes (about 40 seconds per in-game hour). The clock is always on screen.
 
 ## Onboarding
-- Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat and you black out.
+- Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as CHUD on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
 - Rules explainer (our "phone guy"): Ram's old voice logs found on the terminal, recorded as he turned against the AI. Each night unlocks a new one. Night 1 explains the basics: he comes with the tide, lock the door he is at, the generator runs one thing at a time, and do not let it know you want to leave.
@@ -53,7 +54,10 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Listen for scraping and movement at the rail behind you.
 - Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
+- One power slot: the storm-damaged generator powers ONE thing at a time: one lock, or the lamp beam. At night all its power goes to the lighthouse beacon by default, so every lock steals power from the light. The beam lights up the rocks and tower so you can see where Ram is. Seeing and locking never happen together.
+- The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. While the beam is powered, its amber light sweeps across the sea through the front glazing every few seconds.
+- Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen.
+- The CHUD terminal (scenes/03b-chud-terminal/): click the computer in the desk view to open it full screen. CHUD's mood face on the left above the music player, chat with CHUD in the center, a top-down lighthouse map of the entrances on the right, the clock top right, a music player on the left (creepy messages and weird lyrics slip into the songs), and a power bar bottom right. Open conflicts with GAME_LOGIC.md are listed in the scene sheet.
 
 ## Player actions
 1. Type to the AI: ask where Ram is, ask it to lock an entry or turn on the beam, answer its questions.
@@ -121,6 +125,9 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 ## Endings
 - Win: 6 AM night 5, rescue helicopter. Flying away, the player sees Ram on the rocks staring up. The lamp blinks in Morse code: "COME BACK."
 - Lose: Ram breaks in. He does not hurt the player. He smashes the AI's computer, then looks at the player: "Now you're the keeper." Fade to black, the lamp turns back on.
+- New direction (2026-11-21, replaces the two endings above once the details are settled): both endings finish in the Cage Hall (scenes/99-final-cage-hall/).
+  - Lose: the AI kills you. You open your eyes inside a cage, in a hall full of caged people and monsters who went through the same thing.
+  - Win: you escape and see the same hall from outside. The monsters are puppets the AI controls, and your cage is empty, waiting for the next person.
 
 ## AI architecture and anti-cheat
 - The AI never decides win or loss. Game code owns every meter, lock, timer and outcome.
@@ -181,7 +188,7 @@ Render list (about 25 to 40 images):
 
 Showing Ram: never fully. Show fingers under the lifting hatch lid, a hand or part of a face at the left window, or a partial silhouette at the balcony rail. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
 
-CHUD's face: drawn in code on the PC screen as UI states (warm, hurt, jealous, furious), not 3D.
+CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, furious), from Vidush's sheet scenes/03-watch-room/chud_smiley_four_moods.png, shown in code, not 3D.
 
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
@@ -199,6 +206,9 @@ Workflow:
 - Parked idea: "Quiet Hours", typing makes noise that attracts Ram.
 
 ## Open questions
+- Twist details: who Ram really is (an earlier keeper turned monster; is the founder story a lie, or was the founder the first victim?), how a winning player sees the hall, and where the hall is.
+- If the AI controls Ram, are his "Don't trust it!" door lines part of the gaslighting?
+- When does the Cage Hall lose ending play? GAME_LOGIC.md section 11 shows a loss screen and a retry after each lost night. Options: only when the player gives up or runs out of retries, or after every lost night.
 - Game name.
 - Whether CC0 pre-made assets count as allowed under the build-from-scratch rule (ask organizers).
 - LLM provider and model (latency test needed).
