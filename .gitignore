@@ -9,3 +9,8 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Personal AI tool files
+CLAUDE.local.md
+.claude/settings.local.json
+AGENTS.override.md

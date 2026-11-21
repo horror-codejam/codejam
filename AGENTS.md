@@ -2,6 +2,21 @@
 
 Shared working rules for every AI assistant used on this repo. Project owners: the team (all 3 members, equal say). Any decision reserved for the project owner needs agreement from the team.
 
+## Project context
+- Project: browser horror game for McGill CodeJam 16 (Nov 20 to 22, 2026). Working title HOMI, name not final.
+- docs/GAME_DESIGN.md: the current game design (working draft). Source of truth for story, rules and AI architecture.
+- docs/STATUS.md: what works, who is on what, blockers, next steps. One section per person.
+- docs/DECISIONS.md: append-only log of decisions, one line each (date, decision, why).
+- Tech stack: not decided yet. Record it in docs/DECISIONS.md once chosen, then add build and run commands here.
+
+## Session protocol
+- At session start: read docs/STATUS.md and docs/GAME_DESIGN.md before doing any work.
+- Before finishing a task: update your own section of docs/STATUS.md. Do not edit other people's sections.
+- When a decision changes scope, stack, design or behavior: append one line to docs/DECISIONS.md and update docs/GAME_DESIGN.md if the design changed.
+- Pull before starting work. Work on a branch and open a PR to main, unless the change is docs-only and small.
+- After a git pull, restart or reload the AI tool so it rereads these files.
+- Never commit secrets. API keys go in a local .env file, which is gitignored.
+
 ## Working style
 - Get the project owners' go-ahead before building or running multi-step work. Show the plan first.
 - Do the smallest correct next step, not the most impressive one.
