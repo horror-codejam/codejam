@@ -83,6 +83,13 @@ let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
 let hintCaption: Caption | undefined;
 let lastHudT = 0; // HUD time of the previous frame, to pause a covered hint's countdown
+const hintQueue: { text: string; secs: number }[] = []; // hints waiting for the one on screen to finish
+
+// A hint never replaces one still showing: it waits its turn and then gets its full time.
+function showHint(text: string, t: number, secs = 6): void {
+  if (hintCaption && hintCaption.until > t) hintQueue.push({ text, secs });
+  else hintCaption = { text, until: t + secs };
+}
 let powerAlarmUntil = 0;
 let powerAlarmEntry: Entry | null = null;
 let lockDroppedByLight: Entry | null = null; // flashes its cell again when the monitor is back in view, if still unlocked
@@ -238,7 +245,7 @@ function onEvent(ev: GameEvent, t: number): void {
       if (engine.state.phase === "NIGHT_CARD") sound.nightStart();
       terminal.clear();
       convo = [];
-      chudCaption = radioCaption = hintCaption = undefined;
+      chudCaption = radioCaption = hintCaption = undefined; hintQueue.length = 0;
       breachShown = false;
       endScare();
       artifacts?.read(null);
@@ -273,7 +280,7 @@ function onEvent(ev: GameEvent, t: number): void {
           // The first time in the early nights, say it once in words too.
           if (!lockDropHintShown && !engine.isPracticing && engine.state.run.night <= 2) {
             lockDropHintShown = true;
-            hintCaption = { text: "Your light dropped the lock.", until: t + 5 };
+            showHint("Your light dropped the lock.", t, 5);
           }
         }
         if (previous !== ev.slot) sound.relay(droppedLock);
@@ -317,6 +324,8 @@ function onEvent(ev: GameEvent, t: number): void {
       const seq = ++chudLineSeq;
       if (engine.isPracticing || !llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, ev.band, t, seq, URGENT_SPEECH.has(o.kind));
+        // A question stays readable for most of its timer (a radio caption on top cannot hide it for good).
+        if (o.kind === "question" && chudCaption) chudCaption.until = Math.max(chudCaption.until, t + CONFIG.QUESTION_TIMEOUT - 1);
         break;
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
@@ -343,7 +352,7 @@ function onEvent(ev: GameEvent, t: number): void {
       radioCaption = { text: ev.text, until: t + 4 };
       break;
     case "HINT":
-      if (engine.state.run.night === 1 || ev.text.startsWith("He left")) hintCaption = { text: ev.text, until: t + 6 };
+      if (engine.state.run.night === 1 || ev.text.startsWith("He left")) showHint(ev.text, t);
       break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
@@ -455,6 +464,10 @@ function renderHud(t: number): void {
   const hudDt = Math.max(0, t - lastHudT);
   lastHudT = t;
   if (hintCaption && hintCaption.until > t && (s.player.reading !== null || caption !== hintCaption)) hintCaption.until += hudDt;
+  if ((!hintCaption || hintCaption.until <= t) && hintQueue.length > 0) {
+    const next = hintQueue.shift()!;
+    hintCaption = { text: next.text, until: t + next.secs };
+  }
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
   ui.subtitle.classList.toggle("desk", deskView); // sits on the bare desk above the keyboard, not over it
@@ -584,7 +597,7 @@ function startRun(saved?: SavedRun): void {
   devRun = false;
   terminal.chat.value = "";
   terminal.clear();
-  chudCaption = radioCaption = hintCaption = undefined;
+  chudCaption = radioCaption = hintCaption = undefined; hintQueue.length = 0;
   sound.unlock();
 
   if (!saved && !params.has("nointro")) {
