@@ -92,7 +92,11 @@ Stopped at 09:15. The stop condition was first met at 07:30. A stricter final ch
 - All difficulty numbers come from bots, not humans. Nights 2 to 4 were tuned partly before the bot fix in cbb98a9. With the fixed bot, night 3 reads slightly easy (60% against a 55% target). One human playtest of nights 2 and 3 would settle it.
 - The two ending commits (6b197a0, 0047966) change how night 5 plays. Siqi should agree before merging.
 - The audio preload commits were checked in a local production build (vite preview). The blocking sounds (night_start, jumpscare.wav) arrive by 0.36 s. The beds and title music finish in the background by 1.7 s, before the title shows at 3.3 s (art is the slower part). New Game starts the intro with no console errors. Nobody has listened yet: give the title music one listen on a cold load.
-- These UI changes are typecheck-, test- and review-checked only: the hint pause and queue (ea13884, 888fc3f), urgent speech (b6443ae), and the question caption plus draft resend (edab4bb, 367b432). The browser pane was hidden, which pauses the game, so none was driven in a browser. Give them a 2-minute look on night 1 and 2.
+- I drove these UI changes in the browser at 09:20 on the dev server:
+  - Hint pause and queue (ea13884, 888fc3f): the 0:08 hint, fired while the clipping was open, still showed after closing it at 0:27. The 0:24 hint queued behind it and showed next.
+  - Question caption (edab4bb): at the hatch, newer lines covered the pending question. It came back once they expired, and it cleared when the question timed out.
+  - Draft resend (edab4bb, 367b432): a draft sent inside the 1.5 s limit sent itself about 1.55 s after the previous message. "lock the hatch", sent while turning to the window, waited and then locked the hatch on return to the desk.
+- Not verified: the urgent speech queue (b6443ae) can't be heard locally, because there's no text-to-speech server here (`/api/tts` returns 503). Listen once on the deployed preview: a question should play right after any line already playing. Also give the title music one listen on a cold load.
 - The LLM voice path could not run locally because there's no API key in this worktree. The stale-reply fix (21f58fc) is typecheck- and logic-reviewed only.
 - `prototype/src/main.ts` got several small edits. Expect merge conflicts if teammates changed the same HUD or POWER_CHANGED code.
 

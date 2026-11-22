@@ -119,3 +119,4 @@ Model status at stop: Codex never hit its limit (11 runs). No limit resets to tr
 - Production build checked with vite preview: blocking audio arrives first, beds and title music load in the background, intro starts with no errors, DEV badge hidden.
 - Final council on HEAD 0e78ab0: FNAF persona (Sonnet, after the Codex limit) loop 8 chud 8 onboarding 8 horror 8 ui 9 bugs 8 perf 8, MINOR_ONLY yes. Casual: all 8, MINOR_ONLY yes. Judge: all 8, MINOR_ONLY yes.
 - Stopped at 09:15: build passes, 344 tests pass, branch pushed.
+- 09:20: browser pane visible again. Verified in browser: hint pause and queue, question caption returning after newer lines, rate-limited draft resend (including waiting until back at the desk). No game errors in the console. Urgent speech not audible locally (no TTS server).
