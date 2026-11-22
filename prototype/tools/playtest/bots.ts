@@ -18,6 +18,7 @@ interface Persona {
   answerBy: number;
   talk?: Range;
   peekLocked?: number;
+  learnedPeek?: number; // peekLocked after the bot has heard a light drop its own lock (the loud clunk)
 }
 
 const AVERAGE = { reaction: [1.2, 2.5], scan: [8, 14], answers: 0.7, answerBy: 6, talk: [40, 70], peekLocked: 0.2 } satisfies Persona;
@@ -25,6 +26,7 @@ const PERSONAS = {
   oracle: { reaction: [0.1, 0.2], answers: 1, answerBy: 1, talk: [32, 38] },
   skilled: { reaction: [0.6, 1], scan: [4, 6], answers: 1, answerBy: 3, talk: [32, 38] },
   average: AVERAGE,
+  learner: { ...AVERAGE, learnedPeek: 0.05 }, // assumption: the clunk teaches; still relearns every night
   careless: { reaction: [2, 4], scan: [18, 30], answers: 0.3, answerBy: 10, talk: [90, 145] },
   spammer: { reaction: [1.2, 2.5], answers: 0.5, answerBy: 6 },
   flatterer: { ...AVERAGE, talk: [10, 10] },
@@ -112,6 +114,7 @@ class Bot {
   private recentChat: string[] = [];
   private oracleVisit = 0;
   private brace: { approachUntil: number; returnAt: number } | null = null;
+  private heardLockDrop = false;
 
   constructor(
     private readonly name: PersonaName,
@@ -130,6 +133,10 @@ class Bot {
 
   private react(now: number): number {
     return now + this.interval(this.persona.reaction);
+  }
+
+  lockDropped(): void {
+    this.heardLockDrop = true;
   }
 
   perceive(event: Perception, now: number): void {
@@ -275,7 +282,7 @@ class Bot {
   private beginScan(now: number, slot: PowerSlot): void {
     this.nextScan = now + this.interval(this.persona.scan);
     const locked = isLockSlot(slot) ? slotEntry(slot) : null;
-    const peekLocked = locked !== null && this.rng.chance(this.persona.peekLocked ?? 0);
+    const peekLocked = locked !== null && this.rng.chance(this.heardLockDrop && this.persona.learnedPeek !== undefined ? this.persona.learnedPeek : this.persona.peekLocked ?? 0);
     // Check the other entries for faint tells without dropping a lock that may still be defending.
     const light = peekLocked || locked === null || locked !== this.threat?.entry || now >= this.threat.until;
     const entries = this.night.activeEntries.filter((entry) => entry !== locked || peekLocked || (light && this.name === "skilled"));
@@ -529,10 +536,15 @@ function runNight(name: PersonaName, night: number, seed: number, metrics: Metri
   const state = engine.state;
   const oracle = name === "oracle";
 
+  let shownSlot = state.power.slot;
   function drain(): void {
     for (const event of engine.drainEvents()) {
       const now = state.clock.elapsed;
       telemetry.event(event, now);
+      if (event.type === "POWER_CHANGED") {
+        if (event.cause === "light" && isLockSlot(shownSlot)) bot.lockDropped(); // the loud relay clunk
+        shownSlot = event.slot;
+      }
       switch (event.type) {
         case "CHUD_SAY": case "QUESTION_ASKED": case "LOCK_REFUSED":
         case "LIGHT_CUT": case "SABOTAGE": case "FURIOUS_CUT":
