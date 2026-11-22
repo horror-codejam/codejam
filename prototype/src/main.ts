@@ -6,10 +6,10 @@ import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
-import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
+import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand } from "./sim/types";
 import { artUrl, loadArt } from "./ui/art";
 import { Sound } from "./ui/audio";
-import { EDGE_TARGET, EdgeTurner, EDGES } from "./ui/edges";
+import { EdgeTurner } from "./ui/edges";
 import { playIntro } from "./ui/intro";
 import { H, W } from "./ui/layout";
 import { Scene } from "./ui/scene";
@@ -21,7 +21,8 @@ import { renderName } from "./ui/screens/name";
 import { renderSafetyPause } from "./ui/screens/safety";
 import { clearSave, readSave, writeSave, type SavedRun } from "./ui/screens/save";
 import { GAME_TITLE, renderTitle } from "./ui/screens/title";
-import { ARTIFACTS, MALICE, RING, SCARE } from "./uiConfig";
+import type { createArtifacts } from "./ui/artifacts";
+import { ARTIFACTS_ENABLED, MALICE, RING, SCARE } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -38,13 +39,13 @@ let engine = new GameEngine({
 });
 const sound = new Sound();
 let scene: Scene;
+let artifacts: ReturnType<typeof createArtifacts> | undefined;
 if (import.meta.env.DEV) Object.assign(window, { engine }); // console access while developing
 
 const ui = {
   hud: $("hud"),
   clock: $("clock"),
   night: $("hud-night"),
-  hint: $("hint"),
   desk: $("terminal"),
   face: $("t-face"),
   band: $("t-band"),
@@ -57,11 +58,7 @@ const ui = {
   questionBar: $("question-bar"),
   chatForm: $<HTMLFormElement>("chat-form"),
   chat: $<HTMLInputElement>("chat"),
-  chatNote: $("chat-note"),
   kill: $<HTMLButtonElement>("kill"),
-  edges: $("edges"),
-  braceHint: $("brace-hint"),
-  holdPanel: $("hold-panel"),
   ring: $("ring"),
   subtitle: $("subtitle"),
   screen: $("screen"),
@@ -70,9 +67,6 @@ const ui = {
   devText: $("dev-text"),
   devBtns: $("dev-btns"),
   pause: $("pause"),
-  artifacts: $("artifacts"),
-  reader: $("reader"),
-  readerImg: $<HTMLImageElement>("reader-img"),
 };
 
 const NAME: Record<Entry, string> = { WINDOW: "window", HATCH: "hatch", BALCONY: "balcony" };
@@ -93,9 +87,10 @@ let frontScreen: "title" | "intro" | null = null; // presentation before the eng
 let screenAbort = new AbortController();
 let devRun = deepNight !== null;
 let breachShown = false;
-let subtitleUntil = 0;
-let hintUntil = 0;
-let noteUntil = 0;
+type Caption = { text: string; until: number };
+let chudCaption: Caption | undefined;
+let radioCaption: Caption | undefined;
+let hintCaption: Caption | undefined;
 let powerAlarmUntil = 0;
 let maliciousUntil = 0; // real seconds: CHUD's malicious smile is up
 let lightCutUntil = 0; // real seconds: the LIGHT cell flashes red after CHUD forced the light off
@@ -141,7 +136,10 @@ async function boot(): Promise<void> {
   fit();
   window.addEventListener("resize", fit);
   wireInput();
-  buildArtifacts();
+  if (ARTIFACTS_ENABLED) {
+    const { createArtifacts } = await import("./ui/artifacts");
+    artifacts = createArtifacts($("ui"), scene, () => engine);
+  }
   buildDevButtons();
   initDev();
   if (!deepNight) showTitle();
@@ -201,10 +199,6 @@ function frame(dt: number): void {
       sound.setAmbientPlaying(true);
       if (document.hidden) setPaused(true);
     }
-    if (phase === "PLAYING" && engine.state.run.night === 1 && engine.state.clock.elapsed < 1) {
-      ui.hint.textContent = "Push the mouse to the left, right or bottom edge to look around";
-      hintUntil = t + 8;
-    }
   }
   edgeTurn(t);
   if (!paused) scene.update(engine, t);
@@ -220,11 +214,10 @@ function onEvent(ev: GameEvent, t: number): void {
       sound.windowMask = ev.night >= 4 ? 0.55 : 1;
       ui.log.replaceChildren();
       convo = [];
-      hintUntil = 0;
-      subtitleUntil = 0;
+      chudCaption = radioCaption = hintCaption = undefined;
       breachShown = false;
       endScare();
-      showReader(null);
+      artifacts?.read(null);
       maliciousUntil = 0;
       lightCutUntil = 0;
       powerAlarmUntil = 0;
@@ -255,8 +248,10 @@ function onEvent(ev: GameEvent, t: number): void {
       if (ev.band === "JEALOUS" || ev.band === "FURIOUS") maliciousUntil = Math.max(maliciousUntil, t + MALICE.LIGHT_CUT_TIME);
       break;
     case "ARTIFACT":
-      sound.paper();
-      showReader(ev.id);
+      if (artifacts) {
+        sound.paper();
+        artifacts.read(ev.id);
+      }
       break;
     case "CHUD_ONLINE":
       if (!ev.online) stopChudSpeech();
@@ -270,7 +265,6 @@ function onEvent(ev: GameEvent, t: number): void {
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
       const token = dialogueToken;
-      const typing = addLog("typing", "CHUD is typing...");
       void voiceRemote({
         kind: o.kind,
         pass: o.kind === "answer_ack" ? o.pass : undefined,
@@ -281,7 +275,6 @@ function onEvent(ev: GameEvent, t: number): void {
         night: engine.state.run.night,
         recent: convo.slice(-6),
       }).then((text) => {
-        typing.remove();
         if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
           showChud(text ?? ev.text, ev.band, now());
         }
@@ -290,12 +283,10 @@ function onEvent(ev: GameEvent, t: number): void {
     }
     case "RADIO":
       sound.radio();
-      say(`RADIO: "${ev.text}"`, "radio", t, 4);
-      addLog("radio", ev.text);
+      radioCaption = { text: ev.text, until: t + 4 };
       break;
     case "HINT":
-      ui.hint.textContent = ev.text;
-      hintUntil = t + 6;
+      if (engine.state.run.night === 1) hintCaption = { text: ev.text, until: t + 6 };
       break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
@@ -304,14 +295,11 @@ function onEvent(ev: GameEvent, t: number): void {
     case "HOLD_ENDED":
       sound.braceEnd(ev.reason === "arms");
       break;
-    case "MESSAGE_REJECTED":
-      note(ev.reason, t);
-      break;
     case "BREACH":
       stopChudSpeech();
       resetScreen();
       show(ui.screen, false);
-      showReader(null);
+      artifacts?.read(null);
       startScare(ev.loss);
       break;
     case "SAFETY_PAUSE":
@@ -324,7 +312,7 @@ function onEvent(ev: GameEvent, t: number): void {
         const { night, factsCheckpoint } = engine.state.run;
         writeSave({ night: ev.type === "NIGHT_WON" ? night + 1 : night, factsCheckpoint });
       }
-      showReader(null);
+      artifacts?.read(null);
       sound.stopCues();
       sound.setAmbientPlaying(false);
       sound.fadeStorm(0, 1.9);
@@ -338,22 +326,12 @@ function onEvent(ev: GameEvent, t: number): void {
 // ---------------------------------------------------------------------------
 // HUD
 
-function say(text: string, kind: "chud" | "radio", t: number, secs?: number): void {
-  ui.subtitle.textContent = text;
-  ui.subtitle.className = kind;
-  ui.subtitle.style.opacity = "1";
-  subtitleUntil = t + (secs ?? Math.max(2.5, text.length * 0.06));
-}
-
-const LOG_PREFIX = { me: "> ", chud: "CHUD: ", radio: "RADIO: ", typing: "" };
-
-function addLog(who: keyof typeof LOG_PREFIX, text: string): HTMLElement {
-  const d = document.createElement("div");
-  d.className = who;
-  d.textContent = LOG_PREFIX[who] + text;
-  ui.log.appendChild(d);
+function addLog(who: "me" | "chud", text: string): void {
+  const line = document.createElement("div");
+  line.className = who;
+  line.textContent = who === "me" ? "> " + text : text;
+  ui.log.append(line);
   while (ui.log.children.length > 7) ui.log.firstChild!.remove();
-  return d;
 }
 
 function stopChudSpeech(): void {
@@ -362,27 +340,12 @@ function stopChudSpeech(): void {
 }
 
 function showChud(text: string, band: Band, t: number): void {
-  say(text, "chud", t);
+  chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
   addLog("chud", text);
   convo.push(`CHUD: ${text}`);
   sound.chime();
   if (engine.state.power.chudOnline) sound.speak(text, band);
   scene.speakingUntil = t + Math.min(3, 0.4 + text.length * 0.035);
-}
-
-const NOTE: Record<RejectReason, string> = {
-  CHUD_OFFLINE: "CHUD is offline.",
-  NOT_AT_DESK: "You have to be at the desk to type.",
-  RATE_LIMIT: "Too fast. One message every 1.5 s.",
-  TOO_LONG: "200 characters max.",
-  EMPTY: "",
-  NOT_PLAYING: "",
-  READING: "",
-};
-
-function note(reason: RejectReason, t: number): void {
-  ui.chatNote.textContent = NOTE[reason];
-  noteUntil = t + 2;
 }
 
 function clockText(): string {
@@ -414,11 +377,12 @@ function renderHud(t: number): void {
 
   const p = s.power;
 
-  // At the desk the log already shows every line, so subtitles only appear away from it.
   const deskView = playing && atDesk && view === "DESK";
-  if (t > subtitleUntil || deskView) ui.subtitle.style.opacity = "0";
-  show(ui.hint, playing && t < hintUntil);
-  if (t > noteUntil) setText(ui.chatNote, "");
+  const caption = playing
+    ? [radioCaption, deskView ? undefined : chudCaption, hintCaption].find((line) => line && line.until > t)
+    : undefined;
+  if (caption) setText(ui.subtitle, caption.text);
+  ui.subtitle.classList.toggle("visible", !!caption);
 
   // CHUD's terminal on the desk screen, following the camera pan
   const deskOn = deskView;
@@ -439,36 +403,8 @@ function renderHud(t: number): void {
   } else if (document.activeElement === ui.chat) {
     ui.chat.blur();
   }
-  renderArtifacts(deskOn && s.player.reading === null);
-
-  // edge indicators, the brace hint and the cursor ring (edge controls)
-  const atEntry = pos.kind === "STANDING" || (pos.kind === "HOLDING" && !!pos.stay);
-  const canLook = playing && !paused && (atDesk || atEntry);
-  show(ui.edges, canLook);
-  if (canLook) {
-    for (const el of ui.edges.querySelectorAll<HTMLElement>(".edge")) {
-      const edge = el.dataset.edge as (typeof EDGES)[number];
-      const to = EDGE_TARGET[view][edge];
-      show(el, !!to);
-      if (!to) continue;
-      setText(el.querySelector("span")!, to === "DESK" ? "DESK" : to === "BALCONY" ? "BEHIND" : to);
-      el.classList.toggle("on", edges.active === edge);
-    }
-  }
-  const hint = !playing || paused ? null : braceHint(view);
-  show(ui.braceHint, hint !== null);
-  if (hint !== null) setText(ui.braceHint, hint);
-  show(ui.holdPanel, playing && pos.kind === "HOLDING");
+  artifacts?.render(deskOn && s.player.reading === null);
   renderRing();
-}
-
-function braceHint(view: View): string | null {
-  const s = engine.state;
-  const pos = s.player.position;
-  const now = s.clock.elapsed;
-  if (pos.kind === "DESK" && view !== "DESK") return now < s.player.holdCooldownUntil ? "Catching your breath..." : `Click to go to the ${NAME[view]}`;
-  if (pos.kind === "STANDING") return now < pos.restUntil ? "Arms resting..." : "Hold left click to brace. Edge to go back.";
-  return null;
 }
 
 // One small ring on the pointer for whichever timer is running: edge dwell (fills), arms left while bracing
@@ -637,6 +573,7 @@ function startRun(saved?: SavedRun): void {
   devRun = false;
   ui.chat.value = "";
   ui.log.replaceChildren();
+  chudCaption = radioCaption = hintCaption = undefined;
   sound.unlock();
 
   if (!saved && !params.has("nointro")) {
@@ -681,58 +618,6 @@ function showScreen(phase: Phase): void {
     case "PLAYING":
       break;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Desk artifacts (GAME_LOGIC 6.6): hotspots on the desk render, the full-screen reader
-
-function buildArtifacts(): void {
-  for (const a of ARTIFACTS) {
-    const b = document.createElement("button");
-    b.dataset.artifact = a.id;
-    b.title = a.label;
-    b.setAttribute("aria-label", `Read: ${a.label}`);
-    const url = artUrl(a.slot);
-    if (url) b.style.backgroundImage = `url("${url}")`;
-    else b.textContent = a.label;
-    b.addEventListener("click", () => {
-      engine.pickUpArtifact(a.id);
-      b.blur();
-    });
-    ui.artifacts.appendChild(b);
-  }
-}
-
-function renderArtifacts(on: boolean): void {
-  show(ui.artifacts, on);
-  if (!on) return;
-  for (const b of ui.artifacts.querySelectorAll<HTMLButtonElement>("button")) {
-    const a = ARTIFACTS.find((x) => x.id === b.dataset.artifact)!;
-    const r = scene.plateRect(a.rect);
-    b.style.transform = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px) rotate(${a.tilt}deg)`;
-    b.style.width = `${r.w.toFixed(1)}px`;
-    b.style.height = `${r.h.toFixed(1)}px`;
-  }
-}
-
-function showReader(id: string | null): void {
-  show(ui.reader, id !== null);
-  if (id === null) return;
-  const a = ARTIFACTS.find((x) => x.id === id);
-  const url = a ? artUrl(a.slot) : null;
-  const ph = ui.reader.querySelector(".ph");
-  ph?.remove();
-  if (url) {
-    ui.readerImg.src = url;
-    show(ui.readerImg, true);
-  } else {
-    show(ui.readerImg, false);
-    const d = document.createElement("div");
-    d.className = "ph";
-    d.textContent = a?.label ?? id;
-    ui.reader.prepend(d);
-  }
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 }
 
 // ---------------------------------------------------------------------------
@@ -788,7 +673,8 @@ function setPaused(on: boolean): void {
   paused = on;
   scene.paused = on;
   // Keep Tab and Space from reaching the terminal or the desk papers behind the overlay.
-  for (const el of [ui.desk, ui.artifacts, ui.reader, ui.holdPanel]) el.toggleAttribute("inert", on);
+  ui.desk.inert = on;
+  artifacts?.pause(on);
   if (on) {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     sound.suspend();
@@ -809,7 +695,7 @@ function wireInput(): void {
     e.preventDefault();
     const text = ui.chat.value;
     const res = engine.submitMessage(text);
-    if (!res.ok) return; // MESSAGE_REJECTED event shows the note
+    if (!res.ok) return;
     addLog("me", text);
     convo.push(`Keeper: ${text}`);
     ui.chat.value = "";
@@ -836,14 +722,6 @@ function wireInput(): void {
     if (e.key === "Shift") setShift(false);
   });
   window.addEventListener("blur", () => setShift(false));
-
-  // the reader: click, right-click or Space puts the artifact down
-  ui.reader.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    engine.putDownArtifact();
-  });
-  ui.reader.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
 function setShift(down: boolean): void {
@@ -882,7 +760,7 @@ function onKey(e: KeyboardEvent): void {
     return;
   }
   if (paused) return;
-  if (s.player.reading !== null) {
+  if (ARTIFACTS_ENABLED && s.player.reading !== null) {
     if (e.code === "Space") {
       e.preventDefault();
       engine.putDownArtifact();

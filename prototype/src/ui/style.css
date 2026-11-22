@@ -24,12 +24,6 @@ button {
 button:hover { border-color: var(--dim); background: #1c232b; }
 button:disabled { opacity: 0.35; cursor: default; }
 
-#hint {
-  position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
-  background: rgba(255, 196, 107, 0.12); border: 1px solid var(--amber); color: var(--amber);
-  padding: 6px 16px; font-size: 16px; letter-spacing: 0.06em;
-}
-
 /* CHUD terminal: DOM on the desk render's screen. Positioned by main.ts each frame (follows the pan).
    Size = DESK_SCREEN (644 x 188 plate px) x K (1.68) = 1082 x 316 stage px, scaled by main.ts to the desk plate's screen. */
 #terminal {
@@ -70,8 +64,6 @@ button:disabled { opacity: 0.35; cursor: default; }
 }
 #log .me { color: var(--dim); text-align: right; }
 #log .chud { color: var(--crt); }
-#log .typing { color: #2a7a46; font-style: italic; }
-#log .radio { color: var(--amber); }
 #question { font-size: 11px; color: var(--crt); margin-top: 3px; }
 .bar { height: 4px; background: #1b2026; margin-top: 3px; }
 .bar i { display: block; height: 100%; background: var(--crt); width: 100%; }
@@ -82,7 +74,6 @@ button:disabled { opacity: 0.35; cursor: default; }
 }
 #chat:focus { border-color: var(--crt); }
 #chat:disabled { opacity: 0.4; }
-#chat-note { font-size: 11px; color: #ff9a3c; height: 14px; }
 #quick { display: flex; gap: 4px; justify-content: space-between; }
 #quick button { font-size: 11px; padding: 4px 5px; flex: 1; white-space: nowrap; }
 
@@ -108,37 +99,19 @@ button:disabled { opacity: 0.35; cursor: default; }
 #t-power i.pending { background: #7a5a1a; color: var(--amber); }
 #t-power.cut i { background: #ff3b3b; color: #fff; }
 
-/* edge controls: zone sizes match CONTROLS.EDGE_ZONE_SIDE / EDGE_ZONE_BOTTOM (70 / 40 stage px). Static hint only, the dwell shows on #ring */
-.edge {
-  position: absolute; display: flex; align-items: center; justify-content: center; gap: 8px;
-  color: var(--amber); font-size: 11px; letter-spacing: 0.2em; opacity: 0.22; transition: opacity 0.15s; text-shadow: 0 0 4px #000;
-}
-.edge.on { opacity: 0.5; }
-.edge b { font-size: 16px; font-weight: normal; }
-.edge.left, .edge.right { top: 0; bottom: 0; width: 70px; flex-direction: column; }
-.edge.left span, .edge.right span { writing-mode: vertical-rl; }
-.edge.left { left: 0; }
-.edge.right { right: 0; }
-.edge.bottom { left: 0; right: 0; bottom: 0; height: 40px; }
-#brace-hint {
-  position: absolute; left: 50%; top: 124px; transform: translateX(-50%); padding: 5px 14px; font-size: 14px; letter-spacing: 0.1em;
-  color: #e0b090; background: rgba(0, 0, 0, 0.45); border: 1px solid #5a4a3a; text-shadow: 0 0 4px #000;
-}
-
-/* holding */
-#hold-panel { position: absolute; left: 490px; top: 640px; width: 300px; text-align: center; }
-#release-hint { font-size: 13px; letter-spacing: 0.1em; color: var(--dim); text-shadow: 0 0 4px #000; }
-
 /* cursor ring: placed on the pointer by main.ts (size and colors in RING, uiConfig.ts); below #screen and #pause */
 #ring { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 #ring circle { fill: none; }
 #ring .arc { stroke-linecap: round; }
 
 #subtitle {
-  position: absolute; left: 190px; right: 190px; bottom: 74px; text-align: center; font-size: 19px; line-height: 1.35;
-  color: var(--crt); text-shadow: 0 0 6px #000, 0 0 2px #000; transition: opacity 0.4s;
+  position: absolute; left: 4%; right: 4%; bottom: 32px;
+  color: #e5dfd2; text-align: center; font: 25px/1.1 var(--screen-mono);
+  white-space: nowrap; text-shadow: 0 1px 4px #000, 0 1px 8px #000;
+  opacity: 0; transition: opacity 0.4s;
 }
-#subtitle.radio { color: var(--amber); }
+#subtitle.visible { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #subtitle { transition: none; } }
 
 .title-plate video {
   width: 100%;
@@ -180,20 +153,3 @@ button:disabled { opacity: 0.35; cursor: default; }
 @keyframes glitch { 0% { transform: translate(0, 0) skewX(0); } 50% { transform: translate(-2px, 1px) skewX(-6deg); opacity: 0.85; } 100% { transform: translate(2px, -1px) skewX(4deg); } }
 #t-face.malicious.art::after { content: ""; position: absolute; inset: 0; background: rgba(255, 0, 0, 0.25); mix-blend-mode: multiply; }
 #t-face { position: relative; }
-
-/* desk artifacts */
-#artifacts { position: absolute; inset: 0; pointer-events: none; }
-#artifacts button {
-  position: absolute; left: 0; top: 0; padding: 0; pointer-events: auto; cursor: zoom-in;
-  background-color: #2a2418; background-size: cover; background-position: center; border: 1px solid rgba(0, 0, 0, 0.6);
-  filter: brightness(0.45) sepia(0.3); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7);
-  color: #8a7a60; font-size: 8px; overflow: hidden;
-}
-#artifacts button:hover { filter: brightness(0.8) sepia(0.2); border-color: rgba(255, 196, 107, 0.6); }
-#reader {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.92); pointer-events: auto; cursor: pointer; z-index: 3;
-}
-#reader img { max-width: 1100px; max-height: 640px; object-fit: contain; box-shadow: 0 0 40px #000; filter: sepia(0.15) brightness(0.92); }
-#reader .ph { width: 640px; height: 420px; display: flex; align-items: center; justify-content: center; background: #d8ccb0; color: #3a2a1a; font-size: 20px; }
-#reader-hint { margin-top: 10px; font-size: 12px; color: var(--dim); letter-spacing: 0.1em; }

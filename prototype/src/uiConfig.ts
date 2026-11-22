@@ -62,6 +62,8 @@ export const BRACE = {
 // Desk artifacts (GAME_LOGIC 6.6): clickable papers on the desk, in plate px (960 x 480), drawn as small dim thumbnails
 // of their art. Placed for the final desk plate (final/webp/view_desk_off.webp): on the monitor's base slab either side
 // of the keyboard (slab y 372 to 428, keyboard from x 356), below the monitor, inside the centre view at any pan.
+export const ARTIFACTS_ENABLED = false;
+
 export const ARTIFACTS: { id: string; slot: string; label: string; rect: { x: number; y: number; w: number; h: number }; tilt: number }[] = [
   { id: "clipping", slot: "artifact_clipping", label: "Newspaper clipping", rect: { x: 205, y: 380, w: 52, h: 38 }, tilt: -4 },
   { id: "notebook", slot: "artifact_notebook", label: "Notebook", rect: { x: 272, y: 382, w: 50, h: 36 }, tilt: 3 },
