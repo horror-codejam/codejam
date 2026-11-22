@@ -9,7 +9,29 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Desk artifact hotspots and the reader live behind `ARTIFACTS_ENABLED` in `src/uiConfig.ts`. The flag defaults to false. Engine support is available for a later UI.
 - Pixi caps its resolution at 2, uses no antialiasing and stops the game ticker on pause and menus. Menu callbacks resume it as needed. The title and powered desk play their loops when the clips are available and motion is enabled. Jumpscares preload as WebP frames. Stills convert at 1600 x 800.
 
-### Release verification
+### Player-facing visual audit (2026-11-22)
+
+| Visual | Source for the current release |
+| --- | --- |
+| Loading and title | Our screen design. Final `title_loop.webm` plays under the title UI; reduced motion or playback failure uses final `title_bg`. |
+| Shipwreck intro | Our existing shipwreck renders and screen design. Helm, lightning, wave, capsize and all three blinks use the original images, order and timing. |
+| Name prompt and night card | Our screen designs. Name uses the dimmed final desk plate; the night card uses text on black. |
+| Desk and HUD | Final `view_desk_off`, our calibrated CHUD terminal and mood sheet, clock, captions and cursor ring. The malicious cue uses the team's mood sheet until dedicated art exists. Desk papers are disabled. |
+| Desk ambient and typing | `ambient_desk.webm` replaces the prototype beacon sweep when available. `desk_typing_off.webm` layers over the desk only during player typing, beneath the monitor mask. The desk has no entry light. Until rendered, nothing is drawn for the hands. |
+| Window, hatch and balcony, dark/lit | Final `view_<entry>_off` and `view_<entry>_on` for each. Locked uses the dark plate, with no tell. |
+| Window, hatch and balcony, tell/approach/inside | Final `tell_<entry>_off`, `tell_<entry>_on`, `approach_<entry>_on` and `inside_<entry>_on` for each. |
+| All three holds, standing and bracing | All 24 final `hold_<entry>_<stand\|brace>_<empty\|tell>_<on\|off>` plates. Arms are rendered into the brace plates. |
+| Dash out and back | Final `dash_<entry>_go.webm` and `dash_<entry>_back.webm` when available. Current fallback uses final stills, a short dip to black and the existing shake. |
+| Turns in both directions | Final `turn_<from>_<to>.webm` for each desk and entry pair when available. Current prototype fallback slides the final plates. |
+| Scare flash and off-entry snap | Final `inside_<entry>_on` for all three. Our presentation adds a 0.15 s snap when the displayed view is elsewhere, and uses the white pop only when the engine marks a flash. |
+| Jumpscare | All three final 24-frame sequences at 24 fps, with the last frame held. The four prototype stills are reserved for a missing or unreadable sequence. |
+| Pause, safety pause, dawn, loss, ending and credits | Our screen designs. Dawn, loss, the Night 5 ending and credits use black. Pause dims the current view. |
+
+The installed art set covers every still state and scare. The active prototype fallbacks are the desk sweep and the turn slide until footage lands. Coded arms, recolored entry-light wash and threat stand-ins are reserved for missing state plates. Development builds warn at load when prototype fallback slots are needed.
+
+The six [audit screenshots](screenshots/) show the title loop, desk, mid-dash, scare flash, jumpscare and ending. The dash capture uses a temporary 36-frame VP9 WebM made from a final hold plate. Temporary footage also exercised the return run, window turns, powered desk loop and typing gate. The production typing render is still pending, so only its plate fit and monitor layering were verified with fixtures.
+
+### Release verification (2026-11-21)
 
 - After loading Night 1 in headless Chrome, unique Pixi sources plus three frame buffers total about 582.5 MB of RGBA pixels at DPR 2. Chrome reported 11.9 MB of JS heap in that run. Removing the dormant ending plates and conditional legacy scare frames from the normal preload saved 31.3 MB of counted textures.
 - A cold run through New Game and into Night 1, with the intro started and then skipped, transferred 18.49 MB across 141 requests from the local production build, including Pixi worker requests. Audio accounted for 7.78 MB.

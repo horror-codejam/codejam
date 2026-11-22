@@ -70,6 +70,8 @@ Controls: the mouse moves you, Shift is the light, the rest of the keyboard is o
 4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and no light works. Last resort.
 5. Desk papers are disabled in the release UI. The paper mechanic in GAME_LOGIC.md is available for a later pass.
 
+The release uses final room plates and per-entry scare sequences. Missing run footage uses a dip to black with camera shake, and missing turn footage uses the still-plate slide. The Night 5 ending shows its text on black before credits.
+
 ## Ram's cycle
 | Phase | What happens | Player cue |
 |---|---|---|
