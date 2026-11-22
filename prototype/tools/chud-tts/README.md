@@ -62,7 +62,7 @@ Piper runs with or without an Anthropic key. Claude can rewrite certain conversa
 
 ## Vercel deployment
 
-Use `prototype` as the Vercel Root Directory and include the repository's shared `scenes/` files in the build. Vercel serves the Vite build and runs `api/tts.py` at `POST /api/tts`. On a cold instance, Piper downloads and verifies the pinned model into temporary storage. It reuses the initialized model on warm requests.
+The repository root Vercel configuration deploys the Vite frontend and both API functions from `prototype/`. A project whose Root Directory is `prototype` uses that folder's configuration and requires access to the shared `scenes/` files outside it. Both configurations serve `POST /api/tts` from the Python function. On a cold instance, Piper downloads and verifies the pinned model into temporary storage. It reuses the initialized model on warm requests.
 
 Set `ANTHROPIC_API_KEY` as a server-side Vercel environment variable if you want the Claude judge and generated dialogue. The Python speech function works with the game's canned dialogue without a key.
 

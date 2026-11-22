@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "builds": [
+    { "src": "prototype/package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
+    { "src": "prototype/api/turn.ts", "use": "@vercel/node" },
+    {
+      "src": "prototype/api/tts.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "prototype/tools/chud-tts/chud_tts.py",
+        "excludeFiles": "{art/**,scenes/**,prototype/assets/**,prototype/public/**,prototype/tests/**,prototype/dist/**,prototype/node_modules/**,prototype/tools/chud-tts/models/**}"
+      }
+    }
+  ],
+  "routes": [
+    { "src": "^/api/tts/?$", "dest": "/prototype/api/tts" },
+    { "src": "^/api/(health|judge|voice)/?$", "dest": "/prototype/api/turn?route=$1" },
+    { "src": "^/(api/)?turn/?$", "dest": "/prototype/api/turn" },
+    { "src": "^/$", "dest": "/prototype/index.html" },
+    { "src": "^/(.*)$", "dest": "/prototype/$1" }
+  ]
+}

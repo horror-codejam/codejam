@@ -5,11 +5,12 @@ declare const process: { env: { ANTHROPIC_API_KEY?: string } };
 
 const serve = handle(createApi({ apiKey: process.env.ANTHROPIC_API_KEY }));
 const aliases = new Set(["health", "judge", "voice"]);
+const turnPaths = new Set(["/turn", "/api/turn", "/prototype/api/turn"]);
 
 export default {
   fetch(request: Request): Response | Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname !== "/turn" && url.pathname !== "/api/turn") return serve(request);
+    if (!turnPaths.has(url.pathname)) return serve(request);
 
     const route = url.searchParams.get("route");
     url.pathname = `/api/${route && aliases.has(route) ? route : "judge"}`;
