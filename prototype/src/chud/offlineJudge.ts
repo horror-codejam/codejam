@@ -415,8 +415,8 @@ function judge(input: JudgeInput): JudgeResult {
   result.warm =
     !leaving && !result.rude && !result.offensive && !result.manipulation && (WARM.some((re) => hasUnnegated(p, re)) || negatedLeave);
 
-  // Answer detection
-  if (q && !result.manipulation && !result.offensive) {
+  // Answer detection. Asking where he is never answers ChudGPT's question (GAME_LOGIC 8.5: the question stays pending).
+  if (q && !result.manipulation && !result.offensive && parsed.command !== "ASK_LOCATION") {
     const isYesNo = YES_NO.test(p.replace(/\s*\|\s*/g, " ").trim());
     const isCommand = parsed.command !== "NONE";
     const content = hasRealContent(p, isCommand);

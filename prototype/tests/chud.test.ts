@@ -537,3 +537,15 @@ describe("parser false-positive regressions", () => {
     });
   }
 });
+
+describe("offline judge: asking where he is never answers a question", () => {
+  it.each(["Is he still there?", "where is it", "has he left?"])("%s during a memory check", (text) => {
+    const r = judge(text, q("MEMORY", "ship"), { ship: "Marigold" });
+    expect(r.command_hint).toBe("ASK_LOCATION");
+    expect(r.answered_question).toBe(false);
+    expect(r.contradiction).toBe(false);
+  });
+  it("a real answer still counts", () => {
+    expect(judge("The Marigold", q("MEMORY", "ship"), { ship: "Marigold" }).answered_question).toBe(true);
+  });
+});
