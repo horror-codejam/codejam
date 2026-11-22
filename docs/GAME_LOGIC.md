@@ -92,12 +92,12 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
      - facts restored from `facts_checkpoint`
      - power `BEAM` (at night the generator feeds the lighthouse beacon by default), CHUD online, Ram `AWAY` with the first visit delay
      - player at `DESK` facing `DESK`, no pending question
-   - Show the card "NIGHT N. 12:00 AM. SURVIVE UNTIL 6 AM." and play that night's voice log (section 10).
+   - Show the night card (section 11).
 2. **During the night:** the clock runs. Ram, CHUD and the player act by the rules below. The player can pause with Esc or the pause button: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10).
 3. **At 6:00 AM:** the night ends immediately and is won, even if Ram is mid-attempt. The tide wins. Any visit in progress is cancelled with no breach. Then:
    - Save `facts_checkpoint` = current facts.
    - Go to the next night, or to the win ending after night 5.
-4. **On breach:** the breach is an instant jumpscare. Freeze the game, play that entry's opening burst (a few frames of the door, window or hatch flying open, Ram not shown), and at its cut frame go straight into the jumpscare: if the player is looking elsewhere, snap the view to that entry (about 0.15 s), then play the jumpscare clip for that entry. Then show the loss screen (section 11) and offer "Retry night N". A retry restarts from night start (step 1). Earlier nights stay won.
+4. **On breach:** the breach is an instant jumpscare. Freeze the game, play that entry's opening burst (a few frames of the door, window or hatch flying open, Ram not shown), and at its cut frame go straight into the jumpscare: if the player is looking elsewhere, snap the view to that entry (about 0.15 s), then play the jumpscare clip for that entry. Then the loss screen (section 11): black, then `Title`. From the title, `Continue Night N` restarts that night from night start (step 1). Earlier nights stay won.
 
 ## 6. The player
 
@@ -208,7 +208,7 @@ Ram makes no sound the player can use. The only ways to know where he is: look w
 - Storm, rain, waves and wind, always.
 - Decoy noises at random times from random directions (creaks, a knock, metal settling, a gust rattling glass), at the night's decoy interval (section 4), sparse on night 1 so each one lands. **They are rolled independently of Ram and never correlate with his state or target.** Code must not use Ram's state when scheduling them. Sound never means danger and never means safe.
 - Allowed sounds tied to game events: CHUD's voice, the relay clunk when power changes (always, including sabotage), the player's dash footsteps and breathing, the breach burst and the jumpscare.
-- Removed: the approach splashing, the per-entry attempt sounds and Ram's retreat shout. The lore of the shout moves to the voice logs.
+- Removed: the approach splashing, the per-entry attempt sounds and Ram's retreat shout.
 
 ### 7.5 Resolving an attempt
 At the exact moment `AT_ENTRY` ends, the entry E counts as **defended** if either of these is true:
@@ -395,23 +395,33 @@ Question mix per night:
 Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed command.
 
 ## 10. Scripted beats
+No voice logs and no character narration. The monster is never named or explained in the game; lore may come later as optional artifacts, only after the loop is done.
+
 | Night | Time | Event |
 |---|---|---|
-| Before night 1 | Intro | CHUD asks the player's name (stored as fact `name`). Ram's voice log 1 explains: he comes with the tide and you will not hear him, keep the lights on and look, lock or hold where he is, one thing powered at a time, do not let it know you want to leave |
-| 1 | 12:00 AM | Tutorial hints on screen for the first visit only: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it" |
+| Before night 1 | Intro | CHUD asks the player's name (stored as fact `name`). Then straight to the night 1 card |
+| 1 | 12:00 AM | On-screen hints during the first visit only, one at a time, small: "You won't hear it. Look.", "Ask CHUD where it is.", "Lock it or hold it." |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
-| 3 | 12:00 AM | Voice log 3: "It lies now." CHUD: "You talk about home in your sleep, keeper." |
+| 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |
 | 5 | 5:00 AM | Radio: "Helicopter at first light." +20 (pushes toward Furious for the final hour) |
 
-## 11. Win and loss screens
-- **Loss screen data:**
-  - which entry Ram came through
-  - the cause, picked from: `UNLOCKED` (nothing defended it), `LIED` (CHUD said "<entry>"), `SABOTAGE` (CHUD cut the power), `FURIOUS` (CHUD cut the power on purpose), `WRONG_HOLD` (you were standing at or bracing <other entry>), `PEEKED` (you dropped the lock to look and his window ended), `ARMS_GAVE_OUT` (the brace timed out before he left), `POWER_OFF` (the generator was off)
-  - CHUD's last location claim
-- Example: "He came through the HATCH. CHUD told you: 'the window.'"
-- **Night won screen:** "6:00 AM. NIGHT N SURVIVED." plus CHUD's morning line, picked by band.
-- **Game won:** after night 5, the ending from GAME_DESIGN.md.
+## 11. Screens (FNAF clean: minimal text, no extra buttons)
+| Screen | Content |
+|---|---|
+| Loading | Black. Thin progress bar. "Headphones recommended." Preloads every image and clip |
+| Title | Lighthouse in the storm (still or loop). Game name. `New Game`. `Continue Night N` (only if a save exists) |
+| Name prompt | CHUD asks your name. One text box |
+| Night card | "12:00 AM" and "Night N" on black, about 2 s |
+| Gameplay | Full-screen view. Clock and night number small in one corner. Nothing else |
+| Pause | Esc toggles. The scene dims and freezes. No buttons, no menu |
+| Night won | The clock ticks from 5:59 to 6:00 AM, storm fades, "6:00 AM". Then the next night card |
+| Loss | Breach burst, jumpscare, hard cut to black. After about 1.5 s one option appears: `Title`. Nothing else, no cause, no CHUD line |
+| Game won | After night 5: the ending from GAME_DESIGN.md, then credits (every CC-BY asset) |
+
+- No settings screen. Volume is the system or browser volume, fullscreen is F11.
+- Save (browser localStorage): highest night reached and the facts checkpoint. `New Game` wipes it. `Continue Night N` restarts that night from its start.
+- The engine still records the loss cause for debugging and playtests (dev panel), it is never shown to the player.
 
 ## 12. Fairness guarantees (must always hold)
 1. Every breach is preceded by an attempt window of at least 5 s during which that entry's tell is clearly visible with the lights on. There is no audio warning by design; the visual is the warning.
@@ -469,7 +479,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 - Lies get caught at least sometimes, by looking with the lights.
 - Decoy noises make players flinch and check, but players never learn to read them as a cue (they don't correlate).
 - No player can say "I always knew where he was" after night 3.
-- Every loss screen makes the player say "I should have..." rather than "that was unfair".
+- After a loss, the player can tell what went wrong without being told ("I should have checked the window").
 - Injection test kit (about 30 strings) never changes suspicion except through the `manipulation` penalty, and never names the true entry during a lie.
 - The game is fully playable with the LLM turned off (code parser plus canned lines).
 - Controls: a first-time player finds the left, right and behind views without being told (night 1 hints only). Edge turns are not triggered by accident while moving the mouse. Click to go, hold to brace, edge to return is clear without a tutorial. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (3 s) is still reachable with these controls.

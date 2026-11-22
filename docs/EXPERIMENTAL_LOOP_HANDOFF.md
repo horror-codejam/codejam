@@ -21,7 +21,8 @@ Read `docs/GAME_LOGIC.md` on this branch in full. It is the complete rule set fo
 7. **Location questions (sections 8.7 and 9):** "gone" and "still there" map to `ASK_LOCATION`. A lie is now a random pick from the other active entries plus "no one".
 8. **Brace:** `HOLD_MAX` 8 s (was 6 s).
 9. **Loss cause:** add `PEEKED` (the player dropped the lock to look and the window ended before it landed again).
-10. **Night 1 hints (section 10):** "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it". Voice log 1 text updated.
+10. **No voice logs, no named monster (section 10):** remove every voice log and every player-facing line that names or explains the monster (including the old retreat shouts in `src/chud/lines.ts`). Night 1 hints: "You won't hear it. Look.", "Ask CHUD where it is.", "Lock it or hold it."
+12. **Screens (section 11):** loss is black then `Title` only, no cause or CHUD line (keep the cause in the dev panel). No settings. Esc pause with no buttons. The menus themselves are being built separately on branch `ui-screens`; keep your changes to them minimal.
 11. **Tests:** update the engine tests for the new numbers and add tests for: the hour ramp, lull and quick-return rolls, decoys never correlating with Ram, the WARM arrival warning, a "no one" lie, and `PEEKED`.
 
 ## Playtest questions
