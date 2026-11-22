@@ -54,6 +54,8 @@ Started 2026-11-22 05:58 EST. Base: origin/main c2ab13b (PR #31 ending logic mer
 | 22 | perf | 8 | n/a | Storm and room beds load in the background (about 1.2 MB less before the title) | 60845a4 | kept |
 | 23 | loop | 7 | n/a | Each night's first slip drop shows the "He left something" hint (Codex round 3: a missed slip blocks night 5) | 0047966 | kept, optional (ending logic) |
 | 24 | tooling | n/a | n/a | Bot bug fixed after Codex traced 10 PEEKED deaths (3 bot bugs, 7 realistic): bots now restore a lock after a peek. Average bot 85/63/47/32 -> 89/76/60/33% (targets 90/75/55/35). Note: windows in 83a7e94 and 74e8b7e were tuned with the buggy bot; night 3 now reads slightly easy (60 vs 55%) | cbb98a9 | kept |
+| 25 | bugs | 8 | n/a | During the judge grace a typed command stays blocked like a map button (Codex round 4, edge from 5187451) | 8d89bf1 | kept (real bug, test) |
+| 26 | perf | 8 | n/a | Title music loads in the background (about 1.4 MB less before the title; title checked in browser) | f8ee802 | kept |
 
 ## Council round 1 (after iterations 1 to 5)
 | Area | fnaf | casual | judge | Median |
@@ -94,3 +96,17 @@ Seed noise note: 100 vs 200 seed runs differed by up to 12 points on one cell; d
 | perf | 7 | 8 | 8 | 8 |
 
 Remaining: loop (casual, judge: nights 2 and 3 average bot under target, mostly PEEKED). Codex tracing PEEKED deaths to tell bot artifact from game problem.
+
+## Council round 4 (after iterations 21 to 24)
+| Area | fnaf | casual | judge | Median |
+|---|---|---|---|---|
+| loop | 8 | 8 | 8 | 8 |
+| chud | 8 | 8 | 8 | 8 |
+| onboarding | 8 | 8 | 9 | 8 |
+| horror | 8 | 8 | 8 | 8 |
+| ui | 9 | 8 | 8 | 8 |
+| bugs | 8 | 8 | 9 | 8 |
+| perf | 8 | 8 | 9 | 8 |
+
+Stop condition met at 07:28: every median 8 or higher, remaining problems minor. Fixed the one real bug from round 4 (8d89bf1) and one perf item (f8ee802), then stopped. Final: build pass, 315 tests pass, branch pushed. Summary in OVERNIGHT_REPORT.md.
+Model status at stop: Codex never hit its limit (11 runs). No limit resets to track.
