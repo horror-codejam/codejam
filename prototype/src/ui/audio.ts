@@ -16,7 +16,7 @@ const sampleUrls = new Map(Object.entries(import.meta.glob<string>([
 
 const essentialClips = new Set([
   "music_title", "ui_click",
-  "bed_storm", "bed_room", "night_start",
+  "night_start", // bed_storm and bed_room load in the background and start on demand (syncBeds, unlock)
   "breach_balcony", "breach_hatch", "breach_window",
 ]);
 
