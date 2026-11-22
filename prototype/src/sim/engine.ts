@@ -112,9 +112,12 @@ export class GameEngine implements IGameEngine {
   private awayStartedAt = 0; // for the 4 s AWAY floor on silence pulls
   private pendingPowerCause: PowerCause = "player";
   private memoryChecked: string[] = []; // MEMORY keys checked this night
+  private readonly practiceBeforeNight: boolean;
+  private practiceElapsed: number | null = null;
 
   constructor(opts: EngineOptions = {}) {
     this.cfg = opts.config ?? CONFIG;
+    this.practiceBeforeNight = opts.practiceBeforeNight ?? false;
     this.seed = opts.seed ?? DEFAULT_SEED;
     this.rng = new Rng(this.seed);
     this.decoyRng = new Rng(this.seed ^ DECOY_SEED_SALT);
@@ -174,7 +177,24 @@ export class GameEngine implements IGameEngine {
     s.chud.facts = { ...s.chud.facts, name: value };
     this.emit({ type: "FACT_STORED", key: "name", value });
     this.say({ kind: "name_ack" });
-    this.startNight(1, s.run.factsCheckpoint);
+    if (this.practiceBeforeNight) {
+      s.chud.suspicion = 0;
+      s.chud.band = "WARM";
+      s.phase = "PLAYING";
+      this.practiceElapsed = 0;
+    } else {
+      this.startNight(1, s.run.factsCheckpoint);
+    }
+  }
+
+  get isPracticing(): boolean {
+    return this.practiceElapsed !== null;
+  }
+
+  finishPractice(): void {
+    if (!this.isPracticing) return;
+    this.events.length = 0;
+    this.startNight(1, this.state.run.factsCheckpoint);
   }
 
   beginNight(): void {
@@ -213,6 +233,7 @@ export class GameEngine implements IGameEngine {
   // Advances the clock through normal ticks until 1 s before 6 AM. Ram is held away during the skip (any visit is cancelled)
   // so nobody is breached for not defending skipped minutes; CHUD, questions and radio still run. Ram is due again after the skip.
   devSkipToLastSecond(): void {
+    if (this.isPracticing) return;
     const target = nightLength(this.cfg) - 1;
     if (this.state.phase !== "PLAYING" || this.now >= target - EPS) return;
     this.devRamAway();
@@ -223,13 +244,13 @@ export class GameEngine implements IGameEngine {
 
   // Ends the night as a win right now (NIGHT_WON, or GAME_WON on the last night).
   devWinNight(): void {
-    if (this.state.phase === "PLAYING") this.winNight();
+    if (!this.isPracticing && this.state.phase === "PLAYING") this.winNight();
   }
 
   // Starts a Ram visit to `entry` now, with the night's normal approach time. Only while Ram is AWAY. Returns false otherwise.
   devSendRam(entry: Entry): boolean {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.ram.state !== "AWAY") return false;
+    if (this.isPracticing || s.phase !== "PLAYING" || s.ram.state !== "AWAY") return false;
     s.ram.stateEndsAt = this.now;
     this.startApproach(entry);
     return true;
@@ -256,7 +277,7 @@ export class GameEngine implements IGameEngine {
   devForceBreach(entry?: Entry, trigger?: InsideTrigger): boolean {
     const s = this.state;
     const r = s.ram;
-    if (s.phase !== "PLAYING" || r.state === "INSIDE") return false;
+    if (this.isPracticing || s.phase !== "PLAYING" || r.state === "INSIDE") return false;
     const at = entry ?? r.target ?? this.rng.pick(this.np.activeEntries);
     if (r.state === "AWAY") {
       r.visitId++;
@@ -291,6 +312,7 @@ export class GameEngine implements IGameEngine {
   }
 
   private startNight(night: number, checkpoint: Facts): void {
+    this.practiceElapsed = null;
     Object.assign(this.state, this.freshState(night, checkpoint));
     this.nightToken++;
     this.tickets.clear();
@@ -504,8 +526,8 @@ export class GameEngine implements IGameEngine {
     }
   }
 
-  private get now(): number {
-    return this.state.clock.elapsed;
+  get now(): number {
+    return this.practiceElapsed ?? this.state.clock.elapsed;
   }
 
   private get np(): NightParams {
@@ -519,11 +541,14 @@ export class GameEngine implements IGameEngine {
   private step(): void {
     const s = this.state;
     const T = this.cfg.TICK;
-    s.clock.elapsed = (Math.round(s.clock.elapsed / T) + 1) * T;
+    const elapsed = (Math.round(this.now / T) + 1) * T;
+    if (this.isPracticing) this.practiceElapsed = elapsed;
+    else s.clock.elapsed = elapsed;
 
     // Other state moves, before the section 13 list.
     this.landRelay();
     this.stepPlayer();
+    if (this.isPracticing) return;
     this.stepRam();
     this.stepReboot();
     this.stepHour();
@@ -621,7 +646,7 @@ export class GameEngine implements IGameEngine {
 
   toggleGenerator(): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK" || s.player.reading !== null) return;
+    if (this.isPracticing || s.phase !== "PLAYING" || s.player.position.kind !== "DESK" || s.player.reading !== null) return;
     if (s.power.generatorOn) {
       s.power.generatorOn = false;
       s.power.rebootingUntil = null;
@@ -1399,6 +1424,15 @@ export class GameEngine implements IGameEngine {
     const s = this.state;
     if (t.token !== this.nightToken || s.phase !== "PLAYING" || !s.power.chudOnline) return;
     const r = result ?? NEUTRAL_JUDGE;
+    if (this.isPracticing) {
+      if (r.self_harm) {
+        s.phase = "SAFETY_PAUSE";
+        this.emit({ type: "SAFETY_PAUSE" });
+      } else if (!t.ranImmediately && !r.gibberish) {
+        this.say({ kind: "small_talk" });
+      }
+      return;
+    }
     const c = this.cfg;
     const S = c.suspicion;
 
@@ -1503,7 +1537,7 @@ export class GameEngine implements IGameEngine {
     const text = cannedLine(outcome, {
       band,
       name: this.state.chud.facts.name ?? null,
-      rand: () => this.rng.next(),
+      rand: () => this.isPracticing ? 0 : this.rng.next(),
     });
     this.emit({ type: "CHUD_SAY", outcome, text, band });
   }

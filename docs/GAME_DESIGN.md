@@ -44,7 +44,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as ChudGPT on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
-- Night 1 introduces the controls through on-screen hints. The shipwreck leads into the keeper name prompt on New Game.
+- New Game leads from the shipwreck to the keeper name prompt and then to a safe practice evening in the watch room. Players use the real controls to explore, light and lock entries, brace, use ChudGPT, and pause. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
 - ChudGPT never mentions Ram (2026-11-21). On night 1 it only warns, vaguely, that there might be dangerous things out there at night and to be careful. Its location answers name the entry but never him ("Something's at the hatch, keeper.").
 - The timed midnight card shows "12:00 AM" and "Night 1".
 
@@ -56,19 +56,18 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Ram makes no sound at any entry. The house creaks, knocks and rattles all night (decoys), and none of it is him.
 - Forward desk view (`cam_desk`): ChudGPT's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or one entry light. Each entry has its own light. Hold Shift and the light of the entry you are looking at comes on, instantly, and any lock drops. Release and the slot is empty. A locked entry is dark and shows nothing (locked = blind). Seeing and locking never happen together.
+- One power slot can run either one magnetic lock or one entry light. Each entry has its own light. Hold Shift and the light of the entry you are looking at comes on, instantly, and any lock drops. Release and the slot is empty. A locked entry is dark and shows nothing (locked = blind). Seeing and locking never happen together.
 - The lights are the player's, not ChudGPT's: ChudGPT cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
 - Entry locks are magnetic locks. Select an entry mark on ChudGPT's map to request its lock.
-- The ChudGPT terminal sits on the monitor glass in the desk view. Its three columns show the mood face and generator toggle, chat and quick commands, then the clock, map and power cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
+- The ChudGPT terminal sits on the monitor glass in the desk view. Its three columns show the mood face, chat and quick commands, then the clock, map and power cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
 
 ## Player actions
 Controls: the mouse moves you, Shift is the light, the rest of the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
-1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it`, `power off` and the generator toggle are clickable. ChudGPT can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
+1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it` and `unlock all` are clickable. ChudGPT can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
 2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
-4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and no light works. Last resort.
-5. Desk papers are disabled in the release UI. The paper mechanic in GAME_LOGIC.md is available for a later pass.
+4. Desk papers are disabled in the release UI. The paper mechanic in GAME_LOGIC.md is available for a later pass.
 
 The release uses final room plates and per-entry scare sequences. Missing run footage uses a dip to black with camera shake, and missing turn footage uses the still-plate slide. The Night 5 ending shows its text on black before credits.
 
@@ -208,7 +207,7 @@ ChudGPT's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, 
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
 - Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
-- Audio (headphones): title drone, storm and generator beds, stereo-panned house decoys, player foley, power cues, ChudGPT's chime and dialogue, and scripted radio calls. Ram stays silent through entry. The entry impact plays with the jumpscare, followed by static at the cut to black.
+- Audio (headphones): title drone, storm and room-tone beds, stereo-panned house decoys, player foley, power cues, ChudGPT's chime and dialogue, and scripted radio calls. Ram stays silent through entry. The entry impact plays with the jumpscare, followed by static at the cut to black.
 - The title shows New Game and Continue when a checkpoint exists. Preload the art and sampled audio before the title.
 
 Workflow:
