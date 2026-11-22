@@ -60,8 +60,10 @@ export function parseCommand(text: string): ParsedCommand {
   const n = normalize(text);
   const negated = NEGATED_POWER_RE.test(n);
   if (!negated && POWER_OFF_RE.test(n)) return { command: "POWER_OFF", entry: null };
-  if (!negated && LOCK_RE.test(n)) {
-    const entry = parseEntry(n);
+  const lock = negated ? null : LOCK_RE.exec(n);
+  if (lock) {
+    // The entry named after the lock verb wins: "the window is clear, lock the hatch" locks the hatch.
+    const entry = parseEntry(n.slice(lock.index)) ?? parseEntry(n);
     if (entry) return { command: "LOCK", entry };
   }
   if (LOCATION_RE.test(n)) return { command: "ASK_LOCATION", entry: null };
