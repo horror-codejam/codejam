@@ -14,13 +14,13 @@
 
 | Persona | N5 slip dropped | N5 code reachable | N5 first slip (s) |
 | --- | ---: | ---: | ---: |
-| oracle | 100.0% | 100.0% | 28.09 |
-| skilled | 89.0% | 88.0% | 27.90 |
-| average | 49.0% | 48.0% | 28.07 |
-| careless | 12.0% | 12.0% | 28.10 |
+| oracle | 100.0% | 100.0% | 88.90 |
+| skilled | 79.0% | 79.0% | 89.68 |
+| average | 19.0% | 19.0% | 87.37 |
+| careless | 3.0% | 3.0% | 82.40 |
 | spammer | 0.0% | 0.0% | n/a |
-| flatterer | 51.0% | 50.0% | 28.19 |
-| silent | 39.0% | 39.0% | 28.13 |
+| flatterer | 14.0% | 14.0% | 90.10 |
+| silent | 20.0% | 20.0% | 82.01 |
 
 Behavior counts are means per run. Visits count approaches. First arrival averages runs with an arrival. Attempt windows are measured on 0.05 s ticks from arrival to retreat or entry into the room, excluding dawn-cancelled attempts.
 

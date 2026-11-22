@@ -201,12 +201,13 @@ Supply power stays on during the nights. The shared slot can be empty, power a l
 ### 6.7 Kill code slips and the code
 - **The code:** random per run. Four characters: 2 letters from `ACDEFHJKLMNPRTUVWXY` and 2 digits from `2345679`, in shuffled order. B, G, I, O, Q, S, Z, 0, 1 and 8 are left out so ordinary chat cannot match by accident.
   - Made at New Game from the run seed, on its own random stream. Stored in the save as `kill_code`. A save without a valid code gets a fresh one.
-  - Config (`prototype/src/config.ts`, `ENDING`): `CODE_LETTERS` 2, `CODE_DIGITS` 2, `LETTERS`, `DIGITS`, `FIRST_PAPER_NIGHT` 2, `CODE_NIGHT` 5.
+  - Config (`prototype/src/config.ts`, `ENDING`): `CODE_LETTERS` 2, `CODE_DIGITS` 2, `LETTERS`, `DIGITS`, `FIRST_PAPER_NIGHT` 2, `CODE_NIGHT` 5, `LAST_PAPER_AFTER` 60.
 - **Slips:** Ram's conscious half tries to help. When his attempt at an entry ends defended (locked or braced), he may leave a slip at that entry. All of these must hold:
   - The night is at least `FIRST_PAPER_NIGHT` (2).
   - No slip is already lying on the floor.
   - Fewer than 4 slips are collected.
   - Collected is less than the night minus 1. Collected slips never exceed night minus 1 (1 by night 2, 4 by night 5), and a missed night can be caught up later.
+  - On the code night (5), the last slip (the 4th) drops only from `LAST_PAPER_AFTER` (60 s, 1:12 AM) on, so the final night lasts more than one visit. Bot playtest: the average bot reaches the code on 22% of night 5 runs (48% without the gate), skilled 79%.
 - Slip `i` (counting from 0) carries character `i` of the code, so the first slip found is the first character.
 - **First slip of a run:** the on-screen hint "He left something at the {entry}." shows once.
 - **Where it shows:** the slip is visible in that entry's view. Faint in the dark, clearer with the entry's light.
