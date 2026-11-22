@@ -750,14 +750,21 @@ function wireInput(): void {
     const text = terminal.chat.value;
     const res = engine.submitMessage(text);
     if (!res.ok) {
-      // Sent inside the 1.5 s message limit: keep the draft and send it by itself the moment the limit ends.
+      // Sent inside the 1.5 s message limit: keep the draft and send it by itself once the limit ends and the player is
+      // at the desk again (they may turn away to check an entry meanwhile). Editing the draft cancels it.
       if (res.reason === "RATE_LIMIT") {
         const p = engine.state.player;
         const wait = Math.max(0, p.lastMessageAt + CONFIG.MESSAGE_RATE_LIMIT - engine.state.clock.elapsed);
+        const giveUpAt = performance.now() + 30000;
+        const tryResend = (): void => {
+          if (terminal.chat.value !== text || text.trim() === "" || performance.now() > giveUpAt) return;
+          const s = engine.state;
+          const ready = s.phase === "PLAYING" && s.player.position.kind === "DESK" && s.player.view === "DESK" && s.player.reading === null;
+          if (ready && !paused) terminal.form.requestSubmit();
+          else resendTimer = window.setTimeout(tryResend, 250);
+        };
         window.clearTimeout(resendTimer);
-        resendTimer = window.setTimeout(() => {
-          if (terminal.chat.value === text && text.trim() !== "") terminal.form.requestSubmit();
-        }, wait * 1000 + 60);
+        resendTimer = window.setTimeout(tryResend, wait * 1000 + 60);
       }
       return;
     }
