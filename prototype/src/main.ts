@@ -6,13 +6,21 @@ import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
-import type { Band, Entry, GameEvent, InsideTrigger, LocationClaim, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
+import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
 import { artUrl, loadArt } from "./ui/art";
 import { Sound } from "./ui/audio";
 import { EDGE_TARGET, EdgeTurner, EDGES } from "./ui/edges";
 import { playIntro } from "./ui/intro";
 import { H, W } from "./ui/layout";
 import { Scene } from "./ui/scene";
+import { renderMorning, renderNightCard } from "./ui/screens/clock";
+import { renderEnding } from "./ui/screens/credits";
+import { preloadScreens } from "./ui/screens/loading";
+import { renderLoss } from "./ui/screens/loss";
+import { renderName } from "./ui/screens/name";
+import { renderSafetyPause } from "./ui/screens/safety";
+import { clearSave, readSave, writeSave, type SavedRun } from "./ui/screens/save";
+import { GAME_TITLE, renderTitle } from "./ui/screens/title";
 import { ARTIFACTS, MALICE, RING, SCARE } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -24,7 +32,7 @@ const deepNight = ((): number | null => {
   const n = raw === null || raw.trim() === "" ? NaN : Number(raw);
   return Number.isInteger(n) && n >= 1 && n <= CONFIG.nights.length ? n : null;
 })();
-const engine = new GameEngine({
+let engine = new GameEngine({
   seed: Date.now() % 2147483647,
   ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" } } : {}),
 });
@@ -35,8 +43,7 @@ if (import.meta.env.DEV) Object.assign(window, { engine }); // console access wh
 const ui = {
   hud: $("hud"),
   clock: $("clock"),
-  power: $("power"),
-  chudStatus: $("chud-status"),
+  night: $("hud-night"),
   hint: $("hint"),
   desk: $("terminal"),
   face: $("t-face"),
@@ -62,7 +69,6 @@ const ui = {
   devBadge: $("dev-badge"),
   devText: $("dev-text"),
   devBtns: $("dev-btns"),
-  pauseBtn: $<HTMLButtonElement>("pause-btn"),
   pause: $("pause"),
   artifacts: $("artifacts"),
   reader: $("reader"),
@@ -82,10 +88,10 @@ const MALICIOUS_URL = artUrl("chud_face_malicious");
 const MALICIOUS_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="none" stroke="#ff4a3a" stroke-width="3"/><path d="M26 38 L42 44" stroke="#ff4a3a" stroke-width="5" stroke-linecap="round"/><path d="M74 38 L58 44" stroke="#ff4a3a" stroke-width="5" stroke-linecap="round"/><path d="M20 58 Q50 92 80 58 Q50 74 20 58 Z" fill="#ff4a3a"/><path d="M30 63 L34 69 M40 67 L42 74 M50 68 L50 76 M60 67 L58 74 M70 63 L66 69" stroke="#1a0000" stroke-width="2.5"/></svg>`;
 
 // UI-only state
-let voiceLog = "";
-let morningLine = "";
-let loss: LossInfo | null = null;
 let lastPhase: Phase | null = null;
+let frontScreen: "title" | "intro" | null = null; // presentation before the engine flow
+let screenAbort = new AbortController();
+let devRun = deepNight !== null;
 let breachShown = false;
 let subtitleUntil = 0;
 let hintUntil = 0;
@@ -102,7 +108,6 @@ let devOpen = false; // panel open
 let devNextAt = 0;
 let devSkipCard = false; // N buttons go straight into PLAYING
 let previewing = false; // a dev screen preview is up: the night is frozen behind it
-let previewSaved: { loss: LossInfo | null; morningLine: string } | null = null;
 const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
@@ -113,20 +118,24 @@ let braceDown = false; // left mouse button held down (edge controls: holding it
 let pressSpent = false; // this press's brace already ended by HOLD_MAX: a new press is needed to brace again
 let wasBracing = false; // position was a brace (HOLDING) at the last reconcile
 let frameScale = 1; // stage px to screen px, for the cursor ring
-const now = (): number => performance.now() / 1000;
+const wallTime = (): number => performance.now() / 1000;
+let pausedAt = 0;
+let pauseDuration = 0;
+const now = (): number => (paused ? pausedAt : wallTime()) - pauseDuration;
 
 // ---------------------------------------------------------------------------
 // Boot
 
 async function boot(): Promise<void> {
+  document.title = GAME_TITLE;
   const app = new Application();
   await app.init({ width: W, height: H, background: "#000000", antialias: true });
   $("stage").appendChild(app.canvas);
-  const art = await loadArt();
+  const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);
-  scene.onThunder = () => sound.thunder();
+  scene.onThunder = () => { if (engine.state.phase === "PLAYING") sound.thunder(); };
   if (import.meta.env.DEV) Object.assign(window, { scene });
   edges = new EdgeTurner($("stage"));
   fit();
@@ -135,11 +144,18 @@ async function boot(): Promise<void> {
   buildArtifacts();
   buildDevButtons();
   initDev();
-  app.ticker.add((tk) => frame(tk.deltaMS / 1000));
-  // Scene 1 (shipwreck) plays over the name prompt on a fresh start. Skipped by ?night=N and ?nointro.
-  if (!deepNight && !params.has("nointro") && engine.state.phase === "NAME_PROMPT") {
-    playIntro({ root: $("ui"), onDone: () => $<HTMLInputElement>("name")?.focus?.() });
+  if (!deepNight) showTitle();
+  else {
+    const unlock = (): void => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      sound.unlock();
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
   }
+  app.ticker.add((tk) => frame(tk.deltaMS / 1000));
+  $("loading").classList.add("loaded");
 }
 
 function fit(): void {
@@ -154,6 +170,11 @@ function fit(): void {
 // Frame
 
 function frame(dt: number): void {
+  if (devOpen && wallTime() > devNextAt) {
+    devNextAt = wallTime() + 0.2;
+    renderDev();
+  }
+  if (frontScreen || previewing) return;
   const t = now();
   // Anything that leaves PLAYING (a judge verdict that triggers the safety pause, a dev jump) ends the pause.
   if (paused && engine.state.phase !== "PLAYING") setPaused(false);
@@ -163,7 +184,7 @@ function frame(dt: number): void {
   }
   // Paused: no tick, so the night clock, Ram, CHUD timers and silence all stand still. Replies still apply.
   // Clamp so a hidden tab (no frames) does not fast-forward the night.
-  if (!paused && !previewing) {
+  if (!paused) {
     engine.tick(Math.min(dt, 0.1) * speed);
     reconcileBrace();
   }
@@ -175,37 +196,40 @@ function frame(dt: number): void {
   const phase = engine.state.phase;
   if (phase !== lastPhase) {
     lastPhase = phase;
-    if (phase !== "BREACH") showScreen(phase);
+    if (phase !== "BREACH" && phase !== "NIGHT_CARD") showScreen(phase);
+    if (phase === "PLAYING") {
+      sound.setAmbientPlaying(true);
+      if (document.hidden) setPaused(true);
+    }
     if (phase === "PLAYING" && engine.state.run.night === 1 && engine.state.clock.elapsed < 1) {
       ui.hint.textContent = "Push the mouse to the left, right or bottom edge to look around";
       hintUntil = t + 8;
     }
   }
   edgeTurn(t);
-  scene.update(engine, t);
+  if (!paused) scene.update(engine, t);
   renderHud(t);
-  if (devOpen && t > devNextAt) {
-    devNextAt = t + 0.2;
-    renderDev();
-  }
 }
 
 function onEvent(ev: GameEvent, t: number): void {
   switch (ev.type) {
     case "NIGHT_CARD":
-      voiceLog = ev.voiceLog;
+      if (!devRun) writeSave(engine.state.run);
       sound.stopCues();
+      sound.fadeStorm(1, 0.9);
       sound.windowMask = ev.night >= 4 ? 0.55 : 1;
       ui.log.replaceChildren();
       convo = [];
       hintUntil = 0;
+      subtitleUntil = 0;
       breachShown = false;
-      loss = null;
       endScare();
+      showReader(null);
       maliciousUntil = 0;
-      // also covers retry and dev jumps within the same phase; a dev jump with "skip night card" is already PLAYING
-      if (engine.state.phase === "PLAYING") show(ui.screen, false);
-      else showScreen("NIGHT_CARD");
+      lightCutUntil = 0;
+      powerAlarmUntil = 0;
+      // Also handles dev jumps within the same phase, including those that skip the card.
+      showScreen(engine.state.phase);
       break;
     // Ram makes no sound and never speaks (GAME_LOGIC 7.4): RAM_* events have no cue here on purpose.
     case "DECOY":
@@ -240,10 +264,6 @@ function onEvent(ev: GameEvent, t: number): void {
     case "CHUD_SAY": {
       if (!ev.text) break;
       const o = ev.outcome;
-      if (o.kind === "morning") {
-        morningLine = ev.text;
-        stopChudSpeech();
-      }
       if (!llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, ev.band, t);
         break;
@@ -289,7 +309,8 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "BREACH":
       stopChudSpeech();
-      loss = ev.loss;
+      resetScreen();
+      show(ui.screen, false);
       showReader(null);
       startScare(ev.loss);
       break;
@@ -297,9 +318,19 @@ function onEvent(ev: GameEvent, t: number): void {
       stopChudSpeech();
       break;
     case "NIGHT_WON":
-    case "GAME_WON":
-      sound.morning();
+    case "GAME_WON": {
+      stopChudSpeech();
+      // Record the unlocked night even if the browser closes during dawn.
+      if (!devRun) {
+        const { night, factsCheckpoint } = engine.state.run;
+        writeSave({ night: ev.type === "NIGHT_WON" ? night + 1 : night, factsCheckpoint });
+      }
+      showReader(null);
+      sound.stopCues();
+      sound.setAmbientPlaying(false);
+      sound.fadeStorm(0, 1.9);
       break;
+    }
     default:
       break;
   }
@@ -355,23 +386,12 @@ function note(reason: RejectReason, t: number): void {
   noteUntil = t + 2;
 }
 
-function slotLabel(slot: PowerSlot): string {
-  if (slot === "NONE") return "NONE";
-  if (slot.startsWith("LIGHT_")) return "LIGHT " + slot.slice(6);
-  return "LOCK " + slot.slice(5);
-}
-
-// "the window", "nobody", "someone in the room" for a location claim
-function claimText(c: LocationClaim): string {
-  return c === "NONE" ? "nobody" : c === "INSIDE" ? "someone in the room" : "the " + NAME[c];
-}
-
 function clockText(): string {
   const s = engine.state;
   const hl = CONFIG.HOUR_LENGTH;
   const hour = Math.min(6, Math.floor(s.clock.elapsed / hl));
   const min = hour >= 6 ? 0 : Math.floor(((s.clock.elapsed % hl) / hl) * 60);
-  return `NIGHT ${s.run.night} · ${hour === 0 ? 12 : hour}:${String(min).padStart(2, "0")} AM`;
+  return `${hour === 0 ? 12 : hour}:${String(min).padStart(2, "0")} AM`;
 }
 
 function setText(el: HTMLElement, v: string): void {
@@ -389,20 +409,11 @@ function renderHud(t: number): void {
   const atDesk = pos.kind === "DESK";
   const view = s.player.view;
 
-  show(ui.pauseBtn, playing && !paused);
-  show(ui.pause, paused);
-  show(ui.hud, s.phase !== "NAME_PROMPT");
+  show(ui.hud, playing);
   setText(ui.clock, clockText());
+  setText(ui.night, "Night " + s.run.night);
 
   const p = s.power;
-  let power = !p.generatorOn ? "GENERATOR OFF" : `POWER: ${slotLabel(p.slot)}`;
-  if (p.generatorOn && p.pending) power += ` → ${slotLabel(p.pending.target)}`;
-  setText(ui.power, power);
-  ui.power.classList.toggle("switching", !!p.pending);
-  ui.power.classList.toggle("cut", t < powerAlarmUntil);
-
-  const status = p.chudOnline ? `CHUD · ${s.chud.band}` : p.rebootingUntil !== null ? "CHUD · REBOOTING" : "CHUD · OFFLINE";
-  setText(ui.chudStatus, status);
 
   // At the desk the log already shows every line, so subtitles only appear away from it.
   const deskView = playing && atDesk && view === "DESK";
@@ -552,7 +563,7 @@ function renderTerminal(t: number): void {
   }
   ui.face.classList.toggle("talking", p.chudOnline && t < scene.speakingUntil);
 
-  setText(ui.tClock, clockText().split("· ")[1] ?? "");
+  setText(ui.tClock, clockText());
 
   // map: entries and lock state only, never Ram (a display only on this branch: holds start from the entry view)
   for (const g of ui.map.querySelectorAll<SVGGElement>(".entry")) {
@@ -581,125 +592,94 @@ function renderTerminal(t: number): void {
 // ---------------------------------------------------------------------------
 // Screens
 
-const CAUSE: Record<LossInfo["cause"], (l: LossInfo) => string> = {
-  UNLOCKED: () => "Nothing was locked or held.",
-  LIED: (l) => (l.lastClaim === "NONE" || l.lastClaim === null ? "CHUD told you no one was there." : `CHUD told you: ${claimText(l.lastClaim)}.`),
-  PEEKED: (l) => `You dropped the ${NAME[l.entry]} lock to look, and did not lock it again in time.`,
-  REFUSED: (l) => `CHUD refused to lock the ${NAME[l.entry]}, and you did not get there yourself.`,
-  SABOTAGE: () => `CHUD cut the power to the lock. "Oops. The generator's acting up."`,
-  FURIOUS: () => "CHUD cut the power on purpose.",
-  WRONG_HOLD: (l) => `You were holding the ${l.heldEntry ? NAME[l.heldEntry] : "wrong entry"}.`,
-  ARMS_GAVE_OUT: () => "Your arms gave out before he left.",
-  POWER_OFF: () => "The generator was off.",
-};
+function resetScreen(): void {
+  screenAbort.abort();
+  screenAbort = new AbortController();
+  delete ui.screen.dataset.screen;
+  ui.screen.classList.remove("night-card-fading");
+  ui.screen.onpointerdown = null;
+  ui.screen.onkeydown = null;
+  ui.screen.querySelector("video")?.pause();
+  ui.screen.replaceChildren();
+}
 
-// How the scare found you (GAME_LOGIC 7.7)
-const REASON: Record<LossInfo["reason"], (l: LossInfo) => string> = {
-  LOOK: (l) => `You lit the ${NAME[l.entry]} and looked. He was already in the room.`,
-  ARTIFACT: () => "You looked up from your reading. He was right there.",
-  TIMER: () => "He did not wait for you to find him.",
-  MOVE: () => "You moved. So did he.",
-  ARRIVED: (l) => `You walked right up to him at the ${NAME[l.entry]}.`,
-  DAWN: () => "The sun came up with him still in the room.",
-};
-
-function card(html: string, cls = "", art: string | null = null): void {
-  ui.screen.innerHTML = `<div class="card ${cls}">${html}</div>`;
-  // a render behind the card (intro, endings); none means the plain dark overlay
-  const url = art ? artUrl(art) : null;
-  ui.screen.classList.toggle("art", !!url);
-  ui.screen.style.backgroundImage = url ? `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.55)), url("${url}")` : "";
+function showTitle(): void {
+  resetScreen();
+  frontScreen = "title";
+  stopChudSpeech();
+  sound.stopCues();
+  sound.setAmbientPlaying(false);
+  sound.fadeStorm(0.65, 0.9);
+  const saved = readSave();
+  renderTitle(ui.screen, {
+    start: () => {
+      clearSave();
+      startRun();
+    },
+    resume: saved ? { night: saved.night, start: () => startRun(saved) } : undefined,
+    activateAudio: () => sound.unlock(),
+    tick: () => sound.menuTick(),
+  });
   show(ui.screen, true);
 }
 
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+function startRun(saved?: SavedRun): void {
+  resetScreen();
+  show(ui.screen, false);
+  engine = new GameEngine({
+    seed: Date.now() % 2147483647,
+    startNight: saved?.night,
+    facts: saved?.factsCheckpoint,
+    skipNamePrompt: !!saved,
+  });
+  if (import.meta.env.DEV) Object.assign(window, { engine });
+  frontScreen = null;
+  lastPhase = null;
+  devRun = false;
+  ui.chat.value = "";
+  ui.log.replaceChildren();
+  sound.unlock();
+
+  if (!saved && !params.has("nointro")) {
+    frontScreen = "intro";
+    setDevOpen(false);
+    sound.fadeStorm(0, 0.15);
+    playIntro({
+      root: $("ui"),
+      onDone: () => { frontScreen = null; },
+    });
+  }
 }
 
 function showScreen(phase: Phase): void {
-  const s = engine.state;
-  const n = s.run.night;
+  if (phase === "PLAYING" && ui.screen.classList.contains("night-card-fading")) return;
+  resetScreen();
+  show(ui.screen, phase !== "PLAYING");
+  const signal = screenAbort.signal;
+  const title = previewing ? endPreview : showTitle;
   switch (phase) {
-    case "NAME_PROMPT": {
-      card(`
-        <h1>CHUD</h1>
-        <p>A storm. A lighthouse. A voice from the console.</p>
-        <p style="color:var(--crt)">"Hello, keeper. What should I call you?"</p>
-        <form id="name-form"><input id="name" maxlength="24" placeholder="Your name" autofocus /><br /><button>Begin</button></form>
-        <p class="small">Headphones on. You will not hear him coming.</p>`,
-        "",
-        "intro",
-      );
-      const form = $<HTMLFormElement>("name-form");
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
+    case "NAME_PROMPT":
+      renderName(ui.screen, (name) => {
         sound.unlock();
-        engine.setName($<HTMLInputElement>("name").value.trim() || "Keeper");
+        engine.setName(name);
       });
-      $<HTMLInputElement>("name").focus();
       break;
-    }
     case "NIGHT_CARD":
-      card(`
-        <h1>NIGHT ${n}</h1>
-        <p>12:00 AM. SURVIVE UNTIL 6 AM.</p>
-        <p class="log">${esc(voiceLog)}</p>
-        <p class="small">Look around: push the mouse to the left edge (window), right edge (hatch) or bottom edge (behind you). The opposite edge brings you back (the bottom again from behind).<br />Hold Shift to switch on the light of the entry you are looking at (one power slot: the light drops any lock). Go to an entry: look at it and click. There, hold the left mouse button to brace it (your arms last a few seconds). Push the mouse to the same edge as before to run back to the desk.<br />At the desk, just start typing to talk to CHUD, Enter sends. The papers on the desk can be read. Esc pauses.</p>
-        <button id="go">Start night ${n}</button>`);
-      $("go").addEventListener("click", () => {
-        sound.unlock();
-        engine.beginNight();
-      });
-      $("go").focus();
+      renderNightCard(ui.screen, engine.state.run.night, () => engine.beginNight(), signal);
       break;
-    case "BREACH": {
-      const l = loss;
-      if (!l) break;
-      const claim = l.cause !== "LIED" && l.lastClaim ? `<p class="small">CHUD's last word on where he was: ${claimText(l.lastClaim)}.</p>` : "";
-      const inside = l.insideFor > 0.05 ? ` He had been inside for ${Math.round(l.insideFor)} s.` : "";
-      card(
-        `<h1>NIGHT ${n} LOST</h1>
-        <p>He came through the ${NAME[l.entry].toUpperCase()}.</p>
-        <p>${esc(CAUSE[l.cause](l))}</p>
-        <p class="small">${esc(REASON[l.reason](l) + inside)}</p>${claim}
-        <button id="go">Retry night ${n}</button>`,
-        "lost",
-        "ending_lose",
-      );
-      $("go").addEventListener("click", () => engine.retryNight());
-      $("go").focus();
+    case "BREACH":
+      renderLoss(ui.screen, title, signal);
       break;
-    }
     case "NIGHT_WON":
-      card(`
-        <h1>6:00 AM</h1>
-        <p>NIGHT ${n} SURVIVED.</p>
-        <p style="color:var(--crt)">${esc(morningLine)}</p>
-        <button id="go">Night ${n + 1}</button>`);
-      $("go").addEventListener("click", () => engine.nextNight());
-      $("go").focus();
+      renderMorning(ui.screen, previewing ? endPreview : () => engine.nextNight(), signal);
       break;
     case "GAME_WON":
-      card(`
-        <h1>FIRST LIGHT</h1>
-        <p>The helicopter lifts you off the rock. Below, a man stands in the surf, staring up.</p>
-        <p>The lamp blinks behind you. Long, short, long.</p>
-        <button id="go">Play again</button>`,
-        "",
-        "ending_win",
-      );
-      $("go").addEventListener("click", () => window.location.reload());
+      renderMorning(ui.screen, () => renderEnding(ui.screen, title, signal), signal);
       break;
     case "SAFETY_PAUSE":
-      card(`
-        <h1>PAUSED</h1>
-        <p>This is only a game, and it is paused. If you are thinking about hurting yourself, you do not have to deal with it alone.</p>
-        <p>In Canada, call or text 9-8-8 any time. Elsewhere, contact a local crisis line or emergency services.</p>
-        <button id="go">Continue the game</button>`);
-      $("go").addEventListener("click", () => engine.resumeFromSafetyPause());
+      renderSafetyPause(ui.screen, () => engine.resumeFromSafetyPause());
       break;
     case "PLAYING":
-      show(ui.screen, false);
       break;
   }
 }
@@ -782,6 +762,8 @@ function startScare(l: LossInfo): void {
     scene.jumpscare = null;
     if (engine.state.phase === "BREACH" && !breachShown) {
       breachShown = true;
+      sound.setAmbientPlaying(false);
+      sound.fadeStorm(0, 0.65);
       showScreen("BREACH");
     }
   });
@@ -801,23 +783,23 @@ function endScare(): void {
 
 function setPaused(on: boolean): void {
   if (on === paused) return;
-  if (on && engine.state.phase !== "PLAYING") return;
+  if (on && (frontScreen || previewing || engine.state.phase !== "PLAYING")) return;
+  if (on) pausedAt = wallTime();
+  else pauseDuration += wallTime() - pausedAt;
   paused = on;
   scene.paused = on;
-  // inert keeps Tab and Space from reaching the controls behind the overlay
-  for (const id of ["terminal", "hold-panel"]) $(id).toggleAttribute("inert", on);
+  // Keep Tab and Space from reaching the terminal or the desk papers behind the overlay.
+  for (const el of [ui.desk, ui.artifacts, ui.reader, ui.holdPanel]) el.toggleAttribute("inert", on);
   if (on) {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     sound.suspend();
-    show(ui.pause, true);
-    show(ui.pauseBtn, false);
-    ui.pauseBtn.blur();
-    ui.pause.querySelector<HTMLButtonElement>("#pause-resume")!.focus();
+    show(ui.ring, false);
   } else {
-    skipDt = true; // no giant dt on the first frame back
+    skipDt = true;
+    if (!shiftDown) engine.setLight(false);
     sound.resume();
-    show(ui.pause, false);
   }
+  show(ui.pause, on);
 }
 
 // ---------------------------------------------------------------------------
@@ -834,7 +816,8 @@ function wireInput(): void {
     ui.chat.value = "";
     const ticket = res.ticket;
     if (ticket.repeat) return;
-    void judge(ticket.judgeInput).then((r) => engine.applyJudge(ticket.id, r));
+    const run = engine;
+    void judge(ticket.judgeInput).then((r) => run.applyJudge(ticket.id, r));
   });
   for (const ev of ["paste", "drop"]) ui.chat.addEventListener(ev, (e) => e.preventDefault());
 
@@ -844,13 +827,6 @@ function wireInput(): void {
   ui.kill.addEventListener("click", () => engine.toggleGenerator());
   wireBrace();
 
-  ui.pauseBtn.addEventListener("click", () => setPaused(true));
-  $("pause-resume").addEventListener("click", () => setPaused(false));
-  $("pause-restart").addEventListener("click", () => {
-    if (!paused) return;
-    setPaused(false);
-    engine.retryNight(); // same path as the loss screen; emits NIGHT_CARD, which also drops late LLM replies
-  });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) setPaused(true); // the player resumes manually
   });
@@ -874,7 +850,7 @@ function wireInput(): void {
 function setShift(down: boolean): void {
   if (down === shiftDown) return;
   shiftDown = down;
-  if (paused && down) return;
+  if (paused || frontScreen || previewing) return;
   engine.setLight(down);
 }
 
@@ -889,6 +865,11 @@ function onKey(e: KeyboardEvent): void {
     setDev(!devOn);
     return;
   }
+  if (frontScreen) return;
+  if (previewing) {
+    if (e.key === "Escape") endPreview();
+    return;
+  }
   if (e.target === ui.chat) {
     if (e.key === "Escape") ui.chat.blur();
     return;
@@ -898,12 +879,12 @@ function onKey(e: KeyboardEvent): void {
   if (s.phase !== "PLAYING") return;
   if (e.key === "Escape") {
     e.preventDefault();
-    setPaused(!paused);
+    if (!e.repeat) setPaused(!paused);
     return;
   }
   if (paused) return;
   if (s.player.reading !== null) {
-    if (e.code === "Space" || e.key === "Escape") {
+    if (e.code === "Space") {
       e.preventDefault();
       engine.putDownArtifact();
     }
@@ -995,10 +976,9 @@ function reconcileBrace(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Dev mode. On by default while everyone playing is on the team; Backquote, Ctrl+Shift+D or ?dev=0 turns it off
+// Dev mode. Backquote, Ctrl+Shift+D or ?dev toggles it
 // (state kept in localStorage). Every action goes through the engine object (dev* methods or the normal flow methods).
-// To ship to players, flip DEV_DEFAULT to false.
-const DEV_DEFAULT = true;
+const DEV_DEFAULT = false;
 
 function initDev(): void {
   let on = DEV_DEFAULT;
@@ -1032,18 +1012,31 @@ function setDevOpen(open: boolean): void {
   if (devOpen) renderDev();
 }
 
-// Gets the engine into PLAYING from any phase so a time or Ram action can run. Returns false if it cannot.
-function devEnsurePlaying(): boolean {
+function enterDevRun(): boolean {
+  if (frontScreen === "intro") return false;
   if (previewing) endPreview();
+  if (frontScreen === "title") {
+    resetScreen();
+    show(ui.screen, false);
+    frontScreen = null;
+    lastPhase = null;
+    sound.unlock();
+  }
+  devRun = true;
+  return true;
+}
+
+// Gets the engine into PLAYING from phases the engine can start or retry.
+function devEnsurePlaying(): boolean {
+  if (!enterDevRun()) return false;
   if (engine.state.phase === "NAME_PROMPT") engine.setName("Keeper");
   if (engine.state.phase === "BREACH") engine.retryNight();
-  if (engine.state.phase === "NIGHT_WON" || engine.state.phase === "GAME_WON") return false;
   if (engine.state.phase === "NIGHT_CARD") engine.beginNight();
   return engine.state.phase === "PLAYING";
 }
 
 function devJump(n: number): void {
-  if (previewing) endPreview();
+  if (!enterDevRun()) return;
   if (engine.state.phase === "NAME_PROMPT") engine.setName("Keeper");
   engine.jumpToNight(n);
   if (devSkipCard) engine.beginNight();
@@ -1054,7 +1047,7 @@ function devNight(): number {
 }
 
 function devRestart(): void {
-  if (previewing) endPreview();
+  if (!enterDevRun()) return;
   if (engine.state.phase === "BREACH" || engine.state.phase === "PLAYING") engine.retryNight();
   else devJump(devNight());
   if (devSkipCard) engine.beginNight();
@@ -1076,29 +1069,17 @@ function devSkipClock(): void {
 }
 
 function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON"): void {
-  if (!previewing) previewSaved = { loss, morningLine };
-  const n = devNight();
-  if (kind === "BREACH") loss = { night: n, entry: "WINDOW", cause: "UNLOCKED", lastClaim: null, heldEntry: null, reason: "LOOK", flash: true, insideFor: 12 };
-  if (!morningLine) morningLine = "(preview) The tide held. Morning.";
+  if (frontScreen === "intro" || paused || (engine.state.phase === "BREACH" && !breachShown)) return;
   previewing = true;
   showScreen(kind);
-  const go = $("go");
-  const copy = go.cloneNode(true) as HTMLElement; // drops the real click handler
-  copy.textContent = "Close preview";
-  copy.addEventListener("click", endPreview);
-  go.replaceWith(copy);
 }
 
 function endPreview(): void {
   if (!previewing) return;
   previewing = false;
-  if (previewSaved) {
-    loss = previewSaved.loss;
-    morningLine = previewSaved.morningLine;
-    previewSaved = null;
-  }
   skipDt = true;
-  showScreen(engine.state.phase);
+  if (frontScreen === "title") showTitle();
+  else showScreen(engine.state.phase);
 }
 
 function buildDevButtons(): void {
@@ -1140,22 +1121,22 @@ function buildDevButtons(): void {
     if (devEnsurePlaying()) engine.devWinNight();
   });
 
-  const ram = group("Ram");
+  const ram = group("Threat");
   for (const e of ["WINDOW", "HATCH", "BALCONY"] as const)
     add(ram, `Send ${NAME[e]}`, () => {
       if (devEnsurePlaying()) engine.devSendRam(e);
-    }, "Only while Ram is away");
-  add(ram, "Ram away", () => {
+    }, "Only while the threat is away");
+  add(ram, "Threat away", () => {
     if (devEnsurePlaying()) engine.devRamAway();
   });
   const breach = group("Breach");
   for (const tr of ["TIMER", "NONE", "MOVE"] as InsideTrigger[])
     add(breach, `Force ${tr}`, () => {
       if (devEnsurePlaying()) engine.devForceBreach(undefined, tr);
-    }, "Ram silently gets in at a random entry with this extra trigger");
+    }, "The threat silently gets in at a random entry with this extra trigger");
   add(breach, "Force (rolled)", () => {
     if (devEnsurePlaying()) engine.devForceBreach();
-  }, "Ram silently gets in, trigger rolled by INSIDE_TRIGGER_WEIGHTS");
+  }, "The threat silently gets in, trigger rolled by INSIDE_TRIGGER_WEIGHTS");
 
   const power = group("Power");
   for (const slot of ["NONE", "LOCK_WINDOW", "LOCK_HATCH", "LOCK_BALCONY", "LIGHT_WINDOW", "LIGHT_HATCH", "LIGHT_BALCONY"] as PowerSlot[])
@@ -1171,6 +1152,7 @@ function buildDevButtons(): void {
   add(screens, "Loss", () => devPreview("BREACH"));
   add(screens, "Night won", () => devPreview("NIGHT_WON"));
   add(screens, "Game won", () => devPreview("GAME_WON"));
+  add(screens, "Close preview", endPreview);
 }
 
 function renderDev(): void {
@@ -1181,12 +1163,13 @@ function renderDev(): void {
     `phase ${s.phase}  night ${s.run.night}  speed x${speed}  skip card ${devSkipCard ? "on" : "off"}${previewing ? "  PREVIEW" : ""}`,
     `LLM ${!llm.available ? "unavailable (no key or server)" : llm.enabled ? "on" : "off"}  last judge: ${lastJudgeSource}`,
     `t ${s.clock.elapsed.toFixed(1)} / ${CONFIG.HOUR_LENGTH * CONFIG.NIGHT_HOURS}`,
-    `RAM ${r.state} ${r.target ?? ""} ends ${r.stateEndsAt.toFixed(1)} (in ${(r.stateEndsAt - s.clock.elapsed).toFixed(1)})`,
+    `THREAT ${r.state} ${r.target ?? ""} ends ${r.stateEndsAt.toFixed(1)} (in ${(r.stateEndsAt - s.clock.elapsed).toFixed(1)})`,
     `    visit ${r.visitId} fake ${r.fakedThisVisit ? "yes" : r.fakeOutAt !== null ? "planned" : "no"} pulls ${r.pendingPull}`,
     `SUSPICION ${s.chud.suspicion}  band ${s.chud.band}${s.chud.furiousActive ? " (episode)" : ""}`,
     `POWER ${s.power.slot}${s.power.pending ? " -> " + s.power.pending.target : ""}  online ${s.power.chudOnline}`,
     `LIGHT ${s.power.slot.startsWith("LIGHT_") ? "ON " + s.power.slot.slice(6) : "off"}  shift ${s.player.lightHeld ? "held" : "-"}  cut at ${s.power.lightCutAt === null ? "-" : s.power.lightCutAt.toFixed(1)}`,
     `CHUD odds (${s.chud.band}): refuse lock ${Math.round((s.chud.band === "FURIOUS" ? 1 : CONFIG.LOCK_REFUSAL[s.chud.band]) * 100)}%  cut light ${Math.round(CONFIG.LIGHT_CUT[s.chud.band] * 100)}%  refused this visit ${s.log.visit.refusedEntry ?? "-"}`,
+    `LOSS ${s.loss ? s.loss.cause + " / " + s.loss.reason : "-"}`,
     `INSIDE ${r.inside ? `${r.inside.entry} since ${r.inside.since.toFixed(1)} cause ${r.inside.cause} trigger ${r.inside.trigger}${r.inside.timerAt !== null ? " at " + r.inside.timerAt.toFixed(1) : ""}` : "-"}`,
     `    last gap ${r.lastGap ? `${r.lastGap.kind} ${r.lastGap.length.toFixed(1)}` : "-"}  window ${r.attemptLength.toFixed(1)}  decoys ${s.decoy.count} next ${s.decoy.nextAt.toFixed(1)}`,
     `lie decision ${s.chud.visitDecision ? (s.chud.visitDecision.lie ? "LIE " : "truth ") + s.chud.visitDecision.entry : "-"}`,

@@ -14,6 +14,7 @@ const sceneFiles = import.meta.glob(
     "../../../scenes/03-watch-room/render_blockout_cam_*.png",
     "../../../scenes/03-watch-room/render_hold_*.png",
     "../../../scenes/03-watch-room/render_dash_floor.png",
+    "../../../scenes/03-watch-room/final/png/title_bg/title_bg.png",
     "../../../scenes/03-watch-room/chud_smiley_four_moods.png",
     "../../../scenes/03-watch-room/chud_launch_newspaper_clipping_v2.png",
     "../../../scenes/03-watch-room/daniel_vale_notebook.jpg",
@@ -24,6 +25,11 @@ const sceneFiles = import.meta.glob(
   ],
   { eager: true, import: "default" },
 ) as Record<string, string>;
+const videoFiles = import.meta.glob("../../../scenes/03-watch-room/final/title_loop.webm", {
+  eager: true,
+  import: "default",
+  query: "?url",
+}) as Record<string, string>;
 
 // slot -> file in scenes/ (path suffix)
 const SCENE_ART: Record<string, string> = {
@@ -35,6 +41,7 @@ const SCENE_ART: Record<string, string> = {
   hold_hatch: "03-watch-room/render_hold_hatch.png",
   hold_balcony: "03-watch-room/render_hold_balcony.png",
   dash_floor: "03-watch-room/render_dash_floor.png",
+  title_bg: "03-watch-room/final/png/title_bg/title_bg.png",
   chud_faces: "03-watch-room/chud_smiley_four_moods.png",
   // desk artifacts (DOM only: the hotspot thumbnail and the reading view)
   artifact_clipping: "03-watch-room/chud_launch_newspaper_clipping_v2.png",
@@ -61,24 +68,31 @@ for (const [slotName, suffix] of Object.entries(SCENE_ART)) {
 for (const [path, url] of Object.entries(overrides)) {
   urlBySlot.set(path.split("/").pop()!.replace(/\.(png|webp|jpe?g)$/i, ""), url);
 }
+const titleLoop = Object.values(videoFiles)[0];
+if (titleLoop) urlBySlot.set("title_loop", titleLoop);
 
 const textures = new Map<string, Texture>();
-const DOM_ONLY = /^artifact_/; // used as <img> only, never loaded as a texture (the notebook photo is 4032 x 3024)
+const DOM_ONLY = /^(artifact_|title_loop$)/; // artifacts and the title video are only used in the DOM
 
 // URL of a slot for DOM use (faces, ending backgrounds). Null if the slot has no art yet.
 export function artUrl(slotName: string): string | null {
   return urlBySlot.get(slotName) ?? null;
 }
 
-export async function loadArt(): Promise<string[]> {
+export async function loadArt(progress: (complete: number, total: number) => void): Promise<string[]> {
   const loaded: string[] = [];
+  const imageSlots = [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName));
+  let complete = 0;
+  progress(complete, imageSlots.length);
   await Promise.all(
-    [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName)).map(async ([slotName, url]) => {
+    imageSlots.map(async ([slotName, url]) => {
       try {
         textures.set(slotName, await Assets.load<Texture>(url));
         loaded.push(slotName);
       } catch (err) {
         console.warn(`art slot ${slotName} failed to load`, err);
+      } finally {
+        progress(++complete, imageSlots.length);
       }
     }),
   );

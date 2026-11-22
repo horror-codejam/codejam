@@ -1,6 +1,6 @@
 # Game Design (working draft)
 
-Status: working draft. Nothing here is final. Game name not final. Log any change to the design in docs/DECISIONS.md.
+Status: working draft. The playable title is THE KEEPER. Log any change to the design in docs/DECISIONS.md.
 
 Exact rules, timers and numbers live in [docs/GAME_LOGIC.md](GAME_LOGIC.md). If this file and GAME_LOGIC.md disagree on a rule, GAME_LOGIC.md wins.
 
@@ -44,9 +44,9 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as CHUD on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
-- Rules explainer (our "phone guy"): the old keeper's voice logs (tapes) found on the terminal, recorded as he turned against the AI. Each night unlocks a new one. Night 1 explains the basics: he comes with the tide and you will not hear him, light a door and look, lock it or hold it, the generator runs one thing at a time (a locked door is a dark door), and do not let it know you want to leave. The tapes are the only place Ram is named.
+- Night 1 introduces the controls through on-screen hints. The shipwreck leads into the keeper name prompt on New Game.
 - CHUD never mentions Ram (2026-11-21). On night 1 it only warns, vaguely, that there might be dangerous things out there at night and to be careful. Its location answers name the entry but never him ("Something's at the hatch, keeper.").
-- Full screen card: "NIGHT 1. 12:00 AM. SURVIVE UNTIL 6 AM."
+- The timed midnight card shows "12:00 AM" and "Night 1".
 
 ## The lighthouse
 - You sit in the round watch room at mid-tower. The chair sits close to the curved keeper's desk, with the CHUD terminal straight ahead, with the ocean visible through the fixed glazing behind them.
@@ -111,7 +111,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 4. 1:30 AM: AI: "You'll stay with me after the storm, won't you?" Player lies: "Of course." Suspicion down.
 5. 3:00 AM: radio: "Coast guard, pickup in 3 days." The AI heard. "...Pickup?" Suspicion jumps.
 6. 3:40 AM: the player checks the balcony with Shift. The light snaps off. "You don't need that. You have me." Shift again: the door is ajar. Lock B: a malicious smile, "Hmm. No." The player runs and braces the door.
-7. 6:00 AM: tide goes out. AI: "Good morning, keeper. Same time tonight?"
+7. 6:00 AM: the tide goes out. The clock ticks over and the next night card appears.
 
 ## Difficulty curve (targets to tune in playtests, not measured)
 | | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 |
@@ -123,15 +123,14 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
 | First-try survival target | ~90% | ~75% | ~55% | ~35% | ~20% |
 
-- Every loss screen explains itself: which entry, why he got in (including "you dropped the lock to look" and "CHUD refused the lock"), how the scare found you, and what the AI told the player.
-- Nights are short so retries are cheap.
+- The jumpscare cuts to black, then offers "Title". Continue resumes the highest unlocked night.
 
 ## Endings
 - Win: 6 AM night 5, rescue helicopter. Flying away, the player sees Ram on the rocks staring up. The lamp blinks in Morse code: "COME BACK."
 - Lose: Ram breaks in. He does not hurt the player. He smashes the AI's computer, then looks at the player: "Now you're the keeper." Fade to black, the lamp turns back on.
 - New direction (2026-11-21, replaces the two endings above once the details are settled): both endings finish in the Cage Hall (scenes/99-final-cage-hall/).
-  - Lose: the AI kills you. You open your eyes inside a cage, in a hall full of caged people and monsters who went through the same thing.
-  - Win: you escape and see the same hall from outside. The monsters are puppets the AI controls, and your cage is empty, waiting for the next person.
+  - The playable loss ends on the cut to black and returns to the title.
+  - Win: you escape. The ending describes the puppets still moving behind you and your empty cage, then rolls credits.
 
 ## AI architecture and anti-cheat
 - The AI never decides win or loss. Game code owns every meter, lock, timer and outcome.
@@ -208,7 +207,7 @@ In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
 - Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
 - Audio (headphones): storm and waves, the ambient bed, stereo-panned decoy creaks, knocks and metal from the house (never Ram), CHUD's chime, the light switch and CHUD's electrical tick when it cuts the light, radio static, the jumpscare, helicopter.
-- "Click to begin" title screen (browsers block audio until first click). Preload jumpscare frames before each night.
+- The title shows New Game and Continue when a checkpoint exists. Preload the art and sampled audio before the title.
 
 Workflow:
 - Art director loop: Claude via Blender MCP builds or lights a scene and renders a low-sample preview, a human reviews ("darker", "more fog"), repeat. Final high-sample render once per view.
@@ -222,8 +221,6 @@ Workflow:
 
 ## Open questions
 - Twist details: who Ram really is (an earlier keeper turned monster; is the founder story a lie, or was the founder the first victim?), how a winning player sees the hall, and where the hall is.
-- When does the Cage Hall lose ending play? GAME_LOGIC.md section 11 shows a loss screen and a retry after each lost night. Options: only when the player gives up or runs out of retries, or after every lost night.
-- Game name.
 - Whether CC0 pre-made assets count as allowed under the build-from-scratch rule (ask organizers).
 - LLM provider and model (latency test needed).
 - Number of nights in the demo build (3 or 5).

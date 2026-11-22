@@ -7,7 +7,6 @@ import { CONFIG, nightLength, type Config, type NightParams } from "../config";
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
-  voiceLog,
   RADIO_LINES,
   SEED_TOPICS,
   RADIO_TOPIC,
@@ -187,7 +186,7 @@ export class GameEngine implements IGameEngine {
     this.say({ kind: "night_opener", night: s.run.night });
   }
 
-  // From the loss screen, or "Restart night" in the UI pause menu (phase PLAYING).
+  // Used by the dev panel to restart from the current night checkpoint.
   retryNight(): void {
     const s = this.state;
     if (s.phase !== "BREACH" && s.phase !== "PLAYING") return;
@@ -302,7 +301,7 @@ export class GameEngine implements IGameEngine {
     this.nightStarts++;
     this.decoyRng = new Rng((this.seed ^ DECOY_SEED_SALT) + this.nightStarts * 7919);
     this.state.decoy = { nextAt: this.rollDecoyInterval(), count: 0 };
-    this.emit({ type: "NIGHT_CARD", night, voiceLog: voiceLog(night) });
+    this.emit({ type: "NIGHT_CARD", night });
   }
 
   private freshState(night: number, checkpoint: Facts): GameState {
@@ -369,7 +368,8 @@ export class GameEngine implements IGameEngine {
     s.ram.target = null;
     s.ram.inside = null;
     s.player.reading = null;
-    this.say({ kind: "morning" });
+    // Keep the seeded sequence for the next night after removing the morning line.
+    this.rng.next();
     if (s.run.night >= this.cfg.nights.length) {
       s.phase = "GAME_WON";
       this.emit({ type: "GAME_WON" });

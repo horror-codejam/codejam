@@ -11,15 +11,8 @@ const h = playIntro({ root: $("ui"), onDone: () => {}, muted: false }); // h.ski
 - `onDone` fires exactly once: after the beat 12 fade, or after skip (Space/Esc). `destroy()` tears down without firing `onDone`.
 - Input: click or Enter advances a beat, Space or Esc skips. Keydowns are stopped in the capture phase (repeats ignored), and the matching keyup is swallowed for 600 ms. A "Space: skip" hint appears after 1 s.
 
-## Wiring in main.ts (before the name prompt on first load)
-```ts
-import { playIntro } from "./ui/intro";
-const params = new URLSearchParams(location.search);
-if (!params.has("night") && !params.has("nointro")) {
-  playIntro({ root: $("ui"), muted: sound.muted /* or false */, onDone: startAfterIntro });
-} else startAfterIntro();
-```
-Where `startAfterIntro` is whatever currently shows the name prompt. Check that the engine does not tick behind the intro (it is only an overlay).
+## Wiring in main.ts
+New Game calls `playIntro` after clearing the save. Its `onDone` callback hands off to the name prompt. The engine waits during the intro. Continue and the `?night=N` deep link open their night card directly. `?nointro` skips the shipwreck on New Game.
 
 ## Beats and timings (about 61 s total)
 Duration = max(minimum, 1.8 s + 52 ms per character).

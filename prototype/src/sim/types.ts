@@ -39,7 +39,7 @@ export type DecoySound = "creak" | "knock" | "metal" | "glass";
 
 export type Phase =
   | "NAME_PROMPT" // fresh game, CHUD asks the player's name (setName)
-  | "NIGHT_CARD" // card + voice log showing, clock stopped (beginNight)
+  | "NIGHT_CARD" // midnight card showing, clock stopped (beginNight)
   | "PLAYING"
   | "SAFETY_PAUSE" // self-harm flag, clock stopped (resumeFromSafetyPause)
   | "BREACH" // night lost, loss screen (retryNight)
@@ -241,13 +241,12 @@ export type Outcome =
   | { kind: "furious_cut" } // "If I can't keep you, nobody will. Hold it yourself."
   | { kind: "radio_reaction" }
   | { kind: "reboot_back" }
-  | { kind: "morning" }
   | { kind: "busy_holding" }; // never spoken by CHUD, reserved
 
 export type PowerCause = "player" | "light" | "light_cut" | "sabotage" | "furious" | "kill_switch" | "reboot";
 
 export type GameEvent =
-  | { type: "NIGHT_CARD"; night: number; voiceLog: string }
+  | { type: "NIGHT_CARD"; night: number }
   | { type: "NIGHT_START"; night: number }
   | { type: "HOUR"; hour: number }
   // Ram events are silent by rule (GAME_LOGIC 7.4): the UI must never play a sound or show text for them.

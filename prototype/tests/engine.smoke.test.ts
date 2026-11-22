@@ -90,7 +90,7 @@ describe("engine smoke", () => {
     expect(e.state.power.slot).toBe("NONE");
   });
 
-  it("retryNight also restarts a night in progress (UI pause menu), from the checkpoint", () => {
+  it("retryNight also restarts a night in progress from the checkpoint", () => {
     const e = playing();
     run(e, 20);
     expect(e.state.phase).toBe("PLAYING");
@@ -408,8 +408,10 @@ describe("dev methods", () => {
 
   it("devWinNight wins now, and GAME_WON on the last night; no-op outside PLAYING", () => {
     const e = playing();
+    e.drainEvents();
     e.devWinNight();
     expect(e.state.phase).toBe("NIGHT_WON");
+    expect(e.drainEvents()).toEqual([{ type: "NIGHT_WON", night: 1 }]);
     e.devWinNight();
     expect(e.state.phase).toBe("NIGHT_WON");
     const last = playing({ startNight: CONFIG.nights.length });

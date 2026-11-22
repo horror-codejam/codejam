@@ -11,6 +11,7 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
+- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the desk fallback until the production still or video lands.
 - Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
 - Working on: watch room look pass.
 - Blockers: none. Poly Haven is switched on in the MCP for Blender tab.
@@ -31,7 +32,7 @@ Last updated: 2026-11-21 (late night)
 - Next: team playtest of the new loop (is night 1 tense rather than empty, are PEEKED and refusals fair, light cut rate), tune numbers in prototype/src/config.ts, then commit and PR with the team's go-ahead.
 
 ## Codex (art pre-production)
-- Audio: wired the local Piper service to CHUD's scripted and generated dialogue on `audio/chud-piper-playback`. It uses the line's mood, plays from the desk, and falls back to the existing subtitle and chime. Setup in `prototype/tools/chud-tts/README.md`.
+- Audio: integrated CHUD's mood-based Piper speech with THE KEEPER title, pause and night transitions on `integration/keeper-ui-piper`. Spoken lines use the event mood, play from the desk, and fall back to the existing subtitle and chime. Setup in `prototype/tools/chud-tts/README.md`.
 - Audio: extracted the full stereo ambience from the supplied `FNAF Ambience Extended.mp4` to `prototype/public/audio/amb/ambient-noise.m4a` without re-encoding. Reuse rights are unverified.
 - Audio: trimmed the first jumpscare (0:04.84 to 0:07.22) from the supplied CaseOh compilation to `prototype/public/audio/sfx/jumpscare.wav`. The clip includes the source reaction. Reuse rights are unverified.
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.
