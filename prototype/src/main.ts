@@ -99,7 +99,7 @@ let previewing = false; // a dev screen preview is up: the night is frozen behin
 const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
-let dialogueToken = 0; // drops LLM replies from before a reset, power cut or interruption
+let dialogueToken = 0; // invalidates pending LLM replies when a line is shown or speech is stopped
 let convo: string[] = []; // recent "Keeper: ..." / "ChudGPT: ..." lines, context for the voice
 let edges: EdgeTurner;
 let lastTypedAt = -Infinity;
@@ -379,6 +379,7 @@ function stopChudSpeech(): void {
 }
 
 function showChud(text: string, band: Band, t: number): void {
+  dialogueToken++;
   chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
   terminal.addLine("chud", text, t);
   convo.push(`ChudGPT: ${text}`);
