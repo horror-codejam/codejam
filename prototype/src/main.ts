@@ -82,7 +82,9 @@ type Caption = { text: string; until: number };
 let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
 let hintCaption: Caption | undefined;
+let questionCaption: Caption | undefined; // the pending question, shown away from the desk under newer lines
 let lastHudT = 0; // HUD time of the previous frame, to pause a covered hint's countdown
+let resendTimer = 0; // a draft sent inside the message rate limit is sent again when the limit ends
 const hintQueue: { text: string; secs: number }[] = []; // hints waiting for the one on screen to finish
 
 // A hint never replaces one still showing: it waits its turn and then gets its full time.
@@ -245,7 +247,7 @@ function onEvent(ev: GameEvent, t: number): void {
       if (engine.state.phase === "NIGHT_CARD") sound.nightStart();
       terminal.clear();
       convo = [];
-      chudCaption = radioCaption = hintCaption = undefined; hintQueue.length = 0;
+      chudCaption = radioCaption = hintCaption = questionCaption = undefined; hintQueue.length = 0;
       breachShown = false;
       endScare();
       artifacts?.read(null);
@@ -324,8 +326,9 @@ function onEvent(ev: GameEvent, t: number): void {
       const seq = ++chudLineSeq;
       if (engine.isPracticing || !llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, ev.band, t, seq, URGENT_SPEECH.has(o.kind));
-        // A question stays readable for most of its timer (a radio caption on top cannot hide it for good).
-        if (o.kind === "question" && chudCaption) chudCaption.until = Math.max(chudCaption.until, t + CONFIG.QUESTION_TIMEOUT - 1);
+        // A pending question keeps its own caption away from the desk until it resolves: newer lines and the radio go on
+        // top for their few seconds, then it shows again.
+        if (o.kind === "question") questionCaption = { text: ev.text, until: t + CONFIG.QUESTION_TIMEOUT + CONFIG.QUESTION_JUDGE_GRACE };
         break;
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
@@ -347,6 +350,9 @@ function onEvent(ev: GameEvent, t: number): void {
       });
       break;
     }
+    case "QUESTION_RESOLVED":
+      questionCaption = undefined;
+      break;
     case "RADIO":
       sound.radio(ev.text);
       radioCaption = { text: ev.text, until: t + 4 };
@@ -458,7 +464,7 @@ function renderHud(t: number): void {
     lockDroppedByLight = null;
   }
   const caption = playing
-    ? [radioCaption, deskView ? undefined : chudCaption, hintCaption].find((line) => line && line.until > t)
+    ? [radioCaption, deskView ? undefined : chudCaption, deskView ? undefined : questionCaption, hintCaption].find((line) => line && line.until > t)
     : undefined;
   // A hint's clock stops while a paper is open or another caption covers it, so it always gets its full time on screen.
   const hudDt = Math.max(0, t - lastHudT);
@@ -597,7 +603,7 @@ function startRun(saved?: SavedRun): void {
   devRun = false;
   terminal.chat.value = "";
   terminal.clear();
-  chudCaption = radioCaption = hintCaption = undefined; hintQueue.length = 0;
+  chudCaption = radioCaption = hintCaption = questionCaption = undefined; hintQueue.length = 0;
   sound.unlock();
 
   if (!saved && !params.has("nointro")) {
@@ -743,7 +749,18 @@ function wireInput(): void {
     e.preventDefault();
     const text = terminal.chat.value;
     const res = engine.submitMessage(text);
-    if (!res.ok) return;
+    if (!res.ok) {
+      // Sent inside the 1.5 s message limit: keep the draft and send it by itself the moment the limit ends.
+      if (res.reason === "RATE_LIMIT") {
+        const p = engine.state.player;
+        const wait = Math.max(0, p.lastMessageAt + CONFIG.MESSAGE_RATE_LIMIT - engine.state.clock.elapsed);
+        window.clearTimeout(resendTimer);
+        resendTimer = window.setTimeout(() => {
+          if (terminal.chat.value === text && text.trim() !== "") terminal.form.requestSubmit();
+        }, wait * 1000 + 60);
+      }
+      return;
+    }
     terminal.addLine("me", text, now());
     convo.push(`Keeper: ${text}`);
     terminal.chat.value = "";
