@@ -9,7 +9,6 @@ import {
   RADIO_TOPIC,
   SEED_TOPICS,
   STAY_QUESTIONS,
-  voiceLog,
   type LineContext,
 } from "../src/chud/lines";
 import type { Band, Entry, Facts, JudgeInput, Outcome, PendingQuestion, QuestionType } from "../src/sim/types";
@@ -373,7 +372,6 @@ describe("canned lines", () => {
     expect(sweep({ kind: "night_opener", night: 3 }, "WARM")).toEqual(["You talk about home in your sleep, keeper."]);
     expect(sweep({ kind: "night_opener", night: 4 }, "HURT")).toEqual(["Two more days until your pickup, isn't it?"]);
     expect(sweep({ kind: "night_opener", night: 2 }, "WARM").some((l) => /kept the cottage warm/.test(l))).toBe(true);
-    expect(sweep({ kind: "morning" }, "WARM")).toContain("Good morning, keeper. Same time tonight?");
   });
 
   it("question carries the question text", () => {
@@ -432,7 +430,6 @@ describe("canned lines", () => {
       { kind: "furious_cut" },
       { kind: "radio_reaction" },
       { kind: "reboot_back" },
-      { kind: "morning" },
       { kind: "busy_holding" },
     ];
     for (const o of outcomes) {
@@ -449,8 +446,8 @@ describe("canned lines", () => {
   });
 
   it("CHUD canned templates stay short (max 20 words)", () => {
-    const voice = new Set([...Object.values(RADIO_LINES), ...[1, 2, 3, 4, 5].map(voiceLog)]);
-    for (const t of allLineTemplates()) if (!voice.has(t)) expect(words(t), t).toBeLessThanOrEqual(20);
+    const radio = new Set(Object.values(RADIO_LINES));
+    for (const t of allLineTemplates()) if (!radio.has(t)) expect(words(t), t).toBeLessThanOrEqual(20);
   });
 
   it("no em dashes anywhere in lines.ts", async () => {
@@ -462,7 +459,7 @@ describe("canned lines", () => {
   });
 });
 
-describe("banks, logs", () => {
+describe("scripted lines", () => {
   it("seed topics", () => {
     expect(SEED_TOPICS.length).toBeGreaterThanOrEqual(8);
     expect(SEED_TOPICS.length).toBeLessThanOrEqual(10);
@@ -482,9 +479,8 @@ describe("banks, logs", () => {
   });
 
   it("CHUD never mentions Ram: no canned line or question names him, even when the player is called Ram", async () => {
-    const voice = new Set([1, 2, 3, 4, 5].map(voiceLog)); // the previous keeper's tapes, not CHUD
     const ram = /\b(ram|altman)\b/i;
-    for (const t of allLineTemplates()) if (!voice.has(t)) expect(t, t).not.toMatch(ram);
+    for (const t of allLineTemplates()) expect(t, t).not.toMatch(ram);
     for (const t of [...SEED_TOPICS, RADIO_TOPIC]) for (const line of [t.question, t.memoryQuestion]) expect(line).not.toMatch(ram);
     for (const line of STAY_QUESTIONS) expect(line).not.toMatch(ram);
     for (const band of BANDS) {
@@ -512,17 +508,7 @@ describe("banks, logs", () => {
     for (const t of allLineTemplates()) expect(t, t).not.toMatch(/^RAM:/);
   });
 
-  it("voice logs cover the tutorial rules", () => {
-    const l1 = voiceLog(1).toLowerCase();
-    for (const k of ["tide", "lock", "one thing at a time", "light", "not hear", "leave"]) expect(l1).toContain(k);
-    expect(voiceLog(2).toLowerCase()).toMatch(/questions/);
-    expect(voiceLog(2).toLowerCase()).toMatch(/radio/);
-    expect(voiceLog(3)).toContain("It lies now.");
-    expect(voiceLog(3).toLowerCase()).toContain("light never lies");
-    expect(voiceLog(4).toLowerCase()).toMatch(/jealous.*power|power.*jealous/);
-    expect(voiceLog(5).toLowerCase()).toContain("kill switch");
-    expect(voiceLog(5).toLowerCase()).toContain("opens everything");
-    expect(voiceLog(9)).toBeTruthy();
+  it("keeps the radio beats and night 1 tutorial hints", () => {
     expect(RADIO_LINES[2]).toBe("Coast guard, pickup in 3 days.");
     expect(RADIO_LINES[5]).toBe("Helicopter at first light.");
     expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it"]);

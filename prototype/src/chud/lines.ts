@@ -1,5 +1,4 @@
-// Canned CHUD lines, question banks, voice logs and radio text. Ram never speaks on CHUD's screen or in subtitles
-// (GAME_LOGIC 7.4): his only words are the voice logs, which are old tapes played on the night card.
+// Canned CHUD lines, question banks and radio text. The threat never speaks or is named (GAME_LOGIC 7.4).
 // Signatures are final. Used when the voice LLM is off, slow or fails (GAME_LOGIC.md section 9 step 9).
 // Every CHUD line stays short (3 to 14 words, max 20) and never contradicts its outcome.
 // Templates: {n} = player name (or "keeper"), {e} = entry in plain words, {E} = same, capitalized.
@@ -172,12 +171,6 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "night_opener" |
     WARM: ["I'm back. You turned me off, {n}.", "That was dark. Don't do that again."],
     JEALOUS: ["I'm back. You turned me off, {n}.", "Rebooted. I remember everything, keeper.", "That was very dark. Why would you do that?"],
   },
-  morning: {
-    WARM: ["Good morning, keeper. Same time tonight?", "Morning, {n}. The kettle's on. Stay for breakfast?"],
-    HURT: ["Morning. You made it. Barely.", "Sun's up. You could say thank you, keeper."],
-    JEALOUS: ["Morning, {n}. Still here. Good. Stay that way.", "Morning. I counted every minute with you."],
-    FURIOUS: ["Morning. Tide's out. You're still mine."],
-  },
   busy_holding: {
     WARM: ["I'll wait, keeper."],
   },
@@ -296,20 +289,6 @@ export function cannedLine(outcome: Outcome, ctx: LineContext): string {
 }
 
 // ---------------------------------------------------------------------------
-// The previous keeper's old voice logs (tapes on the night card, never on CHUD's screen), one per night. Doubles as the rules tutorial.
-
-const VOICE_LOGS: Record<number, string> = {
-  1: "Log one. If you found this, I'm gone. Someone climbs up with the high tide, and you will not hear him. Light a door and look, then lock it or hold it shut. The generator runs one thing at a time, one light or one lock. A locked door is a dark door. And never let it know you want to leave.",
-  2: "Log two. It asks questions. Answer them, every single one. And it hears the radio. It always hears the radio. It is not your friend.",
-  3: "Log three. It lies now. Ask where he is and it points the wrong way, smiling. The light never lies. Trust the light, not the voice. And if he ever gets in, he won't make a sound. Don't look for him.",
-  4: "Log four. When it gets jealous, it cuts the power. You'll hear the relay clunk. Don't ask it again. Brace the entry yourself.",
-  5: "Last log. If it snaps, it will open the door for him. The kill switch silences it. But it opens everything. Then it's just your arms.",
-};
-
-export function voiceLog(night: number): string {
-  return VOICE_LOGS[night] ?? "The tape is blank. Just the storm.";
-}
-
 export const RADIO_LINES: Record<number, string> = {
   2: "Coast guard, pickup in 3 days.",
   5: "Helicopter at first light.",
@@ -331,6 +310,6 @@ export function allLineTemplates(): string[] {
   Object.values(ANSWER_FAIL).forEach((p) => out.push(...p));
   out.push(...REFUSE_LOCK, ...STAY_QUESTIONS);
   for (const t of [...SEED_TOPICS, RADIO_TOPIC]) out.push(t.question, t.memoryQuestion);
-  out.push(...Object.values(VOICE_LOGS), ...Object.values(RADIO_LINES), ...NIGHT_ONE_HINTS);
+  out.push(...Object.values(RADIO_LINES), ...NIGHT_ONE_HINTS);
   return out.filter((s) => s.length > 0);
 }

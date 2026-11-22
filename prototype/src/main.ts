@@ -82,8 +82,6 @@ const MALICIOUS_URL = artUrl("chud_face_malicious");
 const MALICIOUS_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="none" stroke="#ff4a3a" stroke-width="3"/><path d="M26 38 L42 44" stroke="#ff4a3a" stroke-width="5" stroke-linecap="round"/><path d="M74 38 L58 44" stroke="#ff4a3a" stroke-width="5" stroke-linecap="round"/><path d="M20 58 Q50 92 80 58 Q50 74 20 58 Z" fill="#ff4a3a"/><path d="M30 63 L34 69 M40 67 L42 74 M50 68 L50 76 M60 67 L58 74 M70 63 L66 69" stroke="#1a0000" stroke-width="2.5"/></svg>`;
 
 // UI-only state
-let voiceLog = "";
-let morningLine = "";
 let loss: LossInfo | null = null;
 let lastPhase: Phase | null = null;
 let breachShown = false;
@@ -102,7 +100,7 @@ let devOpen = false; // panel open
 let devNextAt = 0;
 let devSkipCard = false; // N buttons go straight into PLAYING
 let previewing = false; // a dev screen preview is up: the night is frozen behind it
-let previewSaved: { loss: LossInfo | null; morningLine: string } | null = null;
+let previewSaved: LossInfo | null = null;
 const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
@@ -189,7 +187,6 @@ function frame(dt: number): void {
 function onEvent(ev: GameEvent, t: number): void {
   switch (ev.type) {
     case "NIGHT_CARD":
-      voiceLog = ev.voiceLog;
       sound.stopCues();
       sound.windowMask = ev.night >= 4 ? 0.55 : 1;
       ui.log.replaceChildren();
@@ -234,7 +231,6 @@ function onEvent(ev: GameEvent, t: number): void {
     case "CHUD_SAY": {
       if (!ev.text) break;
       const o = ev.outcome;
-      if (o.kind === "morning") morningLine = ev.text;
       if (!llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, t);
         break;
@@ -622,7 +618,6 @@ function showScreen(phase: Phase): void {
       card(`
         <h1>NIGHT ${n}</h1>
         <p>12:00 AM. SURVIVE UNTIL 6 AM.</p>
-        <p class="log">${esc(voiceLog)}</p>
         <p class="small">Look around: push the mouse to the left edge (window), right edge (hatch) or bottom edge (behind you). The opposite edge brings you back (the bottom again from behind).<br />Hold Shift to switch on the light of the entry you are looking at (one power slot: the light drops any lock). Go to an entry: look at it and click. There, hold the left mouse button to brace it (your arms last a few seconds). Push the mouse to the same edge as before to run back to the desk.<br />At the desk, just start typing to talk to CHUD, Enter sends. The papers on the desk can be read. Esc pauses.</p>
         <button id="go">Start night ${n}</button>`);
       $("go").addEventListener("click", () => {
@@ -652,8 +647,6 @@ function showScreen(phase: Phase): void {
     case "NIGHT_WON":
       card(`
         <h1>6:00 AM</h1>
-        <p>NIGHT ${n} SURVIVED.</p>
-        <p style="color:var(--crt)">${esc(morningLine)}</p>
         <button id="go">Night ${n + 1}</button>`);
       $("go").addEventListener("click", () => engine.nextNight());
       $("go").focus();
@@ -1055,10 +1048,9 @@ function devSkipClock(): void {
 }
 
 function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON"): void {
-  if (!previewing) previewSaved = { loss, morningLine };
+  if (!previewing) previewSaved = loss;
   const n = devNight();
   if (kind === "BREACH") loss = { night: n, entry: "WINDOW", cause: "UNLOCKED", lastClaim: null, heldEntry: null, reason: "LOOK", flash: true, insideFor: 12 };
-  if (!morningLine) morningLine = "(preview) The tide held. Morning.";
   previewing = true;
   showScreen(kind);
   const go = $("go");
@@ -1071,11 +1063,8 @@ function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON"): void {
 function endPreview(): void {
   if (!previewing) return;
   previewing = false;
-  if (previewSaved) {
-    loss = previewSaved.loss;
-    morningLine = previewSaved.morningLine;
-    previewSaved = null;
-  }
+  loss = previewSaved;
+  previewSaved = null;
   skipDt = true;
   showScreen(engine.state.phase);
 }
