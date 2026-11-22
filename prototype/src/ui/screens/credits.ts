@@ -19,6 +19,12 @@ const ASSETS: Credit[] = [
   ["First Person hands rigged", "David Fischer", "https://sketchfab.com/3d-models/first-person-hands-rigged-547a45535f0c4fe787948f7a7a6a88db", "CC BY 4.0, adapted scale, materials and poses"],
   // Sketchfab base FBX 3f679e25181e46fcadd1442756f1091c: source author and license pending confirmation.
   ["Character model", "Vidush Komarraju"],
+  // Ending stills, from art/end-cutscene/ASSET-CREDITS.md.
+  ["Concrete Floor 02", "Rob Tuytel", "https://polyhaven.com/a/concrete_floor_02", "CC0"],
+  ["Industrial Caged Sconce", "Ulan Cabanilla", "https://polyhaven.com/a/industrial_caged_sconce", "CC0"],
+  ["Coast Rocks 02", "Rob Tuytel and Rico Cilliers", "https://polyhaven.com/a/coast_rocks_02", "CC0"],
+  ["Rock Boulder Cracked", "Poly Haven", "https://polyhaven.com/a/rock_boulder_cracked", "CC0"],
+  ["Lifebuoy", "Hank Kaamura", "https://polyhaven.com/a/lifebuoy", "CC0"],
 ];
 
 const FONTS = [

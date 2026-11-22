@@ -88,10 +88,18 @@
 }
 
 #screen .title-copy h1 {
-  margin: 0 0 clamp(27px, 6vh, 58px);
+  margin: 0 0 clamp(8px, 1.4vh, 14px);
   color: var(--screen-ink);
   font: normal clamp(42px, 7vw, 112px)/1 "Special Elite", monospace;
   letter-spacing: -0.055em;
+}
+
+#screen .title-copy .title-sub {
+  margin: 0 0 clamp(27px, 6vh, 58px);
+  color: var(--screen-ink);
+  opacity: 0.5;
+  font: normal clamp(13px, 1.5vw, 22px)/1 "Special Elite", monospace;
+  letter-spacing: 0.22em;
 }
 
 .title-copy nav { display: grid; justify-items: start; gap: 10px; }
@@ -236,3 +244,20 @@
 .ending-beat.chud { color: #7cff9b; text-shadow: 0 0 6px rgba(124, 255, 155, 0.4); }
 @keyframes beat-fade { 0% { opacity: 0; } 18% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; } }
 #screen[data-screen="kill-ending"], #screen[data-screen="trapped"] { cursor: pointer; }
+
+/* kill code exit scene: two stills with a slow push-in, captions below */
+#screen[data-screen="exit-scene"] { background: #000; cursor: pointer; }
+.exit-frame { position: absolute; inset: 0; overflow: hidden; transition: opacity 1.4s ease; }
+.exit-frame.out { opacity: 0; }
+.exit-shot {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  animation: exit-fade 1.4s ease both, exit-push var(--shot-ms, 12000ms) linear both;
+}
+@keyframes exit-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes exit-push { from { transform: scale(1); } to { transform: scale(1.08); } }
+.exit-caption {
+  position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(820px, 88vw); margin: 0; text-align: center;
+  font: clamp(18px, 2.5vw, 28px)/1.35 var(--screen-mono); text-shadow: 0 0 10px #000, 0 0 3px #000;
+  animation: beat-fade var(--beat-ms, 5200ms) ease both;
+}
+@media (prefers-reduced-motion: reduce) { .exit-shot { animation: exit-fade 1.4s ease both; } }

@@ -306,7 +306,7 @@ export class Scene {
     window.addEventListener("mousemove", (ev) => {
       const r = app.canvas.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return;
-      this.overDeskControl = ev.target instanceof Element && !!ev.target.closest("#terminal button, #terminal input");
+      this.overDeskControl = ev.target instanceof Element && !!ev.target.closest("#terminal button, #terminal input, #artifacts button");
       this.mouse.x = clamp(((ev.clientX - r.left) / r.width) * 2 - 1, -1, 1);
       this.mouse.y = clamp(((ev.clientY - r.top) / r.height) * 2 - 1, -1, 1);
     });
@@ -420,7 +420,7 @@ export class Scene {
     // which picture is up
     // the hold view shows while bracing (HOLDING) and while standing at the entry (edge controls, STANDING)
     const dashing = s.phase === "PLAYING" && (pos.kind === "TRAVELING" || pos.kind === "RETURNING");
-    const dashProgress = dashing ? clamp(1 - (pos.until - s.clock.elapsed) / CONFIG.TRAVEL_TIME, 0, 1) : 0;
+    const dashProgress = dashing ? clamp(1 - (pos.until - engine.now) / CONFIG.TRAVEL_TIME, 0, 1) : 0;
     const holding = this.scareEntry ? null
       : pos.kind === "HOLDING" || pos.kind === "STANDING" || (pos.kind === "TRAVELING" && dashProgress >= 0.5) ? pos.entry
       : pos.kind === "RETURNING" && dashProgress < 0.5 ? pos.from : null;
@@ -494,7 +494,7 @@ export class Scene {
       else if (holding) this.relaxAt = ft;
       this.wasBracing = bracing;
     }
-    const fatigue = pos.kind === "HOLDING" ? clamp((s.clock.elapsed - pos.since) / CONFIG.HOLD_MAX, 0, 1) : 0;
+    const fatigue = pos.kind === "HOLDING" ? clamp((engine.now - pos.since) / CONFIG.HOLD_MAX, 0, 1) : 0;
     this.armsK += ((bracing ? 1 : 0) - this.armsK) * (1 - Math.exp(-fdt * BRACE.ARMS_EASE));
     let pushing = false;
     for (const [e, L] of this.holds) {

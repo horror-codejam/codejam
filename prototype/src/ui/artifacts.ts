@@ -26,54 +26,53 @@ export function createArtifacts(root: HTMLElement, scene: Scene, getEngine: () =
   reader.id = "reader";
   reader.className = "hidden";
   const image = document.createElement("img");
-  image.alt = "";
-  const placeholder = document.createElement("div");
-  placeholder.className = "ph";
-  reader.append(image, placeholder);
+  reader.append(image);
 
-  const buttons = ARTIFACTS.map((artifact) => {
-    const button = document.createElement("button");
-    button.title = artifact.label;
-    button.setAttribute("aria-label", "Read " + artifact.label);
+  const papers = new Map(Object.entries(ARTIFACTS).flatMap(([id, artifact]) => {
     const url = paperUrl(artifact.slot);
-    if (url) button.style.backgroundImage = `url("${url}")`;
-    else button.textContent = artifact.label;
+    if (!url) return [];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.hidden = true;
+    button.setAttribute("aria-label", "Read " + artifact.label);
+    button.style.backgroundImage = `url("${url}")`;
     button.addEventListener("click", () => {
-      getEngine().pickUpArtifact(artifact.id);
+      getEngine().pickUpArtifact(id);
       button.blur();
     });
     hotspots.append(button);
-    return { artifact, button };
-  });
+    return [[id, { artifact, button, url }] as const];
+  }));
 
   reader.addEventListener("mousedown", (event) => {
     event.preventDefault();
     event.stopPropagation();
+  });
+  reader.addEventListener("click", () => getEngine().putDownArtifact());
+  reader.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
     getEngine().putDownArtifact();
   });
-  reader.addEventListener("contextmenu", (event) => event.preventDefault());
   root.prepend(hotspots, reader);
 
   return {
     render(on: boolean) {
-      hotspots.classList.toggle("hidden", !on);
-      if (!on) return;
-      for (const { artifact, button } of buttons) {
-        const r = scene.plateRect(artifact.rect);
-        button.style.transform = `translate(${r.x}px, ${r.y}px) rotate(${artifact.tilt}deg)`;
+      const active = on ? getEngine().deskArtifact : undefined;
+      for (const [id, { artifact, button }] of papers) {
+        button.hidden = id !== active;
+        if (button.hidden) continue;
+        const r = scene.plateRect(artifact.paper);
+        button.style.transform = `translate(${r.x}px, ${r.y}px) translate(-50%, -50%) perspective(${r.w * 3}px) rotateX(70deg) rotateZ(${artifact.tilt}deg)`;
         button.style.width = `${r.w}px`;
         button.style.height = `${r.h}px`;
       }
     },
     read(id: string | null) {
-      reader.classList.toggle("hidden", id === null);
-      if (id === null) return;
-      const artifact = ARTIFACTS.find((item) => item.id === id);
-      const url = artifact && paperUrl(artifact.slot);
-      image.classList.toggle("hidden", !url);
-      placeholder.classList.toggle("hidden", !!url);
-      if (url) image.src = url;
-      else placeholder.textContent = artifact?.label ?? id;
+      const paper = id === null ? undefined : papers.get(id);
+      reader.classList.toggle("hidden", !paper);
+      if (!paper) return;
+      image.src = paper.url;
+      image.alt = paper.artifact.label;
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     },
     pause(on: boolean) {

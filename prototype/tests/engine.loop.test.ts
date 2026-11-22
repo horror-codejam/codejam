@@ -167,8 +167,8 @@ describe("night length and pacing (sections 4 and 7.6)", () => {
   // Low frequency so tension builds (section 4). A player who keeps talking (no silence pulls) and defends every visit.
   // Going silent adds visits through the silence pull (section 7.3); that is the intended cost of silence.
   it.each([
-    [1, 3, 4],
-    [2, 4, 5],
+    [1, 3, 3],
+    [2, 3, 4],
     [3, 5, 6],
     [4, 6, 7],
     [5, 7, 8],
@@ -605,10 +605,27 @@ describe("silent breach: Ram INSIDE (section 7.7)", () => {
 });
 
 describe("desk artifacts (section 6.6)", () => {
+  it("only offers the scheduled paper on Nights 1 to 3", () => {
+    const schedule = ["clipping", "calendar", "notebook", null, null];
+    for (const [index, expected] of schedule.entries()) {
+      const e = playing({ startNight: index + 1 });
+      for (const id of ["clipping", "calendar", "notebook"]) {
+        e.pickUpArtifact(id);
+        expect(e.state.player.reading).toBe(id === expected ? id : null);
+        e.putDownArtifact();
+      }
+    }
+    const practice = new GameEngine({ seed: 7, practiceBeforeNight: true });
+    practice.setName("Keeper");
+    expect(practice.isPracticing).toBe(true);
+    practice.pickUpArtifact("clipping");
+    expect(practice.state.player.reading).toBeNull();
+  });
+
   it("reading: the night keeps running, and you cannot type, turn, use buttons or the kill switch", () => {
     const e = playing();
-    e.pickUpArtifact("notebook");
-    expect(e.state.player.reading).toBe("notebook");
+    e.pickUpArtifact("clipping");
+    expect(e.state.player.reading).toBe("clipping");
     const t0 = e.state.clock.elapsed;
     run(e, 5);
     expect(e.state.clock.elapsed).toBeCloseTo(t0 + 5, 6);
@@ -623,14 +640,14 @@ describe("desk artifacts (section 6.6)", () => {
     expect(e.state.player.reading).toBeNull();
     e.turn("WINDOW");
     expect(e.state.player.view).toBe("WINDOW");
-    e.pickUpArtifact("notebook"); // only from the desk view
+    e.pickUpArtifact("clipping"); // only from the desk view
     expect(e.state.player.reading).toBeNull();
   });
 
   it("he sneaks in while you read; putting the artifact down fires the scare at once", () => {
     const config = cfgWith(1, { atEntryTime: [9, 9] }, { ...quiet, INSIDE_TRIGGER_WEIGHTS: { TIMER: 0, NONE: 1, MOVE: 0 } });
     const e = playing({ config });
-    e.pickUpArtifact("calendar");
+    e.pickUpArtifact("clipping");
     runUntil(e, CONFIG.nights[0].firstVisitDelay + CONFIG.nights[0].approachTime + 9 + 3);
     expect(e.state.ram.state).toBe("INSIDE");
     expect(e.state.phase).toBe("PLAYING");
@@ -655,7 +672,7 @@ describe("night 1 hints and CHUD's warnings", () => {
     const e = playing();
     const hints: [number, string][] = [];
     run(e, CONFIG.nights[0].firstVisitDelay, (ev) => ev.type === "HINT" && hints.push([e.state.clock.elapsed, ev.text]));
-    expect(hints.map((h) => h[1])).toEqual(["Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it"]);
+    expect(hints.map((h) => h[1])).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it"]);
     hints.forEach(([t], i) => expect(t).toBeCloseTo(CONFIG.NIGHT_ONE_HINT_TIMES[i], 6));
     for (const [t] of hints) expect(t).toBeLessThan(CONFIG.nights[0].firstVisitDelay);
   });

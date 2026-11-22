@@ -295,7 +295,7 @@ export const RADIO_LINES: Record<number, string> = {
 };
 
 // Night 1 tutorial hints, shown at CONFIG.NIGHT_ONE_HINT_TIMES (before the first visit).
-export const NIGHT_ONE_HINTS: string[] = ["Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it"];
+export const NIGHT_ONE_HINTS: string[] = ["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it"];
 
 // Every raw template in this file, for content checks in tests (word counts, em dashes).
 export function allLineTemplates(): string[] {

@@ -8,7 +8,7 @@ export interface IntroHandle { skip(): void; destroy(): void }
 // ---------------------------------------------------------------------------
 // Frames (picked up automatically when scenes/01-shipwreck/intro/ is rendered)
 
-const frameFiles = import.meta.glob("../../../scenes/01-shipwreck/intro/*.png", { eager: true, import: "default" }) as Record<string, string>;
+const frameFiles = import.meta.glob("../../../scenes/01-shipwreck/intro/*.{png,webp}", { eager: true, import: "default" }) as Record<string, string>;
 const blockoutFiles = import.meta.glob("../../../scenes/01-shipwreck/render_blockout.png", { eager: true, import: "default" }) as Record<string, string>;
 const faceFiles = import.meta.glob("../../../scenes/03-watch-room/chud_smiley_four_moods.png", { eager: true, import: "default" }) as Record<string, string>;
 
@@ -48,8 +48,11 @@ export function totalMs(): number {
   return BEATS.reduce((a, b) => a + readingMs(b), 0);
 }
 
+// Steady typing pace for every subtitle line (characters per second).
+export const TYPE_CPS = 36;
+
 // Typed-in prefix of a line after elapsedMs at cps characters per second.
-export function typedText(line: string, elapsedMs: number, cps = 38): string {
+export function typedText(line: string, elapsedMs: number, cps = TYPE_CPS): string {
   return line.slice(0, Math.max(0, Math.min(line.length, Math.floor((elapsedMs / 1000) * cps))));
 }
 
@@ -73,7 +76,7 @@ class Synth {
     } catch { this.ctx = null; return; }
     const c = this.ctx;
     this.master = c.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = 0.4; // matches the game's MASTER_LEVEL
     this.master.connect(c.destination);
     this.bed = c.createGain();
     this.bed.gain.value = 0;
@@ -249,11 +252,11 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?:
 
 export function playIntro(opts: IntroOptions): IntroHandle {
   const { root, onDone } = opts;
+  // New helm still (game style). Without it the old helm frame and its lightning frame are used, as before.
+  const finalHelm = find(frameFiles, "intro_helm_final.webp");
   const url = {
-    helm: find(frameFiles, "intro_01_helm.png"),
-    lightning: find(frameFiles, "intro_02_lightning.png"),
-    wave: find(frameFiles, "intro_03_wave.png"),
-    capsize: find(frameFiles, "intro_04_capsize.png"),
+    helm: finalHelm ?? find(frameFiles, "intro_01_helm.png"),
+    lightning: finalHelm ? null : find(frameFiles, "intro_02_lightning.png"),
     blink: [1, 2, 3].map((i) => find(frameFiles, `intro_05_blink_${i}.png`)),
     blockout: find(blockoutFiles, "render_blockout.png"),
     face: find(faceFiles, "chud_smiley_four_moods.png"),
@@ -267,10 +270,6 @@ export function playIntro(opts: IntroOptions): IntroHandle {
   helm.style.backgroundImage = bg(url.helm ?? url.blockout);
   const lightning = el("div", "pic lightning", view);
   if (url.lightning) lightning.style.backgroundImage = bg(url.lightning);
-  const wave = el("div", "pic" + (url.wave ? "" : " fb-wave"), view);
-  wave.style.backgroundImage = bg(url.wave ?? url.blockout);
-  const capsize = el("div", "pic" + (url.capsize ? "" : " fb-capsize"), view);
-  capsize.style.backgroundImage = bg(url.capsize ?? url.blockout);
   const blinkPics = [0, 1, 2].map((i) => {
     const real = url.blink[i];
     const p = el("div", "pic" + (real ? "" : " fb-blink"), view);
@@ -286,19 +285,23 @@ export function playIntro(opts: IntroOptions): IntroHandle {
     }
     return p;
   });
+  const water = el("div", "water", view); // black water edge that rises over the frame in beat 10
   const rain = el("div", "rain", layer);
+  if (finalHelm) rain.style.display = "none"; // the new still already has rain on the glass
   const flash = el("div", "flash", layer);
   el("div", "vignette", layer);
   el("div", "grain", layer);
   const lidTop = el("div", "lid top", layer);
   const lidBot = el("div", "lid bot", layer);
   const sub = el("div", "sub", layer);
-  const who = el("div", "who", sub);
-  const line = el("div", "line", sub);
+  const who = el("span", "who", sub);
+  const typed = el("span", "typed", sub);
+  const rest = el("span", "rest", sub);
   const hint = el("div", "hint", layer);
-  hint.textContent = "Space: skip";
+  hint.textContent = "space";
   const black = el("div", "black", layer);
 
+  void document.fonts?.load('25px "VT323"').catch(() => {});
   const synth = new Synth(!!opts.muted);
 
   // timers
@@ -312,19 +315,21 @@ export function playIntro(opts: IntroOptions): IntroHandle {
   };
   const clearBeat = (): void => { for (const id of beatTimers) { clearTimeout(id); all.delete(id); } beatTimers = []; };
   const anims: Animation[] = [];
-  const animate = (e: HTMLElement, kf: Keyframe[], o: KeyframeAnimationOptions): void => { try { anims.push(e.animate(kf, o)); } catch { /* no WAAPI */ } };
+  const animate = (e: HTMLElement, kf: Keyframe[], o: KeyframeAnimationOptions): Animation | null => {
+    try { const a = e.animate(kf, o); anims.push(a); return a; } catch { return null; /* no WAAPI */ }
+  };
 
   const show = (...which: HTMLElement[]): void => {
-    for (const p of [helm, wave, capsize, ...blinkPics]) p.classList.toggle("on", which.includes(p));
+    for (const p of [helm, ...blinkPics]) p.classList.toggle("on", which.includes(p));
   };
   const lids = (open: boolean): void => { lidTop.classList.toggle("open", open); lidBot.classList.toggle("open", open); };
 
-  // lightning: white flash, optional lightning frame, thunder after a delay
-  const strike = (): void => {
+  // lightning: white flash plus a brightness pop on the helm still (or the old lightning frame), thunder after a delay
+  const strike = (flashOnly = false): void => {
     const seq = [0, 1, 0.15, 0.85, 0];
     animate(flash, seq.map((o) => ({ opacity: o * 0.6 })), { duration: 380, easing: "steps(5, end)" });
     if (url.lightning) animate(lightning, seq.map((o) => ({ opacity: o })), { duration: 380, easing: "steps(5, end)" });
-    else animate(helm, seq.map((o) => ({ filter: `brightness(${1 + o * 1.6})` })), { duration: 380, easing: "steps(5, end)" });
+    else if (!flashOnly) animate(helm, seq.map((o) => ({ filter: `brightness(${1 + o * 1.6})` })), { duration: 380, easing: "steps(5, end)" });
     later(() => synth.thunder(), 350 + Math.random() * 900, false);
   };
 
@@ -343,18 +348,23 @@ export function playIntro(opts: IntroOptions): IntroHandle {
   let finished = false;
   let destroyed = false;
   let typeTimer = 0;
+  let pushAnim: Animation | null = null;
 
-  const typeLine = (b: Beat, dur: number): void => {
+  const typeLine = (b: Beat): void => {
     clearInterval(typeTimer);
-    if (!b.line) { who.textContent = ""; line.textContent = ""; line.className = "line"; return; }
+    typed.textContent = "";
+    rest.textContent = "";
+    who.textContent = "";
+    if (!b.line) { sub.className = "sub"; return; }
+    sub.className = "sub on" + (b.speaker === "COAST GUARD" ? " radio" : "");
     who.textContent = b.speaker!;
-    who.className = "who " + b.speaker!.replace(" ", "");
-    line.className = "line" + (b.speaker === "COAST GUARD" ? " radio" : "");
+    rest.textContent = b.line; // the untyped rest stays in the layout (hidden) so wrapping never reflows
     const t0 = performance.now();
-    const cps = Math.max(30, Math.min(60, b.line.length / (dur * 0.0006)));
     typeTimer = window.setInterval(() => {
-      line.textContent = typedText(b.line!, performance.now() - t0, cps);
-      if (line.textContent.length >= b.line!.length) clearInterval(typeTimer);
+      const t = typedText(b.line!, performance.now() - t0);
+      typed.textContent = t;
+      rest.textContent = b.line!.slice(t.length);
+      if (t.length >= b.line!.length) clearInterval(typeTimer);
     }, 30);
   };
 
@@ -365,18 +375,18 @@ export function playIntro(opts: IntroOptions): IntroHandle {
     if (i >= BEATS.length) { finish(); return; }
     const b = BEATS[i];
     const dur = readingMs(b);
-    typeLine(b, dur);
+    typeLine(b);
     later(() => enter(i + 1), dur);
 
     switch (b.n) {
       case 1:
         show(helm);
         lids(true);
-        animate(helm, [{ transform: "scale(1) translate(0,0)" }, { transform: "scale(1.09) translate(-8px,-5px)" }], { duration: 46000, fill: "forwards", easing: "linear" });
+        pushAnim = animate(helm, [{ transform: "scale(1) translate(0,0)" }, { transform: "scale(1.09) translate(-8px,-5px)" }], { duration: 46000, fill: "forwards", easing: "linear" });
         synth.startBed();
         stormOn = true;
         creakLoop();
-        later(strike, 2600);
+        later(() => strike(), 2600);
         later(() => { stormOn && lightningLoop(); }, 3000);
         break;
       case 2:
@@ -390,23 +400,28 @@ export function playIntro(opts: IntroOptions): IntroHandle {
         break;
       case 8:
         later(() => { synth.waveImpact(); synth.cutBed(0.3); }, dur - 700);
-        later(strike, 900);
+        later(() => strike(), 900);
         break;
       case 10: {
+        // Wave and capsize on the helm still: it darkens, tilts hard and blurs while a black water edge rises,
+        // then a hard cut to black on the impact. The bed is already cut to silence at the start of the beat.
         stormOn = false;
         view.classList.remove("shake");
-        show(wave);
-        synth.cutBed(0.01); // hard cut to silence
-        animate(wave, [{ transform: "scale(1)" }, { transform: "scale(1.35) translateY(-3%)" }], { duration: 2700, fill: "forwards", easing: "ease-in" });
-        later(strike, 1500);
+        show(helm);
+        synth.cutBed(0.01);
+        const from = getComputedStyle(helm).transform;
+        pushAnim?.cancel();
+        animate(helm, [
+          { transform: from && from !== "none" ? from : "none", filter: "brightness(1) blur(0px)" },
+          { transform: "rotate(-26deg) scale(1.55)", filter: "brightness(0.22) blur(8px)" },
+        ], { duration: 2700, fill: "forwards", easing: "cubic-bezier(0.3, 0, 0.8, 0.8)" });
+        animate(water, [{ transform: "translateY(105%)" }, { transform: "translateY(-10%)" }], { duration: 1700, delay: 1000, fill: "both", easing: "cubic-bezier(0.35, 0, 0.85, 0.75)" });
+        later(() => strike(true), 1300);
         later(() => {
-          show(capsize);
+          show();
+          water.style.display = "none";
           synth.waveImpact();
-          animate(capsize, [{ transform: "rotate(0deg) scale(1.05)" }, { transform: "rotate(38deg) scale(1.4)" }], { duration: 2400, fill: "forwards", easing: "ease-in" });
-          animate(view, [{ transform: "rotate(0deg)" }, { transform: "rotate(14deg)" }], { duration: 2400, fill: "forwards", easing: "ease-in" });
-          animate(flash, [{ opacity: 0.7 }, { opacity: 0 }], { duration: 500 });
         }, 2700);
-        later(() => { lids(false); }, dur - 500);
         break;
       }
       case 11: {
@@ -443,6 +458,7 @@ export function playIntro(opts: IntroOptions): IntroHandle {
     all.clear();
     clearInterval(typeTimer);
     clearTimeout(hintTimer);
+    clearTimeout(hintTimer2);
     stormOn = false;
     for (const a of anims) { try { a.cancel(); } catch { /* done */ } }
     window.removeEventListener("keydown", onKey, true);
@@ -480,7 +496,8 @@ export function playIntro(opts: IntroOptions): IntroHandle {
 
   window.addEventListener("keydown", onKey, true);
   layer.addEventListener("pointerdown", onClick);
-  const hintTimer = window.setTimeout(() => hint.classList.add("on"), 1000);
+  const hintTimer = window.setTimeout(() => hint.classList.add("on"), 2000);
+  const hintTimer2 = window.setTimeout(() => hint.classList.remove("on"), 6500);
 
   enter(0);
 

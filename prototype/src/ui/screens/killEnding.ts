@@ -1,6 +1,6 @@
 // Night 5 endings: the kill code (CHUD dies, the hatch opens, then the exit scene) and the trapped ending. Text beats on black.
-// The exit scene itself (down through the dungeon, rescued by the coast guard) is a teammate's work: plug it into
-// renderExitScene below. Until then it goes straight to the credits.
+import cageHall from "../../../../art/end-cutscene/01-cage-hall.webp?url";
+import rescueBoat from "../../../../art/end-cutscene/02-rescue-boat.webp?url";
 import { renderCredits } from "./credits";
 import { after } from "./timing";
 
@@ -59,10 +59,76 @@ export function renderKillCodeEnding(screen: HTMLElement, title: () => void, sig
   });
 }
 
-// Hook for the exit scene (teammate): walk down through the dungeon, then the coast guard rescue. Call `done` when it
-// ends to roll the credits. Placeholder: no scene yet, straight to the credits.
-export function renderExitScene(_screen: HTMLElement, done: () => void, _signal: AbortSignal): void {
-  done();
+// The exit scene: Vidush's two Blender stills (art/end-cutscene/), each with a slow push-in and a caption per beat.
+// A click skips to the next caption. Calls `done` at the end to roll the credits.
+interface Shot {
+  src: string;
+  alt: string;
+  captions: string[];
+}
+
+const EXIT_SHOTS: Shot[] = [
+  {
+    src: cageHall,
+    alt: "A hall of cages under the lighthouse",
+    captions: [
+      "Under the hatch, a hall of cages. Every keeper before you.",
+      "The doors stand open. The thing at the bars does not move. It has nothing telling it to.",
+    ],
+  },
+  {
+    src: rescueBoat,
+    alt: "The lighthouse from the deck of a rescue boat",
+    captions: ["At the end of the tunnel, the sea. A coast guard boat, its engine running.", "Behind you, the lamp keeps turning. Nobody is keeping it."],
+  },
+];
+
+const CAPTION_MS = 5200;
+const SHOT_FADE_MS = 1400;
+
+export function renderExitScene(screen: HTMLElement, done: () => void, signal: AbortSignal): void {
+  screen.dataset.screen = "exit-scene";
+  const steps = EXIT_SHOTS.flatMap((shot, s) => shot.captions.map((text, c) => ({ s, text, first: c === 0 })));
+  const frame = document.createElement("div");
+  frame.className = "exit-frame";
+  const caption = document.createElement("p");
+  caption.className = "exit-caption";
+  screen.replaceChildren(frame, caption);
+  let i = 0;
+  let stepAbort: AbortController | null = null;
+  const next = (): void => {
+    stepAbort?.abort();
+    if (signal.aborted) return;
+    if (i >= steps.length) {
+      screen.onpointerdown = null;
+      frame.classList.add("out");
+      caption.remove();
+      after(SHOT_FADE_MS, signal, done);
+      return;
+    }
+    const step = steps[i++];
+    if (step.first) {
+      const shot = EXIT_SHOTS[step.s];
+      const img = document.createElement("img");
+      img.className = "exit-shot";
+      img.src = shot.src;
+      img.alt = shot.alt;
+      img.style.setProperty("--shot-ms", `${shot.captions.length * CAPTION_MS + SHOT_FADE_MS}ms`);
+      const old = frame.querySelector(".exit-shot");
+      frame.append(img);
+      if (old) after(SHOT_FADE_MS, signal, () => old.remove());
+    }
+    caption.textContent = step.text;
+    caption.style.animation = "none";
+    void caption.offsetWidth; // restart the fade for each caption
+    caption.style.animation = "";
+    stepAbort = new AbortController();
+    after(CAPTION_MS, stepAbort.signal, next);
+  };
+  caption.style.setProperty("--beat-ms", `${CAPTION_MS}ms`);
+  signal.addEventListener("abort", () => stepAbort?.abort(), { once: true });
+  screen.onpointerdown = next;
+  next();
 }
 
 export function renderTrapped(screen: HTMLElement, title: () => void, signal: AbortSignal): void {

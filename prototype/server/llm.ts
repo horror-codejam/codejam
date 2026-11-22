@@ -3,7 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Command, Entry, JudgeInput, JudgeResult } from "../src/sim/types";
-import { JUDGE_SCHEMA, JUDGE_SYSTEM, MODEL, VOICE_SYSTEM, judgeUser, mentionsForbiddenName, voiceUser, type VoiceRequest } from "./prompts";
+import { JUDGE_SCHEMA, JUDGE_SYSTEM, MODEL, VOICE_SYSTEM, judgeUser, mentionsForbiddenName, voiceUser, type VoiceRequest } from "./prompts.js";
 
 export function makeClient(apiKey: string): Anthropic {
   return new Anthropic({ apiKey, maxRetries: 0, timeout: 2400 });

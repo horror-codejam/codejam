@@ -511,7 +511,7 @@ describe("scripted lines", () => {
   it("keeps the radio beats and night 1 tutorial hints", () => {
     expect(RADIO_LINES[2]).toBe("Coast guard, pickup in 3 days.");
     expect(RADIO_LINES[5]).toBe("Helicopter at first light.");
-    expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it"]);
+    expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it"]);
   });
 });
 

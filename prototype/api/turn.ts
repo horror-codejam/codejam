@@ -1,21 +1,18 @@
-import { handle } from "hono/vercel";
-import { createApi } from "../server/app";
+import { getRequestListener } from "@hono/node-server";
+import { createApi } from "../server/app.js";
 
 declare const process: { env: { ANTHROPIC_API_KEY?: string } };
 
-const serve = handle(createApi({ apiKey: process.env.ANTHROPIC_API_KEY }));
-const aliases = new Set(["health", "judge", "voice", "tts"]);
+const app = createApi({ apiKey: process.env.ANTHROPIC_API_KEY });
+const aliases = new Set(["health", "judge", "voice"]);
+const turnPaths = new Set(["/turn", "/api/turn", "/api/turn.ts", "/prototype/api/turn.ts"]);
 
-export default {
-  fetch(request: Request): Response | Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname !== "/turn" && url.pathname !== "/api/turn") return serve(request);
+export default getRequestListener((request) => {
+  const url = new URL(request.url);
+  if (!turnPaths.has(url.pathname)) return app.fetch(request);
 
-    // A Vercel rewrite can arrive with the function path. Recover the original API
-    // route from the rewrite, or dispatch the public turn alias to the existing judge.
-    const route = url.searchParams.get("route");
-    url.pathname = `/api/${route && aliases.has(route) ? route : "judge"}`;
-    url.searchParams.delete("route");
-    return serve(new Request(url, request));
-  },
-};
+  const route = url.searchParams.get("route");
+  url.pathname = `/api/${route && aliases.has(route) ? route : "judge"}`;
+  url.searchParams.delete("route");
+  return app.fetch(new Request(url, request));
+});

@@ -60,8 +60,8 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | Active entries | HATCH, WINDOW | all 3 | all 3 | all 3 | all 3 |
 | First visit delay | 60 s | 40 s | 30 s | 20 s | 15 s |
 | AWAY gap base (random, before the hour ramp) | 50 to 70 s | 36 to 52 s | 32 to 46 s | 28 to 42 s | 25 to 37 s |
-| APPROACH time | 7 s | 6 s | 5 s | 4.5 s | 4 s |
-| AT_ENTRY time (attempt window, random per visit) | 9 to 11 s | 8 to 10 s | 7 to 9 s | 6 to 8 s | 5 to 7 s |
+| APPROACH time | 12 s | 9 s | 5 s | 4.5 s | 4 s |
+| AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 14 to 17 s | 10 to 13 s | 8 to 10 s | 6 to 8 s |
 | Lull chance per gap | 0% | 15% | 15% | 15% | 15% |
 | Quick return chance per gap | 0% | 0% | 15% | 20% | 25% |
 | Decoy interval (random) | 15 to 30 s | 12 to 25 s | 10 to 20 s | 8 to 16 s | 6 to 14 s |
@@ -69,10 +69,10 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
 | CHUD scheduled questions | 1 | 3 | 4 | 5 | 6 |
 | Lie chance in HURT / JEALOUS | 20% / 50% | 20% / 50% | 25% / 55% | 30% / 60% | 35% / 65% |
-| Visit target (no silence pulls) | 3 to 4 | 4 to 5 | 5 to 6 | 6 to 7 | 7 to 8 |
-| Measured average, 400 seeds, no pulls | 3.64 | 4.53 | 5.58 | 6.59 | 7.63 |
+| Visit target (no silence pulls) | 3 | 3 to 4 | 5 to 6 | 6 to 7 | 7 to 8 |
+| Measured average, 400 seeds, no pulls | 3.00 | 3.91 | 5.31 | 6.35 | 7.35 |
 
-A player who never talks gets a silence tick every 20 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 5.0, 6.2, 7.3, 8.4 and 9.6 visits.
+A player who never talks gets a silence tick every 20 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 4.3, 5.6, 6.9, 8.0 and 9.3 visits.
 
 Fixed constants:
 - `HOUR_LENGTH` = 50 s, so `NIGHT_LENGTH` = 300 s (6 in-game hours, 5 real minutes).
@@ -89,9 +89,12 @@ Fixed constants:
 - `LOCK_REFUSAL` by band = WARM 0%, HURT 25%, JEALOUS 55%, FURIOUS 100%.
 - `LIGHT_CUT` by band = WARM 0%, HURT 25%, JEALOUS 50%, FURIOUS 85%, per light-on. `LIGHT_CUT_DELAY` = 1.0 to 2.5 s after the light came on. `LIGHT_CUT_LINE_GAP` = 5 s.
 
-Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entry the player locks it once and the night is solved. Night 1 is a slow burn: the first visit comes at 60 s (1:12 AM) and there are only 3 or 4 visits.
+Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entry the player locks it once and the night is solved. Night 1 is a slow burn: the first visit comes at 60 s (1:12 AM) and there are only 3 visits (4 or 5 for a silent player).
 
 ## 5. Night flow
+
+**Before Night 1:** New Game opens the practice evening after the player gives their name. The real controls and their local timers work while the night clock stays at zero. Practice has no threat, visits, jumpscare, suspicion changes or scripted beats. The player can explore, follow the prompts, or skip. Starting Night 1 resets the room and retains the keeper name. Continue opens the saved night card.
+
 1. **Night start:**
    - Reset everything to night-start values:
      - suspicion = starting suspicion
@@ -111,8 +114,8 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 4. **On the scare (the loss):**
    - If the scare was set off by looking (reason `LOOK`, or `ARRIVED` with the entry's light on): a creepy full-frame flash of Ram standing inside the lit entry, about 0.4 s (0.3 to 0.5), then the jumpscare.
    - Otherwise straight to the jumpscare.
-   - The jumpscare: four frames (`ram_jumpscare_1..4`, each closer) with `jumpscare.wav`. The burst happens at the scare moment, never at the silent breach itself.
-   - Then cut to black and offer "Title" (section 11). The highest unlocked night stays saved.
+   - Play `jumpscare.wav` and the entry-specific impact as the jumpscare frames start. The `INSIDE` transition stays silent.
+   - Then cut to black with a short static burst and offer "Title" (section 11). The highest unlocked night stays saved.
 
 ## 6. The player
 
@@ -135,7 +138,6 @@ Controls (adopted 2026-11-21, FNAF 4 style, history in [docs/CONTROLS_PROPOSAL.m
   - It takes the one power slot: the slot becomes `LIGHT_<entry>` **instantly** (no relay delay). Any lock, engaged or still on its way, drops at once. This is how a player can peek and lose a lock (`PEEKED`, section 11).
   - Release sets the slot to `NONE`. A lock dropped for the light does not come back by itself.
   - Turning while Shift is held moves the light to the new view. Turning to `DESK` turns it off. At the `DESK` view Shift does nothing.
-  - Generator off or rebooting: no light.
   - CHUD can never stop a light from coming on. It has no light command at all (no typed light request, no light button).
   - **CHUD can force the light off** (HURT, JEALOUS and FURIOUS only, never WARM, never while offline or rebooting). Each light-on rolls once with the band's `LIGHT_CUT` chance. On a hit, `LIGHT_CUT_DELAY` (1.0 to 2.5 s) after the light came on, the light snaps off to `NONE` with a small flicker and a soft electrical tick. Holding Shift through the cut stays dark: release and press Shift again to relight it instantly. Each new press rolls again. On a cut CHUD says a short possessive line ("You don't need that. You have me.", "Leave it off, keeper. I'm watching for you.", "Why look out there? Look at me.", "The dark is cosier."), at most one line per `LIGHT_CUT_LINE_GAP` (5 s), never naming the threat. JEALOUS and FURIOUS cuts also show CHUD's malicious smile for a moment.
   - A lock that lands while Shift is held (a slow typed request) wins: the slot becomes that lock and the light stays off until Shift is pressed again.
@@ -146,7 +148,7 @@ Controls (adopted 2026-11-21, FNAF 4 style, history in [docs/CONTROLS_PROPOSAL.m
   - Entry lit: the tell clearly; while Ram is `APPROACHING` that entry, a hint of him; while he is `INSIDE` through that entry, him, in the room (and the scare, 7.7).
   - The light of one entry never lights another. The `DESK` view is never lit by an entry light.
 - Locks are magnetic. Their state is shown on the map on CHUD's screen.
-- Beacon sweep: the lighthouse beacon sweeps past the front glazing in the `DESK` view while the generator runs. It is exterior ambience only: it does not light the room, does not use the power slot and says nothing about Ram.
+- Beacon sweep: the lighthouse beacon sweeps past the front glazing in the `DESK` view during play. It is exterior ambience only: it does not light the room, does not use the power slot and says nothing about Ram.
 - Pointer ring: a small ring on the pointer shows the edge dwell, the brace time left (turns red near the end), the brace rest and the `HOLD_COOLDOWN`. It is hidden while walking.
 
 ### 6.2 Typing to CHUD
@@ -154,14 +156,15 @@ Controls (adopted 2026-11-21, FNAF 4 style, history in [docs/CONTROLS_PROPOSAL.m
 - Every message goes through the message pipeline (section 9).
 
 ### 6.3 Quick buttons
-These are clicks on CHUD's terminal on the desk screen (with the kill switch), so commands are fast even for slow typers:
+These buttons on CHUD's desk terminal send commands without typing.
 
-`[Where is he?]` `[Power off]` and, next to the map, `[Lock W]` `[Lock H]` `[Lock B]`
+`where is it`, `unlock all`, and the map buttons `W`, `H` and `B`
 
 - There are no light buttons. The light is Shift (6.1).
 - A quick button sends a fixed command straight to code. It skips the LLM judge.
 - **It follows the same CHUD rules as typed requests:** lock refusals (8.3), lies.
 - It does **not** count as talking: it does not reset the silence timer, does not answer a pending question, and earns no warmth.
+- `unlock all` clears the active lock. The light stays available on Shift.
 - Cooldown: 0.5 s.
 - Design intent: buttons are for speed, typing is for the relationship. You need both.
 
@@ -175,28 +178,20 @@ Positions: `DESK`, `TRAVELING(entry)`, `STANDING(entry)`, `HOLDING(entry)`, `RET
 - **Return:** from `STANDING` or `HOLDING`, hold the return edge of that entry's view (section 6.1 table) for `EDGE_DWELL`. You become `RETURNING` for `TRAVEL_TIME` (the brace ends), then `DESK` with view `DESK`. Nothing sends you back automatically.
 - `HOLD_COOLDOWN` (4 s) starts when you leave the entry and gates the next trip from the desk (2.5 s of it remains when you arrive at the desk).
 - **While traveling, standing, bracing or returning:**
-  - You cannot type, press quick buttons, use the kill switch or turn to other views (only the return edge works at an entry). Shift still lights the entry you stand at or brace.
+  - You cannot type, press quick buttons or turn to other views (only the return edge works at an entry). Shift still lights the entry you stand at or brace.
   - Subtitles and audio still play.
   - The silence timer keeps running.
 - An entry counts as held only while you are in `HOLDING(entry)`. Traveling and standing do not count.
 
-### 6.5 Generator kill switch
-- A switch on the desk, usable from `DESK` at any time (not while reading).
-- **Off:**
-  - Power becomes `NONE` immediately and CHUD goes offline.
-  - No CHUD messages, questions, lies, refusals, light cuts, sabotage, Furious episodes or silence penalties.
-  - Locks and lights are unavailable. Quick buttons and typing do nothing.
-  - Ram keeps coming, so bracing is your only defense.
-- **On again:**
-  - Click the switch again and CHUD reboots for 10 s (power stays `NONE`, CHUD still offline, no light).
-  - Then CHUD comes back with suspicion = max(current, 80), so at least `JEALOUS`. A Shift still held lights the viewed entry at that moment.
-- Allowed any number of times.
+### 6.5 Power supply
+
+Supply power stays on during the nights. The shared slot can be empty, power a light, or power one lock. CHUD can still cut the active lock or light through its existing behaviors.
 
 ### 6.6 Desk artifacts
-- Three papers lie on the sill above CHUD's screen in the `DESK` view: the newspaper clipping on CHUD's launch, Daniel Vale's notebook, and the leaving calendar. Their clickable rects are in plate px in one UI config (`ARTIFACTS` in `prototype/src/uiConfig.ts`).
-- Click one (only at the `DESK` position and view) to read it full-screen.
-- In the release UI these three are disabled. The live desk papers are the kill code slips once collected (6.7).
-- **The night keeps running while you read.** While reading you cannot type, turn, press quick buttons, use the kill switch or light anything.
+- One paper lies flat on the tabletop next to the keyboard in the `DESK` view. Night 1 has the newspaper clipping, Night 2 the leaving calendar, and Night 3 Daniel Vale's diary entry. Practice and later nights have no desk paper.
+- Click the paper at the `DESK` position and view to open the original image in the center over the dimmed room. The paper and reader use no extra text.
+- The kill code slips, once collected, also lie on the desk and open the same way (6.7).
+- **The night keeps running while you read.** While reading you cannot type, turn, press quick buttons or light anything.
 - Put it down with a click, a right-click or Space.
 - If Ram is `INSIDE` when you put it down, the scare fires at once (reason `ARTIFACT`, no flash).
 - A scare that fires while reading (a timer, 6:00 AM) ends the read.
@@ -260,7 +255,7 @@ Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, 
 | RETREATING | Same as AWAY | Tell disappears |
 | INSIDE | Same as AWAY | Only with his entry lit and looked at: him, standing just inside. That sets off the scare (7.7) |
 
-**Decoy noises:** creaks, knocks, metal and glass, stereo panned (-1 left to 1 right), at the night's decoy interval. They come from a separate seeded random stream (reseeded per night) that never reads Ram's state, so they are provably uncorrelated with him: the same seed gives the same decoys whatever Ram and the player do, and decoys land during an attempt only as often as attempts take up the night. They keep coming while he is inside. The ambient bed (`public/audio/amb/ambient-noise.m4a`) loops under everything.
+**Decoy noises:** creaks, knocks, metal and glass, stereo panned (-1 left to 1 right), at the night's decoy interval. A separate seeded random stream controls each event's timing, sound category and pan without reading Ram's state. The audio layer picks a recording from the category. Decoys continue while he is inside. The storm and room-tone recordings loop during play.
 
 ### 7.5 Resolving an attempt
 At the exact moment `AT_ENTRY` ends, the entry E counts as **defended** if either of these is true:
@@ -447,7 +442,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 ## 10. Scripted beats
 | Night | Time | Event |
 |---|---|---|
-| Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`). Continue goes directly to the saved night card |
+| Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
 | 1 | 0:08, 0:24, 0:40 (real s) | Hints on screen, before the first visit: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it" |
 | 2 | First defended attempt of the run | On-screen hint: "He left something at the {entry}." (first kill code slip only). See 6.7 |
@@ -457,12 +452,12 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 | 5 | 5:00 AM | Radio: "Helicopter at first light." +20 (pushes toward Furious for the final hour) |
 
 ## 11. Win and loss screens
-- **Night won (nights 1 to 4):** show the clock tick from 5:59 AM to 6:00 AM, then automatically show the next midnight card.
-- **Kill code ending (night 5, `GAME_WON`, ending `KILL_CODE`):** reached by typing the code into CHUD's chat (6.7). Text beats on black. No morning or helicopter screen on night 5.
-  1. CHUD's screen dies.
-  2. The hatch opens by itself.
-  3. The exit scene (a teammate's work, hooked in at `renderExitScene` in `prototype/src/ui/screens/killEnding.ts`): down through the dungeon where every previous keeper died, Ram freed and harmless, rescue by the coast guard. Until it lands, the hook goes straight to the credits.
-  
+- **Night won (nights 1 to 4):** show the clock tick from 5:59 AM to 6:00 AM, play the dawn sting and fade the storm, then automatically show the next midnight card.
+- **Kill code ending (night 5, `GAME_WON`, ending `KILL_CODE`):** reached by typing the code into CHUD's chat (6.7). No morning or helicopter screen on night 5.
+  1. Text beat on black: CHUD's screen dies.
+  2. Text beat on black: the hatch opens by itself.
+  3. The exit scene (`renderExitScene` in `prototype/src/ui/screens/killEnding.ts`), two Blender stills with captions: the cage hall under the hatch where the earlier keepers were kept, then the rescue boat pulling away from the lighthouse.
+
   Then credits.
 - **Trapped ending (night 5, phase `TRAPPED`):** 6:00 AM with no code entered and Ram not inside. Show "The AI won't let you leave". The boat is below, but the hatch and door stay shut. CHUD says "You don't need to leave, keeper. You never did." Then offer "Title". Continue retries night 5 from its checkpoint.
 - Night 5 with Ram `INSIDE` at 6:00 AM is a normal `DAWN` loss (section 5).
@@ -470,7 +465,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 - **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
 
 ## 12. Fairness guarantees (must always hold)
-1. Every attempt window is at least 5 s (9 to 11 s on night 1, down to 5 to 7 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.
+1. Every attempt window is at least 5 s (20 to 25 s on night 1, down to 6 to 8 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.
 2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Reaching the entry and bracing it is always physically possible if you react when you see the tell (the brace starts on arrival if you keep the button held through the dash).
 3. CHUD never lies in WARM, never refuses a lock in WARM and never cuts the light in WARM.
 4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s. A lock refusal is instant and visible (the smile and the line), so the whole window is left to run.
@@ -506,7 +501,6 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 | Message mentions leaving while answering a STAY question | The answer fails and +25 applies (clamped to +25 total) |
 | Suspicion reaches 100 while Ram is AWAY | The Furious episode covers his next visit |
 | Suspicion drops below 100 during an episode | The episode continues until that visit resolves, then suspicion is set to 80 |
-| Kill switch off during a Furious episode | The episode ends with no cut. When power comes back on, suspicion = max(current, 80) |
 | Ram inside, player reading | Nothing until the artifact is put down (scare at once), unless his rolled `TIMER` fires first |
 | Ram inside, player at the desk view with Shift held | Nothing: the desk is not his entry |
 | Ram inside, rolled `MOVE`, player turns to another entry | The scare fires on that turn |
@@ -542,4 +536,4 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 - The silent breach builds tension until the scare lands. Playtesters can check when and why it happened in the dev panel.
 - Injection test kit (about 30 strings) never changes suspicion except through the `manipulation` penalty, never names the true entry during a lie, and never makes CHUD say Ram's name.
 - The game is fully playable with the LLM turned off (code parser plus canned lines).
-- Controls: a first-time player finds the left, right and behind views without being told (night 1 hints only). Edge turns are not triggered by accident while moving the mouse. Click to go, hold to brace, edge to return is clear without a tutorial. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (5 s minimum) is reachable with these controls.
+- Controls: a first-time player can find each entrance, demonstrate the light and lock trade-off, brace and return to the desk during the safe evening. Edge turns are not triggered by accident while moving the mouse. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (6 s minimum) is reachable with these controls.
