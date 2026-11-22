@@ -84,3 +84,25 @@ export const MALICE = {
   SABOTAGE_TIME: 1.0,
   LIGHT_CUT_TIME: 0.9,
 };
+
+// Kill-code papers (always on, unlike ARTIFACTS). Plate px (960 x 480). Collected papers lie on the desk slab (slab
+// y 372 to 428, keyboard from x 356, mouse pad x 645 to 768 below y 429): two either side of the keyboard, inside
+// x 130 to 830 so they stay in view at the usual pan, clear of the terminal (the monitor ends at y 342). Only the
+// papers in engine.papersOnDesk() are drawn, so they pile up. Paper i shows engine.paperChar(i).
+export const CODE_PAPERS: { id: string; label: string; rect: { x: number; y: number; w: number; h: number }; tilt: number; line: string }[] = [
+  { id: "paper0", label: "Scrawled paper 1", rect: { x: 150, y: 382, w: 46, h: 36 }, tilt: -5, line: "it hears everything. keep this." },
+  { id: "paper1", label: "Scrawled paper 2", rect: { x: 226, y: 386, w: 46, h: 36 }, tilt: 4, line: "i am not the one at your door." },
+  { id: "paper2", label: "Scrawled paper 3", rect: { x: 634, y: 380, w: 46, h: 36 }, tilt: 3, line: "the boat is real. it will not let you take it." },
+  { id: "paper3", label: "Scrawled paper 4", rect: { x: 702, y: 385, w: 46, h: 36 }, tilt: -4, line: "all four. into the machine. before light." },
+];
+
+// The slip Ram leaves at an entry (engine.floorPaper()). One rect per view, chosen by where the player is: `view` is the
+// desk-facing plate (view_<entry>_*), `hold` the close-up plate (hold_<entry>_*). Placed by eye on the final plates:
+// window: the floor under the glass / the sill in the close-up; hatch: the boards in front of the hatch panel / the
+// lower right of the panel; balcony: the floor by the door / the foot of the door. Rendered dim, brighter in the entry's light.
+type PlateRect = { x: number; y: number; w: number; h: number; tilt: number };
+export const FLOOR_PAPER: Record<"WINDOW" | "HATCH" | "BALCONY", { view: PlateRect; hold: PlateRect }> = {
+  WINDOW: { view: { x: 330, y: 372, w: 54, h: 34, tilt: -8 }, hold: { x: 380, y: 345, w: 120, h: 70, tilt: -6 } },
+  HATCH: { view: { x: 500, y: 372, w: 50, h: 30, tilt: 6 }, hold: { x: 640, y: 335, w: 120, h: 76, tilt: 5 } },
+  BALCONY: { view: { x: 560, y: 410, w: 50, h: 30, tilt: -5 }, hold: { x: 300, y: 352, w: 120, h: 62, tilt: 4 } },
+};

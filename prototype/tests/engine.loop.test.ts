@@ -178,7 +178,7 @@ describe("night length and pacing (sections 4 and 7.6)", () => {
     for (let seed = 1; seed <= SEEDS; seed++) {
       const e = playing({ startNight: night, seed, config: { ...CONFIG, ...quiet } });
       const evs = playNight(e);
-      expect(e.state.phase === "NIGHT_WON" || e.state.phase === "GAME_WON").toBe(true);
+      expect(e.state.phase === "NIGHT_WON" || e.state.phase === "TRAPPED").toBe(true);
       total += evs.filter((ev) => ev.type === "RAM_APPROACH").length;
     }
     const avg = total / SEEDS;

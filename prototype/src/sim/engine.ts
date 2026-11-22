@@ -3,7 +3,7 @@
 // and a separate stream for the decoy noises so they can never depend on Ram (GAME_LOGIC 7.4).
 // Every tuning number comes from the Config. The few constants below are rule constants, not tuning knobs.
 
-import { CONFIG, nightLength, type Config, type NightParams } from "../config";
+import { CONFIG, ENDING, nightLength, type Config, type NightParams } from "../config";
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
@@ -62,6 +62,7 @@ const DEFAULT_SEED = 1337;
 const SUSPICION_MIN = 0;
 const SUSPICION_MAX = 100; // section 8.1
 const RECENT_MESSAGES_KEPT = 10; // section 3 log: last 10 player messages
+const KILL_CODE_SEED_SALT = 0x5eed1e55;
 const FACT_VALUE_MAX = 60; // IMPLEMENTATION_NOTES Questions: raw-text fact fallback
 const NO_REPEAT_TARGET_NIGHT = 1; // section 7.2
 const DECOY_SOUNDS: DecoySound[] = ["creak", "knock", "metal", "glass"];
@@ -114,6 +115,8 @@ export class GameEngine implements IGameEngine {
   private acc = 0;
   private awayStartedAt = 0; // for the 4 s AWAY floor on silence pulls
   private pendingPowerCause: PowerCause = "player";
+  private killCode = "";
+  private initPapers = 0;
   private lastLineByKind = new Map<string, string>(); // last canned line per outcome kind (no back-to-back repeats)
   private memoryChecked: string[] = []; // MEMORY keys checked this night
   private readonly practiceBeforeNight: boolean;
@@ -126,6 +129,8 @@ export class GameEngine implements IGameEngine {
     this.rng = new Rng(this.seed);
     this.decoyRng = new Rng(this.seed ^ DECOY_SEED_SALT);
     this.state = {} as GameState;
+    this.initPapers = clamp(Math.floor(opts.papersCheckpoint ?? 0) || 0, 0, ENDING.CODE_LETTERS + ENDING.CODE_DIGITS);
+    this.killCode = this.validCode(opts.killCode) ? opts.killCode!.toUpperCase() : this.makeKillCode();
     const night = this.clampNight(opts.startNight ?? 1);
     const facts: Facts = { ...(opts.facts ?? {}) };
     if (opts.skipNamePrompt || night > 1) {
@@ -134,6 +139,23 @@ export class GameEngine implements IGameEngine {
       Object.assign(this.state, this.freshState(night, facts));
       this.state.phase = "NAME_PROMPT";
     }
+  }
+
+  private validCode(c: string | undefined): boolean {
+    return !!c && c.length === ENDING.CODE_LETTERS + ENDING.CODE_DIGITS && /^[A-Za-z0-9]+$/.test(c);
+  }
+
+  // Two letters and two digits in shuffled order, from their own seeded stream so the game stream is untouched.
+  private makeKillCode(): string {
+    const r = new Rng((this.seed ^ KILL_CODE_SEED_SALT) >>> 0);
+    const chars: string[] = [];
+    for (let i = 0; i < ENDING.CODE_LETTERS; i++) chars.push(r.pick([...ENDING.LETTERS]));
+    for (let i = 0; i < ENDING.CODE_DIGITS; i++) chars.push(r.pick([...ENDING.DIGITS]));
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = Math.floor(r.next() * (i + 1));
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    return chars.join("");
   }
 
   // =========================================================================
@@ -213,18 +235,15 @@ export class GameEngine implements IGameEngine {
   // Used by the dev panel to restart from the current night checkpoint.
   retryNight(): void {
     const s = this.state;
-    if (s.phase !== "BREACH" && s.phase !== "PLAYING") return;
+    if (s.phase !== "BREACH" && s.phase !== "PLAYING" && s.phase !== "TRAPPED") return;
     this.startNight(s.run.night, s.run.factsCheckpoint);
   }
 
   nextNight(): void {
     const s = this.state;
     if (s.phase !== "NIGHT_WON") return;
-    if (s.run.night >= this.cfg.nights.length) {
-      s.phase = "GAME_WON";
-      this.emit({ type: "GAME_WON" });
-      return;
-    }
+    // The last night never ends in NIGHT_WON: it ends by the kill code, TRAPPED or a loss.
+    if (s.run.night >= this.cfg.nights.length) return;
     this.startNight(s.run.night + 1, s.run.factsCheckpoint);
   }
 
@@ -246,7 +265,7 @@ export class GameEngine implements IGameEngine {
     if (this.state.phase === "PLAYING") this.state.ram.stateEndsAt = this.now + this.np.awayGap[0];
   }
 
-  // Ends the night as a win right now (NIGHT_WON, or GAME_WON on the last night).
+  // Ends the night as a win right now (NIGHT_WON, or TRAPPED on the kill code night).
   devWinNight(): void {
     if (!this.isPracticing && this.state.phase === "PLAYING") this.winNight();
   }
@@ -335,7 +354,14 @@ export class GameEngine implements IGameEngine {
     const suspicion = clamp(np.startingSuspicion, SUSPICION_MIN, SUSPICION_MAX);
     return {
       phase: "NIGHT_CARD",
-      run: { night, factsCheckpoint: { ...checkpoint }, seed: this.seed },
+      run: {
+        night,
+        factsCheckpoint: { ...checkpoint },
+        seed: this.seed,
+        killCode: this.killCode,
+        papersCheckpoint: this.state.run?.papersCheckpoint ?? this.initPapers,
+      },
+      papers: { collected: this.state.run?.papersCheckpoint ?? this.initPapers, floor: null },
       clock: { elapsed: 0, hour: 0 },
       player: {
         view: "DESK",
@@ -379,16 +405,21 @@ export class GameEngine implements IGameEngine {
         usedSeedKeys: [],
       },
       timers: { lastRealMessageAt: 0, lastWarmBonusAt: -Infinity, silenceTicks: 0, locationRequests: [], locationRefusedUntil: -Infinity, warmTimes: [] },
-      log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [], nightOneHintsShown: 0 },
+      log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [], nightOneHintsShown: 0, paperHintShown: false },
       decoy: { nextAt: Infinity, count: 0 }, // set by startNight from the decoy stream
       loss: null,
+      ending: null,
     };
   }
 
   private winNight(): void {
     const s = this.state;
     if (s.chud.furiousActive) this.endFurious(true);
-    s.run.factsCheckpoint = { ...s.chud.facts };
+    const trapped = s.run.night === ENDING.CODE_NIGHT;
+    if (!trapped) {
+      s.run.factsCheckpoint = { ...s.chud.facts };
+      s.run.papersCheckpoint = s.papers.collected;
+    }
     // The tide wins: any visit in progress is cancelled with no breach.
     s.ram.state = "AWAY";
     s.ram.target = null;
@@ -396,9 +427,9 @@ export class GameEngine implements IGameEngine {
     s.player.reading = null;
     // Keep the seeded sequence for the next night after removing the morning line.
     this.rng.next();
-    if (s.run.night >= this.cfg.nights.length) {
-      s.phase = "GAME_WON";
-      this.emit({ type: "GAME_WON" });
+    if (trapped) {
+      s.phase = "TRAPPED";
+      this.emit({ type: "TRAPPED" });
     } else {
       s.phase = "NIGHT_WON";
       this.emit({ type: "NIGHT_WON", night: s.run.night });
@@ -768,10 +799,72 @@ export class GameEngine implements IGameEngine {
 
   pickUpArtifact(id: string): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.reading !== null || id !== this.deskArtifact) return;
+    if (s.phase !== "PLAYING" || s.player.reading !== null) return;
     if (s.player.position.kind !== "DESK" || s.player.view !== "DESK") return;
+    // Kill-code papers (paperN) are readable once collected; the night's desk artifact only on its night.
+    const m = /^paper(\d+)$/.exec(id);
+    if (m ? !this.papersOnDesk().includes(Number(m[1])) : id !== this.deskArtifact) return;
     s.player.reading = id;
     this.emit({ type: "ARTIFACT", id });
+  }
+
+  papersOnDesk(): number[] {
+    return Array.from({ length: this.state.papers.collected }, (_, i) => i);
+  }
+
+  paperChar(i: number): string {
+    return this.state.run.killCode[i] ?? "";
+  }
+
+  floorPaper(): { entry: Entry; index: number } | null {
+    const f = this.state.papers.floor;
+    return f ? { entry: f.entry, index: f.index } : null;
+  }
+
+  // Picks up the paper Ram left at an entry: the player must be standing (or bracing) there. Opens the reader.
+  pickUpFloorPaper(): boolean {
+    const s = this.state;
+    const f = s.papers.floor;
+    if (s.phase !== "PLAYING" || !f || s.player.reading !== null) return false;
+    let p = s.player.position;
+    if ((p.kind !== "STANDING" && p.kind !== "HOLDING") || p.entry !== f.entry) return false;
+    if (p.kind === "HOLDING") {
+      if (!p.stay) return false;
+      this.endHold("manual");
+      p = s.player.position;
+      if (p.kind !== "STANDING") return false;
+    }
+    s.papers.collected += 1;
+    s.papers.floor = null;
+    this.emit({ type: "PAPER_COLLECTED", index: f.index });
+    s.player.reading = `paper${f.index}`;
+    this.emit({ type: "ARTIFACT", id: s.player.reading });
+    return true;
+  }
+
+  // The player typed the kill code into CHUD's chat. Killing the AI frees Ram, so this wins even if he is inside.
+  private acceptKillCode(): void {
+    const s = this.state;
+    if (s.chud.furiousActive) this.endFurious(true);
+    const pq = s.chud.pendingQuestion;
+    if (pq) this.emit({ type: "QUESTION_RESOLVED", questionId: pq.id, result: "cancelled" });
+    s.chud.pendingQuestion = null;
+    s.chud.queuedScriptQuestion = null;
+    s.ram.state = "AWAY";
+    s.ram.target = null;
+    s.ram.inside = null;
+    s.ram.fakeOutAt = null;
+    s.ram.pendingPull = 0;
+    s.ram.stateEndsAt = Infinity;
+    s.papers.floor = null;
+    s.power.pending = null;
+    s.player.reading = null;
+    s.ending = "KILL_CODE";
+    s.phase = "GAME_WON";
+    this.nightToken++;
+    this.tickets.clear();
+    this.emit({ type: "KILL_CODE_ACCEPTED" });
+    this.emit({ type: "GAME_WON" });
   }
 
   putDownArtifact(): void {
@@ -830,7 +923,7 @@ export class GameEngine implements IGameEngine {
 
   startBrace(): void {
     const s = this.state;
-    if (s.phase !== "PLAYING") return;
+    if (s.phase !== "PLAYING" || s.player.reading !== null) return;
     const p = s.player.position;
     if (p.kind === "TRAVELING" && p.stay) {
       p.braceOnArrival = true;
@@ -842,7 +935,7 @@ export class GameEngine implements IGameEngine {
 
   endBrace(): void {
     const s = this.state;
-    if (s.phase !== "PLAYING") return;
+    if (s.phase !== "PLAYING" || s.player.reading !== null) return;
     const p = s.player.position;
     if (p.kind === "TRAVELING" && p.stay) p.braceOnArrival = false;
     else if (p.kind === "HOLDING" && p.stay) this.endHold("manual");
@@ -850,7 +943,7 @@ export class GameEngine implements IGameEngine {
 
   returnToDesk(): void {
     const s = this.state;
-    if (s.phase !== "PLAYING") return;
+    if (s.phase !== "PLAYING" || s.player.reading !== null) return;
     const p = s.player.position;
     if (p.kind === "HOLDING" && p.stay) this.endHold("manual");
     const q = s.player.position;
@@ -954,7 +1047,24 @@ export class GameEngine implements IGameEngine {
     r.state = "RETREATING";
     r.stateEndsAt = r.stateEndsAt + this.cfg.RETREAT_TIME;
     this.emit({ type: "RAM_RETREAT", visitId: r.visitId, entry });
+    this.maybeDropPaper(entry);
     if (s.chud.furiousActive && s.chud.furiousVisitId === r.visitId) this.endFurious(true);
+  }
+
+  // A defended attempt may leave a kill code paper at the entry. At most one new paper per night, catch-up allowed.
+  private maybeDropPaper(entry: Entry): void {
+    const s = this.state;
+    const pp = s.papers;
+    const night = s.run.night;
+    if (night < ENDING.FIRST_PAPER_NIGHT || pp.floor !== null) return;
+    const total = ENDING.CODE_LETTERS + ENDING.CODE_DIGITS;
+    if (pp.collected >= total || pp.collected >= night - ENDING.FIRST_PAPER_NIGHT + 1) return;
+    pp.floor = { entry, index: pp.collected, droppedAt: this.now };
+    this.emit({ type: "PAPER_DROPPED", entry, index: pp.collected });
+    if (!s.log.paperHintShown && pp.collected === 0 && s.run.papersCheckpoint === 0) {
+      s.log.paperHintShown = true;
+      this.emit({ type: "HINT", text: `He left something at the ${entry.toLowerCase()}.` });
+    }
   }
 
   // Section 7.6: quick return first; else the base range times the hour ramp, then the lull roll; then silence pulls.
@@ -1402,6 +1512,18 @@ export class GameEngine implements IGameEngine {
     if (text.length > c.MAX_MESSAGE_LENGTH) return reject("TOO_LONG");
     const norm = normalize(text);
     if (!norm) return reject("EMPTY");
+    // The kill code, typed to CHUD on the last night: checked by code, before the judge or any voice model sees it.
+    if (s.run.night === ENDING.CODE_NIGHT && text.toUpperCase().replace(/[^A-Z0-9]/g, "").includes(s.run.killCode)) {
+      this.acceptKillCode();
+      const ticket: MessageTicket = {
+        id: this.nextTicketId++,
+        judgeInput: { text: "", pendingQuestion: null, facts: {}, band: s.chud.band },
+        repeat: true, // no judge needed, applyJudge is a no-op
+        parsed: { command: "NONE", entry: null },
+        commandRanImmediately: false,
+      };
+      return { ok: true, ticket };
+    }
     s.player.lastMessageAt = this.now;
 
     // Step 2: repeat check.

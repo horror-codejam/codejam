@@ -19,6 +19,12 @@ const ASSETS: Credit[] = [
   ["First Person hands rigged", "David Fischer", "https://sketchfab.com/3d-models/first-person-hands-rigged-547a45535f0c4fe787948f7a7a6a88db", "CC BY 4.0, adapted scale, materials and poses"],
   // Sketchfab base FBX 3f679e25181e46fcadd1442756f1091c: source author and license pending confirmation.
   ["Character model", "Vidush Komarraju"],
+  // Ending stills, from art/end-cutscene/ASSET-CREDITS.md.
+  ["Concrete Floor 02", "Rob Tuytel", "https://polyhaven.com/a/concrete_floor_02", "CC0"],
+  ["Industrial Caged Sconce", "Ulan Cabanilla", "https://polyhaven.com/a/industrial_caged_sconce", "CC0"],
+  ["Coast Rocks 02", "Rob Tuytel and Rico Cilliers", "https://polyhaven.com/a/coast_rocks_02", "CC0"],
+  ["Rock Boulder Cracked", "Poly Haven", "https://polyhaven.com/a/rock_boulder_cracked", "CC0"],
+  ["Lifebuoy", "Hank Kaamura", "https://polyhaven.com/a/lifebuoy", "CC0"],
 ];
 
 const FONTS = [
@@ -31,39 +37,41 @@ const CREDITS_DURATION = 26_000;
 export function renderEnding(screen: HTMLElement, title: () => void, signal: AbortSignal): void {
   screen.dataset.screen = "ending";
   screen.innerHTML = '<p class="ending screen-reveal">You get out.<br>Behind you, the puppets move.<br>Your cage is empty.</p>';
-  after(5200, signal, () => {
-    screen.dataset.screen = "credits";
-    const roll = document.createElement("div");
-    roll.className = "credits-roll";
-    roll.style.setProperty("--credits-duration", `${CREDITS_DURATION}ms`);
+  after(5200, signal, () => renderCredits(screen, title, signal));
+}
 
-    const team = document.createElement("div");
-    team.className = "credit-group";
-    for (const name of TEAM) {
-      const row = document.createElement("p");
-      row.className = "credit-row";
-      row.textContent = name;
-      team.append(row);
-    }
-    const assets = document.createElement("div");
-    assets.className = "credit-group assets";
-    assets.append(...ASSETS.map(creditRow));
-    for (const { name, file, url } of FONTS) {
-      const row = document.createElement("p");
-      row.className = "credit-row";
-      const link = document.createElement("a");
-      link.className = "font-license";
-      link.href = url;
-      link.download = file;
-      link.textContent = file;
-      row.append(`${name} / `, link);
-      assets.append(row);
-    }
-    roll.append(team, assets);
-    screen.replaceChildren(roll);
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    after(reducedMotion ? 14_000 : CREDITS_DURATION, signal, title);
-  });
+export function renderCredits(screen: HTMLElement, title: () => void, signal: AbortSignal): void {
+  screen.dataset.screen = "credits";
+  const roll = document.createElement("div");
+  roll.className = "credits-roll";
+  roll.style.setProperty("--credits-duration", `${CREDITS_DURATION}ms`);
+
+  const team = document.createElement("div");
+  team.className = "credit-group";
+  for (const name of TEAM) {
+    const row = document.createElement("p");
+    row.className = "credit-row";
+    row.textContent = name;
+    team.append(row);
+  }
+  const assets = document.createElement("div");
+  assets.className = "credit-group assets";
+  assets.append(...ASSETS.map(creditRow));
+  for (const { name, file, url } of FONTS) {
+    const row = document.createElement("p");
+    row.className = "credit-row";
+    const link = document.createElement("a");
+    link.className = "font-license";
+    link.href = url;
+    link.download = file;
+    link.textContent = file;
+    row.append(`${name} / `, link);
+    assets.append(row);
+  }
+  roll.append(team, assets);
+  screen.replaceChildren(roll);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  after(reducedMotion ? 14_000 : CREDITS_DURATION, signal, title);
 }
 
 function creditRow([asset, creator, source, license]: Credit): HTMLElement {

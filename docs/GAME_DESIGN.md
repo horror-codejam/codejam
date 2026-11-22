@@ -24,6 +24,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 - Why nights only: Ram can only reach the lighthouse when the high tide lets him through the caves. At 6 AM the tide goes out and he must get back before the path floods.
 - Why you cannot leave: no boat, freezing sea, rocks all around. You wait for rescue.
 - The twist (team idea, 2026-11-21, see scenes/99-final-cage-hall/): Ram Altman is a monster controlled by the AI. The AI uses him to scare you into staying. If you will not stay of your own free will, it tries to kill you. Many people before you went through the same nights. It is a cycle: the monsters are former keepers who lost, and losing turns you into the next one. The AI has been gaslighting you the whole time. The Ram backstory above is what the player is told, not necessarily the truth. Which parts are lies is still open.
+- Ram's split (2026-11-22, decided by Siqi): Ram is half controlled by CHUD and half himself. His conscious half tries to help the keeper, while the AI half tries to kill them. The slips he leaves at the entries he was blocked at, from night 2 on, spell the kill code that frees him (see Endings).
 
 ## Characters and motives
 | Character | Wants | Does at night |
@@ -38,7 +39,7 @@ Why the AI turns on you without contradicting itself: it does not want you dead,
 - Furious: lets Ram get close on purpose to scare you into staying ("See? You need me").
 
 ## Goal (shown to the player)
-Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 5 real minutes (50 seconds per in-game hour). The clock is always on screen.
+Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you must also enter the kill code before 6 AM (see Endings). A night lasts 5 real minutes (50 seconds per in-game hour). The clock is always on screen.
 
 ## Onboarding
 - Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as ChudGPT on the watch-room display), then you black out.
@@ -68,6 +69,7 @@ Controls: the mouse moves you, Shift is the light, the rest of the keyboard is o
 2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
 4. Read one paper on the tabletop per night. The newspaper clipping, leaving calendar and Daniel Vale's diary appear on Nights 1, 2 and 3. Clicking the paper opens the image in the center while the night keeps running.
+5. Collect the kill code slips Ram leaves at the entries he was blocked at (nights 2 to 5). Collected slips stay on the desk and can be reread (GAME_LOGIC.md 6.7).
 
 The release uses final room plates and per-entry scare sequences. Missing run footage uses a dip to black with camera shake, and missing turn footage uses the still-plate slide. The Night 5 ending shows its text on black before credits.
 
@@ -127,11 +129,15 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - The jumpscare cuts to black, then offers "Title". Continue resumes the highest unlocked night.
 
 ## Endings
-- Win: 6 AM night 5, rescue helicopter. Flying away, the player sees Ram on the rocks staring up. The lamp blinks in Morse code: "COME BACK."
+- Win: 6 AM night 5, rescue helicopter. Flying away, the player sees Ram on the rocks staring up. The lamp blinks in Morse code: "COME BACK." (Replaced 2026-11-22 by the kill code ending.)
 - Lose: Ram breaks in. He does not hurt the player. He smashes the AI's computer, then looks at the player: "Now you're the keeper." Fade to black, the lamp turns back on.
 - New direction (2026-11-21, replaces the two endings above once the details are settled): both endings finish in the Cage Hall (scenes/99-final-cage-hall/).
   - The playable loss ends on the cut to black and returns to the title.
-  - Win: you escape. The ending describes the puppets still moving behind you and your empty cage, then rolls credits.
+  - Win: you escape. The ending describes the puppets still moving behind you and your empty cage, then rolls credits. (Night 5 replaced 2026-11-22 by the kill code ending.)
+- Kill code ending (2026-11-22, replaces the night 5 win): the run's kill code is random and has 4 characters. Ram leaves its characters on slips at the entries he was blocked at, from night 2 on, and all four are reachable by night 5. On night 5 the player types the code into CHUD's chat before 6 AM. CHUD dies and the hatch opens by itself. The exit scene follows (a teammate's work): down through the dungeon of cages where every previous keeper died, Ram freed and harmless, rescue by the coast guard. Then credits.
+- Two endings (decided 2026-11-22):
+  - Code found (true ending): the kill code cracks everything. CHUD dies, the hatch opens, and the keeper gets on the coast guard boat and leaves (cage hall and rescue boat stills, in the build).
+  - Code not found, 5 nights survived (trapped ending, a fail): the keeper sees the coast guard boat coming in through the window and is relieved. The next moment their eyes shut, and when they open they are in the cage hall, caged like every keeper before. The run is lost and starts over. The window shot is being made on another machine; until it lands the build shows text beats on black and Continue retries night 5. There is no morning or helicopter screen on night 5 anymore.
 
 ## AI architecture and anti-cheat
 - The AI never decides win or loss. Game code owns every meter, lock, timer and outcome.

@@ -17,7 +17,8 @@ import { Scene } from "./ui/scene";
 import { Terminal } from "./ui/terminal";
 import { EveningTutorial } from "./ui/tutorial";
 import { renderMorning, renderNightCard } from "./ui/screens/clock";
-import { renderEnding } from "./ui/screens/credits";
+import { renderKillCodeEnding, renderTrapped } from "./ui/screens/killEnding";
+import { createCodeDesk } from "./ui/codeDesk";
 import { preloadScreens } from "./ui/screens/loading";
 import { renderLoss } from "./ui/screens/loss";
 import { renderName } from "./ui/screens/name";
@@ -36,14 +37,20 @@ const deepNight = ((): number | null => {
   const n = raw === null || raw.trim() === "" ? NaN : Number(raw);
   return Number.isInteger(n) && n >= 1 && n <= CONFIG.nights.length ? n : null;
 })();
+// ?papers=N (0..4) with ?night=N: start with N slips already collected (default: every slip owed before that night).
+const deepPapers = ((): number => {
+  const n = Number(params.get("papers"));
+  return params.has("papers") && Number.isInteger(n) && n >= 0 && n <= 4 ? n : Math.max(0, Math.min(4, (deepNight ?? 1) - 1));
+})();
 let engine = new GameEngine({
   seed: Date.now() % 2147483647,
-  ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" } } : {}),
+  ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" }, papersCheckpoint: deepPapers } : {}),
 });
 let sound: Sound;
 const app = new Application();
 let scene: Scene;
 let artifacts: ReturnType<typeof createArtifacts> | undefined;
+let codeDesk: ReturnType<typeof createCodeDesk>;
 if (import.meta.env.DEV) Object.assign(window, { engine }); // console access while developing
 
 const ui = {
@@ -131,6 +138,7 @@ async function boot(): Promise<void> {
   wireInput();
   const { createArtifacts } = await import("./ui/artifacts");
   artifacts = createArtifacts($("ui"), scene, () => engine);
+  codeDesk = createCodeDesk($("ui"), scene, () => engine);
   buildDevButtons();
   initDev();
   if (!deepNight) showTitle();
@@ -274,7 +282,8 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "ARTIFACT":
       sound.paper();
-      artifacts?.read(ev.id);
+      // Kill-code papers: the codeDesk overlay follows state.player.reading.
+      if (ev.id === null || !ev.id.startsWith("paper")) artifacts?.read(ev.id);
       break;
     case "CHUD_ONLINE":
       powerFlicker = true;
@@ -315,7 +324,7 @@ function onEvent(ev: GameEvent, t: number): void {
       radioCaption = { text: ev.text, until: t + 4 };
       break;
     case "HINT":
-      if (engine.state.run.night === 1) hintCaption = { text: ev.text, until: t + 6 };
+      if (engine.state.run.night === 1 || ev.text.startsWith("He left")) hintCaption = { text: ev.text, until: t + 6 };
       break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
@@ -337,11 +346,18 @@ function onEvent(ev: GameEvent, t: number): void {
       sound.stopCues();
       break;
     case "NIGHT_WON":
-    case "GAME_WON": {
+    case "GAME_WON":
+    case "TRAPPED": {
       // Record the unlocked night even if the browser closes during dawn.
       if (!devRun) {
-        const { night, factsCheckpoint } = engine.state.run;
-        writeSave({ night: ev.type === "NIGHT_WON" ? night + 1 : night, factsCheckpoint });
+        const { night, factsCheckpoint, killCode, papersCheckpoint } = engine.state.run;
+        // NIGHT_WON moves on with the papers collected so far; GAME_WON and TRAPPED stay on the last night with its checkpoint.
+        writeSave({
+          night: ev.type === "NIGHT_WON" ? night + 1 : night,
+          factsCheckpoint,
+          killCode,
+          papersCheckpoint: ev.type === "NIGHT_WON" ? engine.papersOnDesk().length : papersCheckpoint,
+        });
       }
       artifacts?.read(null);
       stopChudSpeech();
@@ -424,7 +440,11 @@ function renderHud(t: number): void {
     terminal.chat.blur();
   }
   powerFlicker = false;
-  artifacts?.render(deskView && s.player.reading === null && ui.screen.classList.contains("hidden") && !scene.transitionVisible);
+  const deskClear = deskView && s.player.reading === null && ui.screen.classList.contains("hidden") && !scene.transitionVisible;
+  artifacts?.render(deskClear);
+  codeDesk.sync(playing ? s.player.reading : null);
+  codeDesk.render(deskClear);
+  codeDesk.renderFloor(playing && !practicing);
   if (practicing && playing && !paused) tutorial.render(s);
   else tutorial.hide();
   renderRing();
@@ -517,6 +537,8 @@ function startRun(saved?: SavedRun): void {
     seed: Date.now() % 2147483647,
     startNight: saved?.night,
     facts: saved?.factsCheckpoint,
+    killCode: saved?.killCode,
+    papersCheckpoint: saved?.papersCheckpoint,
     skipNamePrompt: !!saved,
     practiceBeforeNight: !saved,
   });
@@ -580,7 +602,11 @@ function showScreen(phase: Phase): void {
       renderMorning(ui.screen, previewing ? endPreview : () => { engine.nextNight(); wake(); }, signal, dawn);
       break;
     case "GAME_WON":
-      renderMorning(ui.screen, () => renderEnding(ui.screen, title, signal), signal, dawn);
+      if (engine.state.ending === "KILL_CODE") renderKillCodeEnding(ui.screen, title, signal);
+      else renderMorning(ui.screen, () => renderKillCodeEnding(ui.screen, title, signal), signal, dawn);
+      break;
+    case "TRAPPED":
+      renderTrapped(ui.screen, title, signal);
       break;
     case "SAFETY_PAUSE":
       renderSafetyPause(ui.screen, () => { engine.resumeFromSafetyPause(); wake(); });
@@ -640,6 +666,7 @@ function setPaused(on: boolean): void {
   // Keep Tab and Space from reaching the terminal or the desk papers behind the overlay.
   terminal.root.inert = on || engine.state.player.reading !== null;
   artifacts?.pause(on);
+  codeDesk.pause(on);
   if (on) {
     tutorial.hide();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -931,9 +958,10 @@ function devSkipClock(): void {
   for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
 }
 
-function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON"): void {
+function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON" | "TRAPPED", ending: "KILL_CODE" | null = null): void {
   if (frontScreen === "intro" || paused || (engine.state.phase === "BREACH" && !breachShown)) return;
   previewing = true;
+  if (ending) engine.state.ending = ending;
   showScreen(kind);
 }
 
@@ -941,6 +969,7 @@ function endPreview(): void {
   if (!previewing) return;
   previewing = false;
   skipDt = true;
+  if (engine.state.phase !== "GAME_WON") engine.state.ending = null; // undo the preview flag
   if (frontScreen === "title") showTitle();
   else {
     showScreen(engine.state.phase);
@@ -1019,6 +1048,8 @@ function buildDevButtons(): void {
   add(screens, "Loss", () => devPreview("BREACH"));
   add(screens, "Night won", () => devPreview("NIGHT_WON"));
   add(screens, "Game won", () => devPreview("GAME_WON"));
+  add(screens, "Kill code end", () => devPreview("GAME_WON", "KILL_CODE"));
+  add(screens, "Trapped end", () => devPreview("TRAPPED"));
   add(screens, "Close preview", endPreview);
 }
 
@@ -1027,6 +1058,7 @@ function renderDev(): void {
   const r = s.ram;
   const q = s.chud.pendingQuestion;
   const lines = [
+    `kill code ${s.run.killCode}  papers ${engine.papersOnDesk().length}  on floor ${JSON.stringify(engine.floorPaper())}`,
     `phase ${s.phase}  night ${s.run.night}  speed x${speed}  skip card ${devSkipCard ? "on" : "off"}${previewing ? "  PREVIEW" : ""}`,
     `LLM ${!llm.available ? "unavailable (no key or server)" : llm.enabled ? "on" : "off"}  last judge: ${lastJudgeSource}`,
     `t ${s.clock.elapsed.toFixed(1)} / ${CONFIG.HOUR_LENGTH * CONFIG.NIGHT_HOURS}`,
