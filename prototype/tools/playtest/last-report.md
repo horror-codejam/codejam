@@ -1,26 +1,28 @@
 # R.A.M. seeded bot playtest
 
-100 seeds per persona and night (1 to 100). Night 5 dawn with TRAPPED counts as survival.
+400 seeds per persona and night (1 to 400). Night 5 dawn with TRAPPED counts as survival.
 
 | Persona | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | oracle | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% |
-| skilled | 100.0% | 100.0% | 100.0% | 92.0% | 68.0% |
-| average | 81.0% | 67.0% | 38.0% | 30.0% | 2.0% |
-| careless | 99.0% | 24.0% | 3.0% | 1.0% | 0.0% |
+| skilled | 100.0% | 100.0% | 100.0% | 93.3% | 63.5% |
+| average | 85.0% | 62.5% | 47.0% | 23.8% | 3.8% |
+| learner | 92.0% | 70.5% | 56.8% | 30.8% | 5.5% |
+| careless | 99.3% | 51.5% | 4.3% | 1.0% | 0.0% |
 | spammer | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
-| flatterer | 56.0% | 57.0% | 46.0% | 11.0% | 1.0% |
-| silent | 77.0% | 56.0% | 33.0% | 9.0% | 0.0% |
+| flatterer | 61.8% | 53.8% | 44.8% | 14.3% | 1.0% |
+| silent | 82.0% | 53.5% | 38.5% | 11.8% | 0.8% |
 
 | Persona | N5 slip dropped | N5 code reachable | N5 first slip (s) |
 | --- | ---: | ---: | ---: |
-| oracle | 100.0% | 100.0% | 88.90 |
-| skilled | 79.0% | 79.0% | 89.68 |
-| average | 19.0% | 19.0% | 87.37 |
-| careless | 3.0% | 3.0% | 82.40 |
+| oracle | 100.0% | 100.0% | 89.12 |
+| skilled | 74.3% | 74.3% | 88.54 |
+| average | 29.0% | 28.8% | 84.26 |
+| learner | 29.3% | 29.3% | 84.60 |
+| careless | 5.5% | 5.5% | 81.57 |
 | spammer | 0.0% | 0.0% | n/a |
-| flatterer | 14.0% | 14.0% | 90.10 |
-| silent | 20.0% | 20.0% | 82.01 |
+| flatterer | 27.0% | 26.5% | 89.36 |
+| silent | 23.3% | 22.5% | 82.54 |
 
 Behavior counts are means per run. Visits count approaches. First arrival averages runs with an arrival. Attempt windows are measured on 0.05 s ticks from arrival to retreat or entry into the room, excluding dawn-cancelled attempts.
 
@@ -30,70 +32,80 @@ Suspicion means include only runs that reached each checkpoint, in seconds. Deat
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 3.00 | 72.00 | 22.48 | 0.01 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 / 0.00 / 0.15 / 0.10 / 0.10 / 0.05 | none | none |
-| 2 | 3.92 | 49.00 | 15.52 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 10.00 / 6.05 / 2.25 / 7.90 / 2.40 / 1.45 | none | none |
-| 3 | 5.20 | 35.00 | 13.50 | 0.01 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 30.00 / 22.70 / 10.50 / 3.55 / 0.45 / 0.50 | none | none |
-| 4 | 6.15 | 24.50 | 11.00 | 0.03 | 0.42 | 0.00 | 0.00 | 0.00 | 0.00 | 0.02 | 50.00 / 42.95 / 29.80 / 14.40 / 5.05 / 1.80 | none | none |
-| 5 | 7.21 | 19.00 | 8.99 | 0.07 | 1.05 | 0.00 | 0.27 | 0.02 | 0.00 | 0.02 | 70.00 / 60.65 / 39.55 / 24.45 / 9.45 / 10.95 | none | none |
+| 1 | 3.00 | 72.00 | 22.52 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 / 0.00 / 0.07 / 0.07 / 0.13 / 0.20 | none | none |
+| 2 | 3.88 | 49.00 | 17.50 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 10.00 / 6.44 / 2.31 / 7.47 / 3.00 / 1.35 | none | none |
+| 3 | 5.06 | 35.00 | 14.53 | 0.01 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 30.00 / 22.54 / 11.19 / 3.38 / 0.45 / 0.17 | none | none |
+| 4 | 6.07 | 24.50 | 11.01 | 0.03 | 0.34 | 0.00 | 0.01 | 0.00 | 0.00 | 0.01 | 50.00 / 42.27 / 27.60 / 12.69 / 3.84 / 1.07 | none | none |
+| 5 | 7.22 | 19.00 | 9.01 | 0.03 | 1.10 | 0.00 | 0.24 | 0.01 | 0.00 | 0.01 | 70.00 / 61.29 / 40.35 / 24.96 / 9.96 / 11.10 | none | none |
 
 ## skilled
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 3.00 | 72.00 | 22.54 | 0.04 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 / 0.00 / 0.00 / 0.00 / 0.00 / 0.00 | none | none |
-| 2 | 3.93 | 49.00 | 15.55 | 0.33 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 10.00 / 5.85 / 1.55 / 6.80 / 1.95 / 1.30 | none | none |
-| 3 | 5.15 | 35.00 | 13.46 | 0.40 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 30.00 / 22.20 / 12.20 / 5.45 / 2.70 / 3.35 | none | none |
-| 4 | 5.64 | 24.50 | 11.00 | 0.58 | 0.82 | 0.00 | 0.00 | 0.00 | 0.39 | 0.00 | 50.00 / 41.99 / 29.35 / 16.96 / 9.29 / 4.18 | ARMS_GAVE_OUT 8 | ARRIVED 8 |
-| 5 | 5.60 | 19.00 | 9.03 | 0.34 | 2.56 | 0.04 | 0.34 | 0.05 | 1.76 | 0.02 | 70.00 / 64.89 / 48.53 / 39.28 / 29.93 / 33.68 | ARMS_GAVE_OUT 10, LIED 4, REFUSED 6, SABOTAGE 7, UNLOCKED 5 | ARRIVED 24, LOOK 5, MOVE 3 |
+| 1 | 3.00 | 72.00 | 22.46 | 0.08 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 / 0.00 / 0.00 / 0.00 / 0.00 / 0.00 | none | none |
+| 2 | 3.87 | 49.00 | 17.53 | 0.36 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 10.00 / 6.40 / 2.20 / 6.65 / 1.86 / 0.78 | none | none |
+| 3 | 5.11 | 35.00 | 14.49 | 0.41 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 30.00 / 22.74 / 12.24 / 5.41 / 2.23 / 3.11 | none | none |
+| 4 | 5.82 | 24.50 | 11.00 | 0.42 | 1.02 | 0.00 | 0.01 | 0.00 | 0.53 | 0.01 | 50.00 / 42.94 / 30.13 / 18.89 / 11.07 / 6.05 | ARMS_GAVE_OUT 20, PEEKED 2, REFUSED 3, SABOTAGE 1, UNLOCKED 1 | ARRIVED 26, LOOK 1 |
+| 5 | 5.42 | 19.00 | 9.00 | 0.40 | 2.53 | 0.02 | 0.27 | 0.03 | 1.63 | 0.01 | 70.00 / 63.33 / 47.24 / 38.85 / 29.35 / 32.37 | ARMS_GAVE_OUT 56, FURIOUS 1, LIED 10, PEEKED 3, REFUSED 41, SABOTAGE 23, UNLOCKED 12 | ARRIVED 121, DAWN 1, LOOK 7, MOVE 11, TIMER 6 |
 
 ## average
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 2.94 | 68.96 | 22.44 | 0.14 | 0.02 | 0.00 | 0.00 | 0.00 | 0.00 | 3.65 | 0.00 / 4.60 / 8.09 / 10.16 / 11.57 / 15.43 | ARMS_GAVE_OUT 1, PEEKED 18 | ARRIVED 1, LOOK 11, MOVE 2, TIMER 5 |
-| 2 | 3.82 | 49.00 | 15.52 | 0.76 | 0.35 | 0.09 | 0.02 | 0.01 | 0.00 | 2.66 | 10.00 / 12.15 / 15.20 / 30.60 / 31.40 / 31.03 | ARMS_GAVE_OUT 2, PEEKED 31 | ARRIVED 3, DAWN 1, LOOK 20, MOVE 4, TIMER 5 |
-| 3 | 4.02 | 35.00 | 13.54 | 0.74 | 0.62 | 0.14 | 0.03 | 0.03 | 0.00 | 2.06 | 30.00 / 30.00 / 29.44 / 29.47 / 30.51 / 29.13 | ARMS_GAVE_OUT 3, PEEKED 55, REFUSED 1, SABOTAGE 2, UNLOCKED 1 | ARRIVED 10, DAWN 2, LOOK 22, MOVE 17, TIMER 11 |
-| 4 | 3.75 | 24.50 | 11.00 | 0.70 | 1.06 | 0.25 | 0.07 | 0.05 | 0.00 | 1.37 | 50.00 / 47.97 / 43.77 / 38.00 / 29.31 / 28.33 | ARMS_GAVE_OUT 6, PEEKED 33, REFUSED 7, SABOTAGE 1, UNLOCKED 23 | ARRIVED 19, LOOK 29, MOVE 15, TIMER 7 |
-| 5 | 1.98 | 19.00 | 9.01 | 0.27 | 0.85 | 0.22 | 0.12 | 0.06 | 0.00 | 0.46 | 70.00 / 66.67 / 57.22 / 52.14 / 63.33 / 60.00 | ARMS_GAVE_OUT 7, PEEKED 4, REFUSED 25, SABOTAGE 4, UNLOCKED 58 | ARRIVED 42, LOOK 34, MOVE 20, TIMER 2 |
+| 1 | 3.04 | 68.93 | 22.51 | 0.19 | 0.02 | 0.00 | 0.00 | 0.00 | 0.00 | 3.77 | 0.00 / 4.25 / 7.11 / 10.16 / 13.27 / 16.92 | ARMS_GAVE_OUT 1, PEEKED 59 | ARRIVED 1, DAWN 1, LOOK 43, MOVE 8, TIMER 7 |
+| 2 | 3.55 | 49.00 | 17.49 | 0.75 | 0.35 | 0.05 | 0.02 | 0.01 | 0.00 | 2.58 | 10.00 / 12.25 / 14.28 / 29.74 / 30.51 / 32.17 | ARMS_GAVE_OUT 16, PEEKED 133, SABOTAGE 1 | ARRIVED 27, DAWN 3, LOOK 77, MOVE 28, TIMER 15 |
+| 3 | 4.05 | 35.00 | 14.50 | 0.71 | 0.51 | 0.10 | 0.03 | 0.01 | 0.00 | 2.24 | 30.00 / 30.21 / 29.11 / 27.35 / 27.01 / 27.90 | ARMS_GAVE_OUT 27, PEEKED 181, REFUSED 2, SABOTAGE 1, UNLOCKED 1 | ARRIVED 38, DAWN 7, LOOK 95, MOVE 42, TIMER 30 |
+| 4 | 3.79 | 24.50 | 11.02 | 0.65 | 1.19 | 0.22 | 0.07 | 0.02 | 0.00 | 1.51 | 50.00 / 49.19 / 44.38 / 39.06 / 36.38 / 32.32 | ARMS_GAVE_OUT 29, PEEKED 121, REFUSED 50, SABOTAGE 12, UNLOCKED 93 | ARRIVED 105, DAWN 4, LOOK 114, MOVE 50, TIMER 32 |
+| 5 | 2.28 | 19.00 | 9.03 | 0.27 | 0.92 | 0.30 | 0.11 | 0.04 | 0.00 | 0.56 | 70.00 / 67.46 / 56.51 / 48.14 / 35.15 / 39.33 | ARMS_GAVE_OUT 25, PEEKED 38, REFUSED 79, SABOTAGE 12, UNLOCKED 231 | ARRIVED 142, LOOK 139, MOVE 78, TIMER 26 |
+
+## learner
+
+| Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
+| 1 | 3.07 | 69.08 | 22.49 | 0.17 | 0.01 | 0.00 | 0.00 | 0.00 | 0.00 | 3.74 | 0.00 / 3.84 / 6.87 / 9.46 / 11.99 / 14.78 | ARMS_GAVE_OUT 1, PEEKED 31 | ARRIVED 1, DAWN 2, LOOK 20, MOVE 4, TIMER 5 |
+| 2 | 3.64 | 49.00 | 17.54 | 0.81 | 0.29 | 0.07 | 0.02 | 0.01 | 0.00 | 2.58 | 10.00 / 12.46 / 14.31 / 29.27 / 28.50 / 28.64 | ARMS_GAVE_OUT 15, PEEKED 102, SABOTAGE 1 | ARRIVED 18, DAWN 8, LOOK 48, MOVE 22, TIMER 22 |
+| 3 | 4.34 | 35.00 | 14.53 | 0.77 | 0.45 | 0.09 | 0.04 | 0.01 | 0.00 | 2.41 | 30.00 / 30.01 / 27.21 / 24.29 / 23.97 / 24.05 | ARMS_GAVE_OUT 20, PEEKED 149, REFUSED 1, SABOTAGE 1, UNLOCKED 2 | ARRIVED 28, DAWN 14, LOOK 58, MOVE 42, TIMER 31 |
+| 4 | 3.99 | 24.50 | 10.99 | 0.67 | 1.21 | 0.23 | 0.09 | 0.03 | 0.00 | 1.56 | 50.00 / 49.52 / 46.51 / 39.33 / 32.45 / 27.29 | ARMS_GAVE_OUT 35, PEEKED 93, REFUSED 46, SABOTAGE 11, UNLOCKED 92 | ARRIVED 118, DAWN 6, LOOK 77, MOVE 49, TIMER 27 |
+| 5 | 2.33 | 19.00 | 9.04 | 0.28 | 0.95 | 0.28 | 0.12 | 0.04 | 0.00 | 0.62 | 70.00 / 68.82 / 58.58 / 45.27 / 34.29 / 46.96 | ARMS_GAVE_OUT 27, PEEKED 28, REFUSED 99, SABOTAGE 8, UNLOCKED 216 | ARRIVED 177, DAWN 1, LOOK 107, MOVE 63, TIMER 30 |
 
 ## careless
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 3.58 | 68.29 | 22.44 | 0.15 | 0.19 | 0.01 | 0.00 | 0.00 | 0.00 | 5.15 | 0.00 / 6.90 / 13.15 / 19.05 / 26.75 / 32.58 | REFUSED 1 | ARRIVED 1 |
-| 2 | 3.39 | 49.00 | 15.50 | 0.67 | 0.67 | 0.16 | 0.07 | 0.12 | 0.00 | 3.59 | 10.00 / 18.35 / 27.14 / 61.71 / 69.59 / 70.19 | ARMS_GAVE_OUT 10, PEEKED 18, REFUSED 10, SABOTAGE 1, UNLOCKED 37 | ARRIVED 21, DAWN 3, LOOK 31, MOVE 12, TIMER 9 |
-| 3 | 1.84 | 35.00 | 13.55 | 0.23 | 0.24 | 0.03 | 0.00 | 0.01 | 0.00 | 1.60 | 30.00 / 35.43 / 45.19 / 48.00 / 67.50 / 68.75 | PEEKED 7, UNLOCKED 90 | ARRIVED 4, DAWN 1, LOOK 58, MOVE 24, TIMER 10 |
-| 4 | 2.37 | 24.50 | 11.03 | 0.35 | 0.79 | 0.11 | 0.09 | 0.07 | 0.00 | 1.52 | 50.00 / 52.81 / 59.52 / 63.68 / 78.33 / 90.00 | ARMS_GAVE_OUT 8, PEEKED 8, REFUSED 22, SABOTAGE 2, UNLOCKED 59 | ARRIVED 31, LOOK 36, MOVE 16, TIMER 16 |
-| 5 | 1.17 | 19.00 | 9.04 | 0.12 | 0.28 | 0.09 | 0.02 | 0.02 | 0.00 | 0.19 | 70.00 / 72.50 / 86.67 / n/a / n/a / n/a | FURIOUS 1, PEEKED 1, REFUSED 13, SABOTAGE 1, UNLOCKED 84 | ARRIVED 28, LOOK 40, MOVE 26, TIMER 6 |
+| 1 | 3.63 | 68.40 | 22.47 | 0.15 | 0.13 | 0.01 | 0.00 | 0.00 | 0.00 | 5.14 | 0.00 / 6.17 / 11.80 / 17.84 / 25.68 / 31.27 | ARMS_GAVE_OUT 3 | ARRIVED 3 |
+| 2 | 3.75 | 49.00 | 17.51 | 0.65 | 0.84 | 0.15 | 0.12 | 0.13 | 0.00 | 3.93 | 10.00 / 17.10 / 25.40 / 59.06 / 64.98 / 68.28 | ARMS_GAVE_OUT 24, PEEKED 51, REFUSED 28, SABOTAGE 13, UNLOCKED 78 | ARRIVED 64, DAWN 3, LOOK 74, MOVE 28, TIMER 25 |
+| 3 | 1.90 | 35.00 | 14.53 | 0.26 | 0.31 | 0.03 | 0.02 | 0.02 | 0.00 | 1.68 | 30.00 / 35.88 / 42.31 / 50.14 / 53.92 / 60.24 | ARMS_GAVE_OUT 8, PEEKED 22, REFUSED 23, SABOTAGE 4, UNLOCKED 326 | ARRIVED 43, DAWN 4, LOOK 210, MOVE 85, TIMER 41 |
+| 4 | 2.35 | 24.50 | 11.01 | 0.37 | 0.65 | 0.16 | 0.04 | 0.07 | 0.00 | 1.54 | 50.00 / 55.52 / 65.36 / 68.91 / 62.11 / 73.75 | ARMS_GAVE_OUT 15, PEEKED 28, REFUSED 45, SABOTAGE 8, UNLOCKED 300 | ARRIVED 101, LOOK 152, MOVE 87, TIMER 56 |
+| 5 | 1.22 | 19.00 | 9.02 | 0.11 | 0.27 | 0.11 | 0.01 | 0.04 | 0.00 | 0.23 | 70.00 / 76.82 / 86.00 / 85.00 / n/a / n/a | PEEKED 4, REFUSED 51, SABOTAGE 4, UNLOCKED 341 | ARRIVED 96, LOOK 192, MOVE 87, TIMER 25 |
 
 ## spammer
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 1.00 | 68.40 | 22.46 | 1.02 | 17.69 | 0.00 | 0.00 | 1.79 | 33.45 | 4.37 | 0.00 / 100.00 / 100.00 / 100.00 / 100.00 / 100.00 | LIED 56, REFUSED 44 | DAWN 62, TIMER 38 |
-| 2 | 1.00 | 49.00 | 15.51 | 3.76 | 18.09 | 0.00 | 0.11 | 1.72 | 29.57 | 3.47 | 10.00 / 100.00 / 100.00 / 99.92 / 100.00 / 100.00 | FURIOUS 45, LIED 25, REFUSED 22, SABOTAGE 8 | DAWN 60, TIMER 40 |
-| 3 | 1.00 | 35.00 | 13.68 | 3.15 | 16.70 | 0.00 | 0.19 | 1.81 | 27.85 | 3.15 | 30.00 / 99.50 / 99.91 / 99.81 / 99.44 / 100.00 | FURIOUS 38, LIED 29, REFUSED 16, SABOTAGE 17 | DAWN 54, TIMER 46 |
-| 4 | 1.01 | 24.50 | 11.03 | 4.46 | 14.75 | 0.00 | 0.01 | 1.64 | 27.89 | 3.03 | 50.00 / 99.82 / 100.00 / 99.91 / 99.74 / 100.00 | FURIOUS 1, LIED 88, REFUSED 5, SABOTAGE 1, UNLOCKED 5 | DAWN 57, TIMER 43 |
-| 5 | 1.00 | 19.00 | 9.08 | 5.77 | 13.79 | 0.00 | 0.00 | 1.74 | 28.69 | 3.14 | 70.00 / 99.92 / 99.92 / 99.92 / 99.92 / 100.00 | UNLOCKED 100 | DAWN 62, TIMER 38 |
+| 1 | 1.00 | 68.44 | 22.60 | 1.02 | 17.84 | 0.00 | 0.00 | 1.79 | 32.85 | 4.33 | 0.00 / 99.94 / 100.00 / 100.00 / 100.00 / 100.00 | FURIOUS 3, LIED 210, REFUSED 187 | DAWN 242, TIMER 158 |
+| 2 | 1.00 | 49.00 | 17.51 | 3.64 | 16.07 | 0.00 | 0.06 | 1.74 | 30.04 | 3.54 | 10.00 / 100.00 / 99.98 / 99.85 / 99.94 / 100.00 | FURIOUS 162, LIED 130, REFUSED 92, SABOTAGE 16 | DAWN 241, TIMER 159 |
+| 3 | 1.02 | 35.00 | 14.63 | 3.70 | 17.46 | 0.00 | 0.18 | 1.78 | 31.02 | 3.56 | 30.00 / 98.79 / 99.82 / 99.82 / 99.84 / 100.00 | FURIOUS 168, LIED 130, REFUSED 51, SABOTAGE 51 | DAWN 245, TIMER 155 |
+| 4 | 1.01 | 24.50 | 11.06 | 4.66 | 16.61 | 0.00 | 0.01 | 1.66 | 30.85 | 3.30 | 50.00 / 99.84 / 99.90 / 99.88 / 99.80 / 100.00 | FURIOUS 4, LIED 362, REFUSED 14, SABOTAGE 2, UNLOCKED 18 | DAWN 252, TIMER 148 |
+| 5 | 1.00 | 19.00 | 9.02 | 5.40 | 14.05 | 0.00 | 0.00 | 1.71 | 27.92 | 2.95 | 70.00 / 99.85 / 99.79 / 99.96 / 99.90 / 100.00 | UNLOCKED 400 | DAWN 240, TIMER 160 |
 
 ## flatterer
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 2.49 | 72.00 | 22.41 | 0.05 | 1.75 | 0.58 | 0.10 | 1.58 | 0.00 | 0.01 | 0.00 / 32.05 / 86.01 / 99.88 / 100.00 / 85.00 | ARMS_GAVE_OUT 32, PEEKED 5, SABOTAGE 7 | ARRIVED 41, LOOK 2, MOVE 1 |
-| 2 | 3.18 | 49.00 | 15.48 | 0.26 | 2.10 | 0.54 | 0.04 | 2.15 | 0.00 | 0.00 | 10.00 / 35.60 / 90.35 / 99.33 / 98.36 / 81.58 | ARMS_GAVE_OUT 27, FURIOUS 1, PEEKED 15 | ARRIVED 28, LOOK 11, MOVE 3, TIMER 1 |
-| 3 | 3.76 | 35.00 | 13.50 | 0.23 | 2.50 | 0.64 | 0.10 | 2.40 | 0.00 | 0.00 | 30.00 / 52.25 / 93.24 / 93.01 / 93.80 / 82.17 | ARMS_GAVE_OUT 27, FURIOUS 1, PEEKED 16, REFUSED 7, SABOTAGE 3 | ARRIVED 37, LOOK 12, MOVE 4, TIMER 1 |
-| 4 | 3.17 | 24.50 | 11.07 | 0.29 | 2.13 | 0.48 | 0.08 | 1.70 | 0.00 | 0.00 | 50.00 / 70.60 / 95.65 / 96.81 / 93.18 / 82.73 | ARMS_GAVE_OUT 16, FURIOUS 3, PEEKED 6, REFUSED 32, SABOTAGE 2, UNLOCKED 30 | ARRIVED 59, LOOK 18, MOVE 10, TIMER 2 |
-| 5 | 1.84 | 19.00 | 9.03 | 0.21 | 0.90 | 0.29 | 0.04 | 0.60 | 0.00 | 0.00 | 70.00 / 91.22 / 96.36 / 100.00 / 90.00 / 80.00 | ARMS_GAVE_OUT 7, FURIOUS 3, PEEKED 4, REFUSED 28, SABOTAGE 1, UNLOCKED 56 | ARRIVED 52, LOOK 21, MOVE 22, TIMER 4 |
+| 1 | 2.53 | 72.00 | 22.49 | 0.05 | 1.81 | 0.52 | 0.14 | 1.69 | 0.00 | 0.03 | 0.00 / 32.19 / 85.48 / 99.91 / 99.89 / 84.57 | ARMS_GAVE_OUT 103, PEEKED 20, SABOTAGE 30 | ARRIVED 142, LOOK 9, MOVE 1, TIMER 1 |
+| 2 | 3.13 | 49.00 | 17.51 | 0.20 | 2.13 | 0.51 | 0.06 | 2.14 | 0.00 | 0.01 | 10.00 / 36.20 / 91.30 / 99.05 / 97.54 / 82.14 | ARMS_GAVE_OUT 127, FURIOUS 11, PEEKED 37, SABOTAGE 10 | ARRIVED 154, LOOK 22, MOVE 9 |
+| 3 | 3.69 | 35.00 | 14.48 | 0.27 | 2.37 | 0.62 | 0.13 | 2.40 | 0.00 | 0.00 | 30.00 / 53.64 / 93.56 / 94.85 / 95.81 / 81.84 | ARMS_GAVE_OUT 138, FURIOUS 6, PEEKED 51, REFUSED 12, SABOTAGE 7, UNLOCKED 7 | ARRIVED 169, LOOK 34, MOVE 15, TIMER 3 |
+| 4 | 3.23 | 24.50 | 10.99 | 0.27 | 2.10 | 0.63 | 0.08 | 1.84 | 0.00 | 0.00 | 50.00 / 72.04 / 96.56 / 96.15 / 96.63 / 81.14 | ARMS_GAVE_OUT 75, FURIOUS 7, PEEKED 35, REFUSED 121, SABOTAGE 8, UNLOCKED 97 | ARRIVED 229, LOOK 67, MOVE 41, TIMER 6 |
+| 5 | 2.10 | 19.00 | 9.03 | 0.17 | 1.20 | 0.30 | 0.04 | 0.90 | 0.00 | 0.00 | 70.00 / 90.58 / 95.95 / 95.57 / 96.92 / 81.25 | ARMS_GAVE_OUT 39, FURIOUS 6, PEEKED 23, REFUSED 102, SABOTAGE 2, UNLOCKED 224 | ARRIVED 163, LOOK 142, MOVE 68, TIMER 23 |
 
 ## silent
 
 | Night | Visits | First arrival (s) | Attempt (s) | Answer first | Refusals | Light cuts | Sabotages | Furious | Lies | Silence | Suspicion at 0 / 60 / 120 / 180 / 240 / 300 s | Death causes | Scare reasons |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| 1 | 3.35 | 68.25 | 22.53 | 0.40 | 0.48 | 0.12 | 0.00 | 0.00 | 0.00 | 5.46 | 0.00 / 7.10 / 15.21 / 28.50 / 38.08 / 45.00 | ARMS_GAVE_OUT 5, PEEKED 18 | ARRIVED 6, LOOK 9, MOVE 7, TIMER 1 |
-| 2 | 3.84 | 49.00 | 15.54 | 1.14 | 1.35 | 0.46 | 0.13 | 0.95 | 0.00 | 4.86 | 10.00 / 20.40 / 35.00 / 88.44 / 95.99 / 83.57 | ARMS_GAVE_OUT 25, PEEKED 18, SABOTAGE 1 | ARRIVED 29, LOOK 11, MOVE 3, TIMER 1 |
-| 3 | 3.88 | 35.00 | 13.42 | 1.01 | 1.54 | 0.39 | 0.16 | 0.60 | 0.00 | 3.81 | 30.00 / 41.87 / 58.29 / 83.02 / 94.40 / 83.03 | ARMS_GAVE_OUT 26, PEEKED 31, REFUSED 4, SABOTAGE 3, UNLOCKED 3 | ARRIVED 42, LOOK 18, MOVE 6, TIMER 1 |
-| 4 | 3.42 | 24.50 | 10.97 | 0.90 | 1.61 | 0.37 | 0.23 | 0.78 | 0.00 | 2.80 | 50.00 / 62.94 / 83.00 / 97.64 / 89.55 / 82.22 | ARMS_GAVE_OUT 23, FURIOUS 1, PEEKED 10, REFUSED 17, SABOTAGE 8, UNLOCKED 32 | ARRIVED 62, LOOK 12, MOVE 14, TIMER 3 |
-| 5 | 1.86 | 19.00 | 9.03 | 0.31 | 0.86 | 0.33 | 0.12 | 0.29 | 0.00 | 0.86 | 70.00 / 80.74 / 98.82 / 98.57 / 100.00 / n/a | ARMS_GAVE_OUT 12, REFUSED 27, SABOTAGE 3, UNLOCKED 58 | ARRIVED 49, LOOK 28, MOVE 23 |
+| 1 | 3.46 | 68.25 | 22.48 | 0.47 | 0.51 | 0.12 | 0.00 | 0.00 | 0.00 | 5.63 | 0.00 / 7.10 / 15.27 / 27.93 / 37.19 / 45.00 | ARMS_GAVE_OUT 18, PEEKED 54 | ARRIVED 22, LOOK 40, MOVE 9, TIMER 1 |
+| 2 | 3.81 | 49.00 | 17.50 | 1.26 | 1.19 | 0.43 | 0.13 | 0.90 | 0.00 | 4.87 | 10.00 / 19.65 / 33.43 / 87.56 / 95.65 / 83.64 | ARMS_GAVE_OUT 95, FURIOUS 2, PEEKED 72, SABOTAGE 17 | ARRIVED 121, LOOK 41, MOVE 16, TIMER 8 |
+| 3 | 4.14 | 35.00 | 14.47 | 0.95 | 1.71 | 0.42 | 0.21 | 0.68 | 0.00 | 4.19 | 30.00 / 40.60 / 57.52 / 80.84 / 92.38 / 83.96 | ARMS_GAVE_OUT 114, FURIOUS 1, PEEKED 102, REFUSED 13, SABOTAGE 10, UNLOCKED 6 | ARRIVED 158, LOOK 57, MOVE 24, TIMER 7 |
+| 4 | 3.27 | 24.50 | 11.02 | 0.75 | 1.53 | 0.44 | 0.20 | 0.70 | 0.00 | 2.63 | 50.00 / 62.45 / 82.09 / 97.74 / 91.91 / 84.15 | ARMS_GAVE_OUT 63, PEEKED 45, REFUSED 81, SABOTAGE 17, UNLOCKED 147 | ARRIVED 212, LOOK 90, MOVE 44, TIMER 7 |
+| 5 | 1.96 | 19.00 | 9.02 | 0.42 | 0.89 | 0.31 | 0.08 | 0.41 | 0.00 | 0.97 | 70.00 / 83.89 / 97.07 / 94.11 / 93.89 / 85.00 | ARMS_GAVE_OUT 36, PEEKED 5, REFUSED 121, SABOTAGE 6, UNLOCKED 229 | ARRIVED 207, LOOK 116, MOVE 67, TIMER 7 |
 
-11 location claims went unscored because dawn ended the approach before its target was revealed.
+34 location claims went unscored because dawn ended the approach before its target was revealed.

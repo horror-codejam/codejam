@@ -35,11 +35,17 @@ Started 2026-11-22 05:58 EST. Base: origin/main c2ab13b (PR #31 ending logic mer
 | 4 | bugs | 6 | 7 | Esc pauses on the first press, also from the chat (Codex) | ed7fdc3 | kept (real bug, verified in browser) |
 | 5 | bugs | 6 | 7 | Drop a late LLM reply when a newer event's line showed (Codex 4ace39f, then reworked by orchestrator in 21f58fc: Codex version could drop the reply to the next message) | 4ace39f + 21f58fc | kept (real bug) |
 | 6 | ui (release) | 7 | n/a | Production build hides the DEV badge unless ?dev (optional, team call) | 4d77fb1 | kept, optional |
-| 7 | onboarding | 7 | pending | Light that drops a lock plays the loud clunk and flashes the cell | 768cb6a | pending |
-| 8 | ui | 7 | pending | Darker subtitle outline, hints readable over the keyboard (checked in browser) | 93f83e7 | pending |
-| 9 | chud | 7 | pending | Blocked command repeats the pending question | 673848f | pending |
+| 7 | onboarding | 7 | 7 | Light that drops a lock plays the loud clunk and flashes the cell | 768cb6a | kept (no area hurt; reviewers cite it) |
+| 8 | ui | 7 | 7 | Darker subtitle outline, hints readable over the keyboard (checked in browser) | 93f83e7 | kept (no area hurt) |
+| 9 | chud | 7 | 8 | Blocked command repeats the pending question | 673848f | kept |
 | 10 | tooling | n/a | n/a | Harness: night 5 kill code reachability (Codex). Showed night 5 was won by about 48% of average bots, not 2% | b1ef3a0 | kept |
-| 11 | loop | 6 | pending | Night 5 last slip drops only from 1:12 AM (LAST_PAPER_AFTER 60 s). Code reachable: average 48 -> 19-22%, skilled 88 -> 79%. Night 5 was one visit long | 6b197a0 | pending |
+| 11 | loop | 6 | 7 | Night 5 last slip drops only from 1:12 AM (LAST_PAPER_AFTER 60 s). Code reachable: average 48 -> 19-22%, skilled 88 -> 79%. Night 5 was one visit long | 6b197a0 | kept |
+| 12 | ui | 7 | pending | At the desk the subtitle sits on the bare desk above the keyboard (checked at 1280x720) | 85b3721 | pending |
+| 13 | bugs | 8 | pending | A question waits up to 3 s for the judge on an answer typed in time (Codex round 2 finding) | 2a51c43 | kept (real bug, 2 tests) |
+| 14 | onboarding | 7 | pending | First lock dropped by a light: one-time caption "Your light dropped the lock." (nights 1-2); cell flash replays at the desk (verified in browser) | 08f7a13 | pending |
+| 15 | loop | 7 | pending | Windows night 2 16-19 s, night 3 13-16 s. 400 seeds: average N2/N3 57/43 -> 63/47%, learner 66/55 -> 71/57% | 83a7e94 | pending |
+| 16 | tooling | n/a | n/a | Learner persona (assumption: the clunk teaches) | 04dc603 | kept |
+| 17 | ui | 7 | pending | Subtitles wrap to 2 balanced lines at 27 px instead of an ellipsis at about 78 chars (verified in browser) | a780765 | pending |
 
 ## Council round 1 (after iterations 1 to 5)
 | Area | fnaf | casual | judge | Median |
@@ -53,3 +59,17 @@ Started 2026-11-22 05:58 EST. Base: origin/main c2ab13b (PR #31 ending logic mer
 | horror | (not re-scored) | | | 8 |
 
 Note: night 5 window 9-11 or 10-12 s barely moves night 5 (skilled 66-67%, average 4.5-6.5%, 200 seeds). The driver is ChudGPT starting JEALOUS (70). Survival to dawn also overstates night 5, which ends when the kill code is typed; harness metric being added.
+
+## Council round 2 (after iterations 6 to 11)
+| Area | fnaf | casual | judge | Median |
+|---|---|---|---|---|
+| loop | 7 | 7 | 7 | 7 |
+| chud | 8 | 8 | 8 | 8 |
+| onboarding | 8 | 7 | 7 | 7 |
+| horror | 8 | 8 | 8 | 8 |
+| ui | 8 | 7 | 7 | 7 |
+| bugs | 7 | 8 | 8 | 8 |
+| perf | 6 | 7 | 8 | 7 |
+
+Iterations 7, 8, 9, 11 kept: chud 7 -> 8, bugs 7 -> 8, loop 6 -> 7, ui flat, no area dropped.
+Seed noise note: 100 vs 200 seed runs differed by up to 12 points on one cell; decisions from 07:00 use 400 seeds.
