@@ -138,7 +138,7 @@ export const CONFIG: Config = {
       firstVisitDelay: 20,
       awayGap: [28, 42],
       approachTime: 4.5,
-      atEntryTime: [10, 12],
+      atEntryTime: [11, 13],
       lullChance: 0.15,
       quickReturnChance: 0.2,
       decoyInterval: [8, 16],
