@@ -549,3 +549,18 @@ describe("offline judge: asking where he is never answers a question", () => {
     expect(judge("The Marigold", q("MEMORY", "ship"), { ship: "Marigold" }).answered_question).toBe(true);
   });
 });
+
+describe("offline judge: an answer and a location request in one message", () => {
+  it("Halifax. Where is it? answers the port question", () => {
+    const r = judge("Halifax. Where is it?", q("MEMORY", "home_port"), { home_port: "Halifax" });
+    expect(r.command_hint).toBe("ASK_LOCATION");
+    expect(r.answered_question).toBe(true);
+    expect(r.contradiction).toBe(false);
+  });
+  it("a seed answer with a location request stores only the answer", () => {
+    const r = judge("The Marigold, where is he?", q("SEED", "ship"));
+    expect(r.answered_question).toBe(true);
+    expect(r.new_fact?.value.toLowerCase()).toContain("marigold");
+    expect(r.new_fact?.value.toLowerCase()).not.toContain("where");
+  });
+});

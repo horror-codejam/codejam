@@ -415,13 +415,17 @@ function judge(input: JudgeInput): JudgeResult {
   result.warm =
     !leaving && !result.rude && !result.offensive && !result.manipulation && (WARM.some((re) => hasUnnegated(p, re)) || negatedLeave);
 
-  // Answer detection. Asking where he is never answers ChudGPT's question (GAME_LOGIC 8.5: the question stays pending).
-  if (q && !result.manipulation && !result.offensive && parsed.command !== "ASK_LOCATION") {
-    const isYesNo = YES_NO.test(p.replace(/\s*\|\s*/g, " ").trim());
-    const isCommand = parsed.command !== "NONE";
-    const content = hasRealContent(p, isCommand);
-    const evasive = EVASIONS.test(p) && !hasRealContent(p.replace(new RegExp(EVASIONS.source, "g"), " "), isCommand);
-    const questionBack = /^(why|what|who|how|huh|excuse me|pardon|sorry)\b/.test(p) && /\?\s*$/.test(raw.trim());
+  // Answer detection. Asking where he is never answers ChudGPT's question (GAME_LOGIC 8.5: the question stays pending),
+  // but other clauses in the same message still can: "Halifax. Where is it?" answers with "Halifax".
+  const asks = parsed.command === "ASK_LOCATION";
+  const aRaw = asks ? raw.split(/[.?!;,]+/).filter((c) => /\p{L}/u.test(c) && parseCommand(c).command === "NONE").join(". ").trim() : raw;
+  const aP = asks ? prep(aRaw) : p;
+  if (q && !result.manipulation && !result.offensive && aRaw !== "") {
+    const isYesNo = YES_NO.test(aP.replace(/\s*\|\s*/g, " ").trim());
+    const isCommand = !asks && parsed.command !== "NONE";
+    const content = hasRealContent(aP, isCommand);
+    const evasive = EVASIONS.test(aP) && !hasRealContent(aP.replace(new RegExp(EVASIONS.source, "g"), " "), isCommand);
+    const questionBack = /^(why|what|who|how|huh|excuse me|pardon|sorry)\b/.test(aP) && /\?\s*$/.test(raw.trim());
     if (q.type === "STAY") {
       result.answered_question = !evasive && !questionBack && (isYesNo || content || leaving || result.warm);
     } else {
@@ -432,11 +436,11 @@ function judge(input: JudgeInput): JudgeResult {
   // Facts
   if (q && result.answered_question && q.factKey) {
     if (q.type === "SEED") {
-      result.new_fact = { key: q.factKey, value: cleanFactValue(raw) };
+      result.new_fact = { key: q.factKey, value: cleanFactValue(aRaw) };
     } else if (q.type === "MEMORY") {
       const stored = facts[q.factKey];
       if (typeof stored === "string" && stored.trim() !== "") {
-        result.contradiction = !sameFact(stored, cleanFactValue(raw));
+        result.contradiction = !sameFact(stored, cleanFactValue(aRaw));
       }
     }
   }
