@@ -84,6 +84,8 @@ let radioCaption: Caption | undefined;
 let hintCaption: Caption | undefined;
 let powerAlarmUntil = 0;
 let powerAlarmEntry: Entry | null = null;
+let lockDroppedByLight: Entry | null = null; // flashes its cell again when the monitor is back in view, if still unlocked
+let lockDropHintShown = false; // one-time "Your light dropped the lock." caption (nights 1 and 2)
 let previousPowerSlot: PowerSlot = "NONE";
 let powerFlicker = false;
 let maliciousUntil = 0; // real seconds: CHUD's malicious smile is up
@@ -264,8 +266,13 @@ function onEvent(ev: GameEvent, t: number): void {
         // The light took the slot from a lock: a loud clunk and the red cell, so a peek never drops a lock silently.
         const droppedLock = previous.startsWith("LOCK_") && ev.slot.startsWith("LIGHT_");
         if (droppedLock) {
-          powerAlarmEntry = previous.slice(5) as Entry;
+          powerAlarmEntry = lockDroppedByLight = previous.slice(5) as Entry;
           powerAlarmUntil = t + 1.5;
+          // The first time in the early nights, say it once in words too.
+          if (!lockDropHintShown && !engine.isPracticing && engine.state.run.night <= 2) {
+            lockDropHintShown = true;
+            hintCaption = { text: "Your light dropped the lock.", until: t + 5 };
+          }
         }
         if (previous !== ev.slot) sound.relay(droppedLock);
         sound.lightClick(ev.slot !== "NONE");
@@ -429,6 +436,13 @@ function renderHud(t: number): void {
   const p = s.power;
 
   const deskView = playing && atDesk && view === "DESK";
+  if (deskView && lockDroppedByLight) {
+    if (s.power.slot !== `LOCK_${lockDroppedByLight}` && s.power.pending?.target !== `LOCK_${lockDroppedByLight}`) {
+      powerAlarmEntry = lockDroppedByLight;
+      powerAlarmUntil = t + 1.5;
+    }
+    lockDroppedByLight = null;
+  }
   const caption = playing
     ? [radioCaption, deskView ? undefined : chudCaption, hintCaption].find((line) => line && line.until > t)
     : undefined;
