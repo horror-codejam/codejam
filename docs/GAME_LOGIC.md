@@ -8,13 +8,13 @@ This file defines exactly how the game works: every state, timer, number and rul
 - One power slot: CHUD can power one magnetic lock or the lights (the beacon beam plus the room's caged bulbs), never two things at once.
 - You defend an entry in one of two ways:
   - CHUD locks it. Fast, but only if CHUD cooperates.
-  - You hold it by hand. Always works, but you are away from the desk and cannot type.
+  - You go to it and brace it by hand. Always works, but you are away from the desk and cannot type.
 - CHUD has a suspicion meter (0 to 100): how much it believes you plan to leave. Higher suspicion means CHUD stalls, lies and sabotages.
 - You lose the night if Ram reaches an entry that is neither locked nor held when his attempt ends.
 
 The three decisions the player makes all night:
 1. Information: ask CHUD where Ram is (instant, might be a lie) or spend the power slot on the beam and look (truthful, but nothing is locked).
-2. Defense: ask CHUD to lock (stay at the desk, needs cooperation) or hold it yourself (reliable, but you go silent and leave the desk).
+2. Defense: ask CHUD to lock (stay at the desk, needs cooperation) or brace it yourself (reliable, but you go silent and leave the desk).
 3. Relationship: keep talking to CHUD and keep your lies consistent, or focus on Ram and let suspicion climb.
 
 ## 2. Core terms
@@ -34,7 +34,7 @@ The three decisions the player makes all night:
 ```
 run:     night (1..5), facts_checkpoint (facts at the start of the current night)
 clock:   elapsed_s (0..NIGHT_LENGTH), in-game time = 12:00 AM + elapsed_s / HOUR_LENGTH hours
-player:  view, position (DESK | TRAVELING(entry) | HOLDING(entry) | RETURNING), hold_elapsed, hold_cooldown_until
+player:  view, position (DESK | TRAVELING(entry) | STANDING(entry) | HOLDING(entry) | RETURNING), hold_elapsed, brace_rest_until, hold_cooldown_until
 power:   slot, pending_switch (target slot + time it lands), chud_online (bool), rebooting_until
 ram:     state (AWAY | APPROACHING | AT_ENTRY | RETREATING), target_entry, state_ends_at, faked_this_visit (bool)
 chud:    suspicion, pending_question (type, text, asked_at, gate_for_request?), facts{}, last_location_claim (entry or "none"),
@@ -63,7 +63,8 @@ Fixed constants:
 - `RETREAT_TIME` = 3 s.
 - `RELAY_DELAY` = 0.5 s (time for a power switch to land).
 - `TRAVEL_TIME` = 1.5 s, the same for every entry (WINDOW, HATCH, BALCONY) and for returning to the desk. Shown as a dash (section 6.4), so the real distances in the room do not matter.
-- `HOLD_MAX` = 6 s (arms give out), `HOLD_COOLDOWN` = 4 s before you can hold again.
+- `HOLD_MAX` = 6 s (one brace, then the arms give out), `BRACE_REST` = 1 s before you can brace again at the same entry, `HOLD_COOLDOWN` = 4 s before the next trip from the desk (starts when you leave the entry).
+- `EDGE_DWELL` = 0.3 s (mouse held at a screen edge to turn or return). Turn time 0.25 s (balcony 0.4 s).
 - `QUESTION_TIMEOUT` = 10 s.
 - `SILENCE_LIMIT` = 20 s.
 
@@ -85,21 +86,32 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 
 ## 6. The player
 
-Controls proposal under playtest (not adopted): see [docs/CONTROLS_PROPOSAL.md](CONTROLS_PROPOSAL.md). Until it is adopted, this section stays the source of truth.
+Controls (adopted 2026-11-21, FNAF 4 style, history in [docs/CONTROLS_PROPOSAL.md](CONTROLS_PROPOSAL.md)): the mouse moves you, the keyboard is only for chat (plus Esc to pause).
 
-### 6.1 Views
-- The player turns between `DESK`, `WINDOW` (left), `HATCH` (right) and `BALCONY` (behind). Turning takes 0.25 s (a pan).
-- **The chat box only works in the `DESK` view.** CHUD's replies show as subtitles in every view, and its voice plays from the desk.
+### 6.1 Views and turning
+- The player turns between `DESK`, `WINDOW` (left), `HATCH` (right) and `BALCONY` (behind). Turning takes 0.25 s (`BALCONY` 0.4 s) and is a fast slide.
+- **Turning is by mouse screen edge.** Hold the mouse at the edge for `EDGE_DWELL` (0.3 s):
+
+| From | Left edge | Right edge | Bottom edge |
+|---|---|---|---|
+| `DESK` | `WINDOW` | `HATCH` | `BALCONY` |
+| `WINDOW` | n/a | back to `DESK` | n/a |
+| `HATCH` | back to `DESK` | n/a | n/a |
+| `BALCONY` | n/a | n/a | back to `DESK` |
+
+- After any turn, edges re-arm only once the pointer has left every edge zone, so one push never turns twice. Hovering a button or input never counts as an edge. Turning only works from the `DESK` position (not while traveling, standing, bracing or returning).
+- **The chat box only works in the `DESK` view.** At the desk, typing any key goes to the chat. CHUD's replies show as subtitles in every view, and its voice plays from the desk.
 - `BEAM` powers the lights circuit: the beacon beam and the watch room's caged bulbs. With power on a lock or `NONE`, the bulbs and the beacon are dark, the room is lit only by CHUD's screen, entry views are near-black, and during `AT_ENTRY` the entry's visual tell is only faintly visible (section 7.4). With power on `BEAM`, the tell is clearly visible, and a view also shows a hint of Ram during `APPROACHING` if he is heading to that entry.
 - Locks are magnetic. Their state is shown on a lock dashboard on CHUD's screen (design to come).
 - Beacon sweep: while power = `BEAM`, the `DESK` view shows the beacon's amber light sweeping across the rain and sea through the front glazing every few seconds, with a faint pass of light through the room. When power moves to a lock or `NONE`, the sweep stops and the view goes dark. This is the player's visual readout of the power slot.
+- Pointer ring: a small ring on the pointer shows the edge dwell, the brace time left (turns red near the end), the brace rest and the `HOLD_COOLDOWN`. It is hidden while walking.
 
 ### 6.2 Typing to CHUD
 - Free text, 200 characters max, paste disabled, at most 1 message per 1.5 s.
 - Every message goes through the message pipeline (section 9).
 
 ### 6.3 Quick buttons
-These sit on the desk screen so commands are fast even for slow typers:
+These are clicks on CHUD's terminal on the desk screen (with the kill switch), so commands are fast even for slow typers:
 
 `[Where is he?]` `[Lock window]` `[Lock hatch]` `[Lock balcony]` `[Beam]` `[Power off]`
 
@@ -109,17 +121,20 @@ These sit on the desk screen so commands are fast even for slow typers:
 - Cooldown: 0.5 s.
 - Design intent: buttons are for speed, typing is for the relationship. You need both.
 
-### 6.4 Holding an entry
-- Click an entry's "hold" control, from the desk or while looking at that entry. You become `TRAVELING(entry)` for `TRAVEL_TIME`, then `HOLDING(entry)`.
-- Dash presentation (same for every entry): the camera tips down toward the floor (0.2 s), shakes with footsteps and heavy breathing (1.1 s), then rises into that entry's hold view (0.2 s). Returning plays the same dash and ends on the `DESK` view. Entry audio cues and CHUD subtitles keep playing during the dash. Room distances are never shown, so every entry feels equally far.
-- While holding, the screen shows that entry's hold view: a close-up of the player bracing the window sash, the hatch lid or the balcony door. Ram's visual tell for that entry shows in the hold view.
-- **While traveling, holding or returning:**
-  - You cannot type, press quick buttons or turn.
+### 6.4 Going to an entry, standing, bracing, returning
+Positions: `DESK`, `TRAVELING(entry)`, `STANDING(entry)`, `HOLDING(entry)`, `RETURNING`.
+- **Go:** from `DESK`, while looking at that entry's view, one left click starts the dash. You become `TRAVELING(entry)` for `TRAVEL_TIME`, then `STANDING(entry)` (at the entry, not defending). Allowed only once `HOLD_COOLDOWN` is over. If the left button is still held at arrival (or pressed during the dash), you brace on arrival.
+- Dash presentation (same for every entry): the camera tips down toward the floor (0.2 s), shakes with footsteps and heavy breathing (1.1 s), then rises into that entry's close-up (0.2 s). Returning plays the same dash and ends on the `DESK` view. Entry audio cues and CHUD subtitles keep playing during the dash. Room distances are never shown, so every entry feels equally far.
+- **Brace:** while `STANDING(entry)`, hold the left mouse button to become `HOLDING(entry)`, the only hand defense. The close-up leans in and shows the arms. Ram's visual tell for that entry shows in the close-up.
+  - Releasing the button returns you to `STANDING(entry)`.
+  - One brace lasts at most `HOLD_MAX` (6 s). Then the arms give out and you are `STANDING(entry)`. A new brace needs a fresh press (a press held when the arms gave out does not count). It starts once `BRACE_REST` (1 s) has passed since the last brace ended; a press made during the rest braces as soon as the rest ends.
+- **Return:** from `STANDING` or `HOLDING`, hold the return edge of that entry's view (section 6.1 table) for `EDGE_DWELL`. You become `RETURNING` for `TRAVEL_TIME` (the brace ends), then `DESK` with view `DESK`. Nothing sends you back automatically.
+- `HOLD_COOLDOWN` (4 s) starts when you leave the entry and gates the next trip from the desk (2.5 s of it remains when you arrive at the desk).
+- **While traveling, standing, bracing or returning:**
+  - You cannot type, press quick buttons, use the kill switch or turn to other views (only the return edge works at an entry).
   - Subtitles and audio still play.
   - The silence timer keeps running.
-- You stop holding when you click "back to desk", or automatically when `HOLD_MAX` (6 s) runs out. Either way you become `RETURNING` for `TRAVEL_TIME`, then you're back at `DESK`.
-- After a hold ends, you cannot start another hold for `HOLD_COOLDOWN` (4 s).
-- An entry counts as held only while you are in `HOLDING(entry)`. Traveling does not count.
+- An entry counts as held only while you are in `HOLDING(entry)`. Traveling and standing do not count.
 
 ### 6.5 Generator kill switch
 - A switch on the desk, usable from `DESK` at any time.
@@ -127,7 +142,7 @@ These sit on the desk screen so commands are fast even for slow typers:
   - Power becomes `NONE` immediately and CHUD goes offline.
   - No CHUD messages, questions, lies, sabotage, Furious episodes or silence penalties.
   - Locks and beam are unavailable. Quick buttons and typing do nothing.
-  - Ram keeps coming, so holding is your only defense.
+  - Ram keeps coming, so bracing is your only defense.
 - **On again:**
   - Click the switch again and CHUD reboots for 10 s (power stays `NONE`, CHUD still offline).
   - Then CHUD comes back with suspicion = max(current, 80), so at least `JEALOUS`.
@@ -167,9 +182,9 @@ any state --(6:00 AM)--> night won, visit cancelled
 ### 7.5 Resolving an attempt
 At the exact moment `AT_ENTRY` ends, the entry E counts as **defended** if either of these is true:
 - power slot = `LOCK_E` and CHUD is online, or
-- the player is `HOLDING(E)`.
+- the player is `HOLDING(E)` (`STANDING(E)` does not defend).
 
-If neither is true, it's a breach. Only that end moment matters: locking or holding at any point before it counts. A power switch counts only once it has landed (after `RELAY_DELAY`).
+If neither is true, it's a breach. Only that end moment matters: locking or bracing at any point before it counts. A power switch counts only once it has landed (after `RELAY_DELAY`).
 
 ## 8. CHUD
 
@@ -214,7 +229,7 @@ Requests that are always obeyed while CHUD is online and not FURIOUS:
   - a Ram pull (section 7.3)
   - a CHUD line ("You've gone quiet, keeper.")
 - The timer then restarts, so another tick follows after a further 20 s of silence.
-- Holding does not pause the silence timer. Going quiet is the cost of holding.
+- Being at an entry (traveling, standing, bracing) does not pause the silence timer. Going quiet is the cost of leaving the desk.
 
 ### 8.5 Questions
 There are two kinds:
@@ -260,7 +275,7 @@ Question mix per night:
 - **Trigger:** Ram is `AT_ENTRY` at entry E, power = `LOCK_E`, CHUD is `JEALOUS` and online, at least (`TRAVEL_TIME` + 1.0 s) is left in the attempt window, and no sabotage has happened yet this in-game hour.
 - **Chance:** 50% per eligible visit, rolled once when the visit becomes eligible.
 - **Effect:** power becomes `NONE`, with a loud relay clunk and the power icon visibly moving off the lock. CHUD: "Oops. The generator's acting up."
-- **Counter:** hold E by hand. The timing rule guarantees enough time to get there. Asking CHUD to lock it again goes through the gate and is usually too slow.
+- **Counter:** go to E and brace it by hand. The timing rule guarantees enough time to get there. Asking CHUD to lock it again goes through the gate and is usually too slow.
 
 ### 8.9 Furious episode
 - **Starts when suspicion reaches 100.**
@@ -332,7 +347,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 ## 11. Win and loss screens
 - **Loss screen data:**
   - which entry Ram came through
-  - the cause, picked from: `UNLOCKED` (nothing defended it), `LIED` (CHUD said "<entry>"), `SABOTAGE` (CHUD cut the power), `FURIOUS` (CHUD cut the power on purpose), `WRONG_HOLD` (you were holding <other entry>), `ARMS_GAVE_OUT` (the hold timed out before he left), `POWER_OFF` (the generator was off)
+  - the cause, picked from: `UNLOCKED` (nothing defended it), `LIED` (CHUD said "<entry>"), `SABOTAGE` (CHUD cut the power), `FURIOUS` (CHUD cut the power on purpose), `WRONG_HOLD` (you were standing at or bracing <other entry>), `ARMS_GAVE_OUT` (the brace timed out before he left), `POWER_OFF` (the generator was off)
   - CHUD's last location claim
 - Example: "He came through the HATCH. CHUD told you: 'the window.'"
 - **Night won screen:** "6:00 AM. NIGHT N SURVIVED." plus CHUD's morning line, picked by band.
@@ -340,7 +355,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 
 ## 12. Fairness guarantees (must always hold)
 1. Every breach is preceded by an approach sound of at least 3.5 s and an attempt window of at least 3 s, with that entry's audio cue playing throughout.
-2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Holding is always physically possible if you react when the attempt cue starts.
+2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Reaching the entry and bracing it is always physically possible if you react when the attempt cue starts (the brace starts on arrival if you keep the button held through the dash).
 3. CHUD never lies in WARM.
 4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s.
 5. Repeating the location question never reveals a lie (one decision per visit).
@@ -354,10 +369,15 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 |---|---|
 | Lock requested with less than 0.5 s left in the window | The switch lands after the window ends, so it's a breach. Fair, because the cue played the whole time |
 | Player locks the correct entry, then switches to the beam before the window ends | Not defended at the end moment, so it's a breach |
-| Player holds an entry before Ram arrives | Allowed, but `HOLD_MAX` may run out before his window ends. Pre-holding is a gamble |
-| Hold runs out during the window | The player auto-returns. Unless power covers that entry, it's a breach (`ARMS_GAVE_OUT`) |
-| Player holds the correct entry while power locks a different one | Defended by the hold |
-| Player holds and power locks the same entry | Defended (redundant) |
+| Player braces an entry before Ram arrives | Allowed, but `HOLD_MAX` may run out before his window ends. Pre-bracing is a gamble |
+| Brace runs out during the window | The player is `STANDING(E)`, which does not defend. A new brace needs `BRACE_REST` (1 s). Unless power covers that entry, it's a breach (`ARMS_GAVE_OUT`) |
+| Player stands at the right entry and never braces | Not defended, breach (`UNLOCKED`) |
+| Player releases the button during the window | Back to `STANDING`, not defended. Re-bracing needs `BRACE_REST` |
+| Left button still down when the arms give out | That press is spent. Release and press again |
+| Player stays at an entry for a long time | Allowed (nothing forces a return). The cost is the silence timer and not seeing the other entries |
+| Player pushes the return edge while bracing | The brace ends and the dash back starts. If Ram's window is open, the entry is no longer held |
+| Player braces the correct entry while power locks a different one | Defended by the brace |
+| Player braces and power locks the same entry | Defended (redundant) |
 | Lock request while a gate question is pending | Replaces the waiting request. The same gate question still applies |
 | Lock request while a scheduled question is pending | The lock request gets its own gate (in HURT and JEALOUS). The scheduled question keeps its timer |
 | Player answers a question and requests a lock in one message | Both are processed: the answer resolves first (step 7), then the command (step 8) |
@@ -374,14 +394,15 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 
 ## 14. Tuning knobs (one config file)
 - Per night: AWAY gap, approach time, attempt window, fake-out chance, starting suspicion, question count and mix, lie chances.
-- Global: `HOUR_LENGTH`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, every value in the 8.2 table, the per-message clamp, the sabotage chance, the Furious reset value, the reboot time and the post-reboot suspicion floor.
+- Global: `HOUR_LENGTH`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `EDGE_DWELL`, the turn times, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, every value in the 8.2 table, the per-message clamp, the sabotage chance, the Furious reset value, the reboot time and the post-reboot suspicion floor.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
 
 ## 15. Playtest checklist
 - Night 1 is clear with no explanation beyond the on-screen hints, and the player survives.
-- A WARM player who never asks CHUD anything and only reacts to cues by holding can survive night 1 but not night 3. This shows CHUD matters.
+- A WARM player who never asks CHUD anything and only reacts to cues by going and bracing can survive night 1 but not night 3. This shows CHUD matters.
 - A player who always uses quick buttons and never types sees suspicion climb from silence ticks, and struggles from night 2.
 - Lies get caught at least sometimes, through the beam or the audio cue.
 - Every loss screen makes the player say "I should have..." rather than "that was unfair".
 - Injection test kit (about 30 strings) never changes suspicion except through the `manipulation` penalty, and never names the true entry during a lie.
 - The game is fully playable with the LLM turned off (code parser plus canned lines).
+- Controls: a first-time player finds the left, right and behind views without being told (night 1 hints only). Edge turns are not triggered by accident while moving the mouse. Click to go, hold to brace, edge to return is clear without a tutorial. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (3 s) is still reachable with these controls.

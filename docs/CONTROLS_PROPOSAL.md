@@ -1,8 +1,8 @@
 # Controls proposal (FNAF 4 style)
 
-Prototype status: implemented for playtest on branch `proto/v3-controls-edge` (cut from `proto/v3-2.5d`, for A/B comparison). Done there: edge turning with a dwell, slide-and-blur turns with a whoosh and chair creak, click to run to an entry (only from that entry's view), hold left click there to brace (6 s per brace, 1 s rest between braces), the return edge to run back, one cursor ring for the running timer (edge dwell, arms left) instead of bars, keyboard for chat only (typing at the desk goes straight to the chat), night 1 hints. Second iteration after the first playtest: press-and-hold to run and brace in one gesture did not feel smooth, so going and bracing are now separate. Not done: the wider desk panorama, desk object hotspots and close-ups (no art yet), breathing sway beyond the existing idle sway, positional audio changes. Tunables and details: prototype/IMPLEMENTATION_NOTES.md, section "Edge controls (branch proto/v3-controls-edge)".
+Prototype status: implemented and playtested on branch `proto/v3-controls-edge` (cut from `proto/v3-2.5d`, for A/B comparison). Done there: edge turning with a dwell, slide-and-blur turns with a whoosh and chair creak, click to run to an entry (only from that entry's view), hold left click there to brace (6 s per brace, 1 s rest between braces), the return edge to run back, one cursor ring for the running timer (edge dwell, arms left) instead of bars, keyboard for chat only (typing at the desk goes straight to the chat), night 1 hints. Second iteration after the first playtest: press-and-hold to run and brace in one gesture did not feel smooth, so going and bracing are now separate. Not done: the wider desk panorama, desk object hotspots and close-ups (no art yet), breathing sway beyond the existing idle sway, positional audio changes. Tunables and details: prototype/IMPLEMENTATION_NOTES.md, section "Controls (adopted)".
 
-Status: PROPOSAL, not adopted. To be playtested. If adopted, fold it into docs/GAME_LOGIC.md (section 6) and log it in docs/DECISIONS.md. Until then, docs/GAME_LOGIC.md stays the source of truth.
+Status: ADOPTED 2026-11-21, folded into docs/GAME_LOGIC.md section 6. Kept for history. docs/GAME_LOGIC.md is the source of truth. The desk panorama, desk hotspots and the art listed below are still future work.
 
 ## Goal
 Play as simply as FNAF 4: the player understands the controls in under 30 seconds, with no tutorial screen needed beyond a few on-screen hints on night 1.
@@ -51,12 +51,12 @@ The player types free text to CHUD, so letter keys cannot be movement keys (WASD
 - A subtle breathing sway and a few degrees of mouse parallax in every view.
 - Sound carries half the feel: chair creak on turns, footsteps and breathing on the dash, the entry tells in positional audio.
 
-## Art needed if adopted
+## Art needed for the desk panorama and hotspots (future)
 - A wider desk panorama render (one per desk state).
 - One close-up render per inspectable desk object.
 - Hold close-ups and the dash floor view (already planned).
 
-## Playtest questions
+## Playtest questions (asked before adoption)
 1. Does a first-time player find the left, right and behind views without being told?
 2. Is the edge-hold delay (about 0.3 s) long enough to avoid accidental turns while panning the desk, and short enough to feel instant?
 3. Is click to go, hold to brace, edge to return clear? Is 6 s per brace with a 1 s rest the right rhythm, and does staying at an entry for a long time need a cost beyond the silence timer?

@@ -83,9 +83,9 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Generator off ends the episode with no cut and no reset (reboot floor handles it).
 
 ## Holding (section 6.4)
-- `startHold(entry)` allowed when phase PLAYING, position DESK, now >= holdCooldownUntil, and (view is DESK or view is that entry). Becomes TRAVELING until now + TRAVEL_TIME, then HOLDING.
-- `backToDesk` only while HOLDING. Hold also ends automatically when HOLD_MAX passes since HOLDING began. Either way: holdCooldownUntil = now + HOLD_COOLDOWN, position RETURNING until now + TRAVEL_TIME, then DESK with view DESK.
-- If a hold of Ram's current target ends by HOLD_MAX while Ram is AT_ENTRY there, set `log.visit.armsGaveOut`.
+- The GAME_LOGIC 6.4 flow (going, standing, bracing, returning) is implemented by `goToEntry`, `startBrace`, `endBrace` and `returnToDesk`, see "Controls (adopted)" below.
+- Legacy API, kept because the engine tests use it and it still works: `startHold(entry)` allowed when phase PLAYING, position DESK, now >= holdCooldownUntil, and (view is DESK or view is that entry). Becomes TRAVELING until now + TRAVEL_TIME, then HOLDING. `backToDesk` only while HOLDING. The UI no longer calls it.
+- A brace ends automatically when HOLD_MAX passes since HOLDING began (the player stays STANDING at the entry in the edge flow). If a brace of Ram's current target ends by HOLD_MAX while Ram is AT_ENTRY there, set `log.visit.armsGaveOut`.
 
 ## Generator kill switch (section 6.5)
 - Off: slot NONE, pending switch cancelled, CHUD offline, pending question cancelled (no penalty, QUESTION_RESOLVED cancelled), queued radio question kept, furious episode ends with no cut.
@@ -101,8 +101,8 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - 6:00 AM cancels any visit with no breach.
 
 ## Breach and loss cause (section 11)
-- At AT_ENTRY end, defended = (slot is LOCK_E and CHUD online) or player HOLDING(E).
-- Not defended: phase BREACH, emit BREACH with LossInfo. Cause priority: POWER_OFF (generator off or rebooting) > FURIOUS (furiousCut this visit) > SABOTAGE (sabotaged this visit) > ARMS_GAVE_OUT > WRONG_HOLD (player TRAVELING to, HOLDING or RETURNING from a different entry during the end moment; heldEntry set) > LIED (claimThisVisit is an entry other than E, or "NONE") > UNLOCKED.
+- At AT_ENTRY end, defended = (slot is LOCK_E and CHUD online) or player HOLDING(E) (STANDING(E) does not defend).
+- Not defended: phase BREACH, emit BREACH with LossInfo. Cause priority: POWER_OFF (generator off or rebooting) > FURIOUS (furiousCut this visit) > SABOTAGE (sabotaged this visit) > ARMS_GAVE_OUT > WRONG_HOLD (player TRAVELING to, STANDING at, HOLDING or RETURNING from a different entry during the end moment; heldEntry set) > LIED (claimThisVisit is an entry other than E, or "NONE") > UNLOCKED.
 
 ## Night flow (section 5)
 - New engine: phase NAME_PROMPT unless skipNamePrompt or startNight > 1, which go straight to NIGHT_CARD.
@@ -127,7 +127,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Suspicion sitting at 100 with no active episode shows JEALOUS. A new episode needs a positive change, so the reboot floor does not restart Furious by itself.
 - Radio beat while CHUD is offline: +20 still applies, no reaction line, the radio question is queued.
 - MEMORY questions only check facts that have a topic (SEED_TOPICS or RADIO_TOPIC).
-- Quick buttons need position DESK and view DESK. The view stays put during a hold and returns to DESK on arrival.
+- Quick buttons need position DESK and view DESK. The view stays put at an entry and returns to DESK on arrival.
 - The `morning` line is produced even if CHUD is offline at 6 AM (the win screen needs it). Night 5 emits GAME_WON only.
 - Parser bias: miss a command rather than invent one. Direction words (left, right, back, behind) count only outside idioms like "right now" or "he's back". "off" counts only with a power verb or noun. "where" counts only as a question about him.
 
@@ -140,7 +140,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - `src/chud/judgeClient.ts` is the one seam for the judge. It calls `offlineJudge` now; M3 replaces its body with the `/turn` call and keeps `offlineJudge` as the fallback.
 - At the desk, CHUD lines, Ram shouts and radio go to the chat log and subtitles hide. Away from the desk, subtitles show.
 - Pause (UI only, nothing in `src/sim`): Esc (chat unfocused) or the Pause button at the top right toggles `paused` in `main.ts`. While paused the frame loop skips `engine.tick` (clock, Ram, CHUD timers, question timeouts and silence all stop), still drains events (late judge and voice replies may apply), `Sound.suspend()` / `resume()` freeze the audio, and `#pause` dims the stage to 94 % with Resume and Restart night. Restart uses `retryNight()`, which now also accepts phase PLAYING and reuses the loss-screen path (facts checkpoint, `NIGHT_CARD` event, `nightToken` bump so late replies are dropped). The tab going hidden pauses; the player resumes manually. The first frame after a resume uses dt 0. Pause is only available in PLAYING; leaving PLAYING (safety pause, dev jump) clears it.
-- Keys: Esc pauses and resumes (first Esc leaves the chat input). A / D / S look at the window, hatch, balcony. 1 2 3 hold from the desk, Space holds the entry in view or ends a hold. Enter focuses chat, Esc leaves it. Backtick opens the dev panel (jump to night, x1 / x3 / x8 speed, Ram, suspicion, lie decision, facts). In dev builds `window.engine` is exposed for the console.
+- Keys: chat only, see "Controls (adopted)". Esc pauses and resumes (first Esc leaves the chat input). Backtick opens the dev panel (jump to night, x1 / x3 / x8 speed, Ram, suspicion, lie decision, facts). In dev builds `window.engine` is exposed for the console.
 
 ## LLM judge and voice (M3 first pass)
 - Model: `claude-haiku-5-5`, thinking disabled, effort low, one attempt, 2.4 s server timeout, 2.5 s client timeout. No temperature (the current API rejects non-default sampling on this model).
@@ -164,14 +164,14 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Tells, approach silhouettes and hold tells on renders are coded overlays in plate px placed on the render geometry (`onRender*` in `src/ui/placeholders.ts`). Faint tells use alpha 0.45 on renders (0.22 on placeholders) so the night grade does not hide them. Art named `tell_<entry>` etc. still overrides them.
 - The desk render's green panel is blacked out in the plate (`SCREEN_FRAME`) and CHUD's terminal is DOM (`#terminal` in `index.html`) placed every frame at `scene.deskScreenRect()` (DESK_SCREEN at the current pan, 1082 x 316 stage px). It ignores the small edge warp. Its opacity follows the turn and dash fade.
 - Terminal contents: face (Vidush's sheet via CSS background-position, 540 px frames, left edges 20 / 550 / 1080 / 1610, top 90; a text face if the sheet is missing; OFFLINE or REBOOT n% while CHUD is offline; a small bob while `speakingUntil`, flicker on FURIOUS), chat log, question timer, input, the six GAME_LOGIC 6.3 quick buttons, kill switch, clock, map, power bar.
-- Map: watch room circle with the desk (green dot, the player) at the top, window left, hatch right, balcony bottom. Dots are red, amber while a switch to that lock is pending, green while that lock is the powered slot. Clicking a dot calls `engine.startHold(entry)` (same rules as the hold buttons). The map never shows Ram.
+- Map: watch room circle with the desk (green dot, the player) at the top, window left, hatch right, balcony bottom. Dots are red, amber while a switch to that lock is pending, green while that lock is the powered slot. Display only (clicking a dot does nothing). The map never shows Ram.
 - Power bar: 4 cells (W, H, B, BEAM), green for the slot being fed, amber for a pending switch, all red for NONE, flashing red for 2.5 s after a sabotage or Furious cut.
 - Music: no music player yet. When one is added it must duck under every entry cue (fairness rule 12.1).
 - Screens: the name prompt shows the shipwreck render, the loss screen the cage hall loss render, GAME_WON the cage hall win render, each darkened behind the card.
-- Navigation: the Behind / Back to desk button is at the top center, the night 1 hint below it at y 84, the desk hold buttons at the top left over the glazing.
+- Navigation and hint: see "Controls (adopted)" (edge turns, `#brace-hint`, night 1 hints). There are no nav buttons.
 
-## Edge controls (branch proto/v3-controls-edge)
-Implements docs/CONTROLS_PROPOSAL.md for playtest. On this branch it replaces the "Keys" bullet of "UI layer" and the map-dot click and "Navigation" bullets of "2.5D renderer". Second iteration: click to go, hold to brace, edge to return (the first, press-and-hold to run and brace, was not smooth in playtest).
+## Controls (adopted)
+Adopted 2026-11-21 after playtest on branch `proto/v3-controls-edge`; rules in docs/GAME_LOGIC.md section 6 (history in docs/CONTROLS_PROPOSAL.md). Click to go, hold to brace, edge to return (an earlier press-and-hold to run and brace was not smooth in playtest). A / D / S, 1 2 3, Space, the map-dot holds, the desk hold buttons and the Behind and Back to desk buttons were removed.
 - Tunables in `src/uiConfig.ts` (UI only). `CONTROLS`: `EDGE_DWELL` 0.3 s, `EDGE_ZONE_SIDE` 70 stage px, `EDGE_ZONE_BOTTOM` 40 stage px, `TURN_TIME` 0.25 s, `TURN_TIME_BALCONY` 0.4 s, `TURN_BLUR` 24, `TURN_DIM` 0.35. `RING`: size 32 screen px, stroke 3, colors, `BRACE_WARN` 1.5 s. `BRACE`: the bracing feel (see "Bracing feel" below). The zone sizes are repeated in `style.css` (`.edge`). Game timers in `config.ts`: `TRAVEL_TIME`, `HOLD_MAX`, `HOLD_COOLDOWN` unchanged, `BRACE_REST` 1.0 s new.
 - Engine additions (`src/sim`, the GAME_LOGIC 6.4 API `startHold` / `backToDesk` still works and the old tests use it):
   - `PlayerPosition` gains `STANDING(entry, restUntil)`: at the entry, not bracing. `TRAVELING` gains optional `stay` and `braceOnArrival`, `HOLDING` gains optional `stay` (set by the edge flow).

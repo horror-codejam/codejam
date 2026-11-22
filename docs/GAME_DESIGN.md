@@ -60,9 +60,10 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - The CHUD terminal (scenes/03b-chud-terminal/): click the computer in the desk view to open it full screen. CHUD's mood face on the left above the music player, chat with CHUD in the center, a top-down lighthouse map of the entrances on the right, the clock top right, a music player on the left (creepy messages and weird lyrics slip into the songs), and a power bar bottom right. Open conflicts with GAME_LOGIC.md are listed in the scene sheet.
 
 ## Player actions
-1. Type to the AI: ask where Ram is, ask it to lock an entry or turn on the beam, answer its questions.
-2. Turn to look at an entry.
-3. Hold an entry by hand: run there and brace it until Ram leaves. Cannot type or see the PC while holding.
+Controls: the mouse moves you, the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
+1. Type to the AI: ask where Ram is, ask it to lock an entry or turn on the beam, answer its questions. Typing at the desk goes straight to the chat. Quick buttons and the kill switch are clicks on CHUD's terminal.
+2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back.
+3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
 4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and the beam goes dark. Last resort.
 
 ## Ram's cycle
@@ -157,7 +158,7 @@ Updated 2026-11-21. The working code lives in `prototype/`.
 | Art | Blender 5.3 + Cycles (GPU, OptiX), Blender MCP driven by Codex and Claude | Source file `scenes/03-watch-room/scene03_watch_room_look.blend` (not shipped). Assets: Poly Haven (CC0) and Sketchfab (CC0 / CC-BY only), credited in `scenes/03-watch-room/CREDITS.md` |
 | Rendered output | WebP stills + WebM loops / frame sequences | Per view and state: idle, lights on, lightning, entry tells, breaches, hold close-ups with hands, dash floor, beacon sweep loop, jumpscares. Cycles light-group passes (screen, beacon, lightning, practicals, storm) so the browser can tint CHUD's glow and switch lights live |
 | Game-side data | JSON exports from Blender | `scenes/03-watch-room/export/cam_desk_screen.json` (CHUD screen corners for the live UI overlay); later: keyboard key positions, per-view state-to-asset map |
-| Frontend | Vite + TypeScript + PixiJS 8 | View switching, mouse edge controls (docs/CONTROLS_PROPOSAL.md), grain, flicker, sway, CHUD face and chat drawn onto the monitor, key-press glow, Vitest for tests |
+| Frontend | Vite + TypeScript + PixiJS 8 | View switching, mouse edge controls (docs/GAME_LOGIC.md section 6), grain, flicker, sway, CHUD face and chat drawn onto the monitor, key-press glow, Vitest for tests |
 | Sound | Howler.js + Web Audio (HRTF panners) | See docs/SOUND_PLAN.md. CHUD canned lines pre-generated with Kokoro (Apache-2.0) |
 | Backend | Node + Hono, one `/turn` endpoint | Runs the judge call, the game rules from docs/GAME_LOGIC.md, then the CHUD voice call. Holds the API key |
 | LLM | Anthropic Claude via `@anthropic-ai/sdk` | As used in `prototype/`. Model chosen by latency test (2.5 s budget per turn, canned fallbacks) |
@@ -201,6 +202,7 @@ CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, fur
 
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
+- Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
 - Positional audio (headphones): storm and waves in front, taps on glass to the left, ladder rungs and hatch knocks below and to the right, scraping at the rail behind, Ram's voice, CHUD's chime, radio static, helicopter.
 - "Click to begin" title screen (browsers block audio until first click). Preload jumpscare frames before each night.
 
