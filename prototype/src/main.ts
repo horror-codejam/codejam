@@ -884,12 +884,13 @@ function reconcileBrace(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Dev mode. The DEV badge shows on every load (production too); ?dev=0 hides it. Backquote, Ctrl+Shift+D or a badge click
-// opens and closes the panel, which always starts closed. Nothing is persisted. Every action goes through the engine object.
+// Dev mode. The DEV badge shows on every dev-server load; ?dev=0 hides it. A production build shows it only with ?dev in the
+// URL, so players never see the kill code or "Win night now". Backquote, Ctrl+Shift+D or a badge click opens and closes the
+// panel, which always starts closed. Nothing is persisted. Every action goes through the engine object.
 function initDev(): void {
   const off = params.has("dev") && ["0", "false", "off", "no"].includes((params.get("dev") ?? "").toLowerCase());
   ui.devBadge.addEventListener("click", () => setDevOpen(!devOpen));
-  setDev(!off);
+  setDev(!off && (import.meta.env.DEV || params.has("dev")));
 }
 
 function setDev(on: boolean): void {
