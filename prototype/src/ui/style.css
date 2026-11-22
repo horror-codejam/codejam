@@ -46,9 +46,9 @@ button:disabled { opacity: 0.35; cursor: default; }
 }
 
 /* CHUD terminal: DOM on the desk render's screen. Positioned by main.ts each frame (follows the pan).
-   Size = DESK_SCREEN (644 x 188 plate px) x K (1.68) = 1082 x 316 stage px. */
+   Size = DESK_SCREEN (644 x 188 plate px) x K (1.68) = 1082 x 316 stage px, scaled by main.ts to the desk plate's screen. */
 #terminal {
-  position: absolute; left: 0; top: 0; width: 1082px; height: 316px; will-change: transform;
+  position: absolute; left: 0; top: 0; width: 1082px; height: 316px; will-change: transform; transform-origin: 0 0;
   display: grid; grid-template-columns: 168px 1fr 250px; gap: 12px; padding: 10px 14px;
   background: #020604; color: var(--crt); font-size: 13px; pointer-events: none;
   box-shadow: inset 0 0 40px rgba(77, 255, 136, 0.08);

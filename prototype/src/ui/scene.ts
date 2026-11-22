@@ -15,26 +15,36 @@ import { BRACE, CONTROLS } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
-import { hasArt, slot, stageSlot } from "./art";
+import { artFrames, hasArt, isFinal, slot, stageSlot } from "./art";
 import { DESK_GLAZING, DESK_SCREEN, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W } from "./layout";
 import * as P from "./placeholders";
+import { entryPlate, holdPlate, JUMPSCARE_FPS, JUMPSCARE_MIN_FRAMES, jumpscareJob, sequenceFrame } from "./plates";
 
+// Final renders are full plates per state (src/ui/plates.ts): when the plate for the current state exists it is shown
+// alone, with no overlay and no night grade. The layers below (view + coded overlays) are the fallback for a state whose
+// final plate is missing.
 interface EntryLayers {
   root: Container;
-  dark: Container;
-  lit: Container | null; // a separate lit plate (placeholder or `view_<e>_beam` art)
+  k: string; // "window" | "hatch" | "balcony"
+  dark: Container; // `view_<e>` (final `view_<e>_off` when present)
+  lit: Container | null; // a separate lit plate (placeholder, or `view_<e>_beam` / final `view_<e>_on`)
   litOverlay: Container | null; // additive light wash on the team's render when there is no lit plate
   tell: Container;
   approach: Container;
   inside: Container; // Ram in the room, just inside this entry (`ram_inside_<entry>`), only with its light on
+  plates: Map<string, Container>; // final state plates: tell_<e>_<on|off>, approach_<e>_on, inside_<e>_on
   render: boolean;
 }
 
 interface HoldLayers {
   root: Container;
+  k: string;
+  base: Container; // `hold_<e>` (final `hold_<e>_stand_empty_off` when present), fallback only
   tell: Container;
-  arms: Container; // the player's arms on the entry, only while bracing
+  arms: Container; // the player's arms on the entry, only while bracing (fallback: the brace plates include the arms)
   strain: Sprite | null; // whitened knuckles over the coded arms, faded in with fatigue
+  plates: Map<string, Container>; // final plates hold_<e>_<stand|brace>_<empty|tell>_<on|off>
+  plate: Container | null; // the final plate showing this frame
   render: boolean;
 }
 
@@ -52,6 +62,16 @@ const SWEEP_W = 300; // plate px
 
 // The green panel in the desk render, slightly outset; blacked out so the DOM terminal blends in.
 const SCREEN_FRAME = { x: 152, y: 259, w: 659, h: 201 };
+
+// The final desk plate (final/webp/view_desk_off.webp, plate px): the monitor's glass is blacked out and the DOM
+// terminal (DESK_SCREEN size, scaled to fit) is centred on it. Its baked UI text would fight the live terminal.
+const FINAL_SCREEN_FRAME = { x: 176, y: 14, w: 608, h: 330 };
+const FINAL_DESK_SCREEN = { x: 186, y: 94, w: 588, h: Math.round((588 * DESK_SCREEN.h) / DESK_SCREEN.w) };
+// The two glazing panes either side of the monitor: lightning and the beacon glow light only these.
+const FINAL_DESK_PANES = [
+  { x: 0, y: 0, w: 167, h: 197 },
+  { x: 793, y: 0, w: 167, h: 197 },
+];
 
 export class Scene {
   private app: Application;
@@ -78,15 +98,22 @@ export class Scene {
   private relaxAt = -10; // fxT of the last brace end (relax-back)
   private desk = new Container();
   private deskRender: boolean;
+  private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
   private sweep = new Container();
   private sweepBand: Sprite;
+  private paneGlow: Graphics[] = []; // final desk: the beacon brightens each side pane as it passes behind the monitor
   private lightning = new Graphics();
   private rain: TilingSprite;
   private entries = new Map<Entry, EntryLayers>();
   private holds = new Map<Entry, HoldLayers>();
   private dash: Container;
   private dashRender: boolean;
-  private jumps: Container[] = []; // ram_jumpscare_1..4
+  private jumps: Container[] = []; // ram_jumpscare_1..4 (fallback)
+  private jumpSeq = new Container(); // the final 24 fps jumpscare_<entry> sequence, when rendered
+  private jumpSeqSprite = new Sprite(Texture.EMPTY);
+  private jumpSeqFrames: Texture[] = [];
+  private jumpStartedAt = 0;
+  private lastJump: number | null = null;
   private flashLayer = new Graphics(); // the white pop at the start of the creepy flash
   private fade = new Graphics();
   private grain: Sprite;
@@ -117,9 +144,10 @@ export class Scene {
 
     // desk: render (or placeholder), blacked-out screen, beacon sweep, lightning
     this.deskRender = hasArt("view_desk");
+    this.deskFinal = isFinal("view_desk");
     this.desk.addChild(slot("view_desk", P.deskView, "stage"));
     if (this.deskRender) {
-      const f = SCREEN_FRAME;
+      const f = this.deskFinal ? FINAL_SCREEN_FRAME : SCREEN_FRAME;
       this.desk.addChild(new Graphics().rect(f.x, f.y, f.w, f.h).fill(0x020604));
     }
     const gl = DESK_GLAZING;
@@ -128,11 +156,24 @@ export class Scene {
     this.sweepBand.height = gl.h;
     this.sweepBand.y = gl.y;
     this.sweepBand.blendMode = "add";
-    // No mask: the band is exactly the glazing height and the glazing spans the plate width, so it never leaves the
-    // glazing on screen. A rect mask turns into a stencil mask once the camera rolls (dash, bracing), and inside the
-    // RenderTexture that stencil state broke the frame (the glazing area showed a shifted copy of the plate).
-    this.sweep.addChild(this.sweepBand);
-    this.lightning.rect(gl.x, gl.y, gl.w, gl.h).fill({ color: 0xcfe0ff, alpha: 1 });
+    if (this.deskFinal) {
+      // The monitor hides the middle of the glazing: no band across it, a soft glow on each side pane instead.
+      for (const p of FINAL_DESK_PANES) {
+        const g = new Graphics().rect(p.x, p.y, p.w, p.h).fill(0xffc878);
+        g.blendMode = "add";
+        g.alpha = 0;
+        this.paneGlow.push(g);
+        this.sweep.addChild(g);
+        this.lightning.rect(p.x, p.y, p.w, p.h);
+      }
+      this.lightning.fill({ color: 0xcfe0ff, alpha: 1 });
+    } else {
+      // No mask: the band is exactly the glazing height and the glazing spans the plate width, so it never leaves the
+      // glazing on screen. A rect mask turns into a stencil mask once the camera rolls (dash, bracing), and inside the
+      // RenderTexture that stencil state broke the frame (the glazing area showed a shifted copy of the plate).
+      this.sweep.addChild(this.sweepBand);
+      this.lightning.rect(gl.x, gl.y, gl.w, gl.h).fill({ color: 0xcfe0ff, alpha: 1 });
+    }
     this.lightning.alpha = 0;
     this.light.addChild(this.sweep, this.lightning);
     this.cam.addChild(this.desk);
@@ -151,14 +192,15 @@ export class Scene {
       const tell = render ? slot(`tell_${k}`, P.onRenderTell(e), "plate") : slot(`tell_${k}`, P.tell(e), "stage");
       const inside = slot(`ram_inside_${k}`, P.ramInside(e), "plate");
       inside.visible = false;
+      const plates = finalPlates([`tell_${k}_off`, `tell_${k}_on`, `approach_${k}_on`, `inside_${k}_on`]);
       const root = new Container();
       root.addChild(dark);
       if (lit) root.addChild(lit);
       if (litOverlay) root.addChild(litOverlay);
-      root.addChild(approach, tell, inside);
+      root.addChild(approach, tell, inside, ...plates.values());
       root.visible = false;
       this.cam.addChild(root);
-      this.entries.set(e, { root, dark, lit, litOverlay, tell, approach, inside, render });
+      this.entries.set(e, { root, k, dark, lit, litOverlay, tell, approach, inside, plates, render });
 
       const holdRender = hasArt(`hold_${k}`);
       const hold = new Container();
@@ -180,10 +222,14 @@ export class Scene {
         arms.addChild(base, strain);
       }
       arms.visible = false;
-      hold.addChild(slot(`hold_${k}`, P.holdView(e), "stage"), holdTell, arms);
+      const base = slot(`hold_${k}`, P.holdView(e), "stage");
+      const holdPlates = finalPlates(
+        [false, true].flatMap((brace) => [false, true].flatMap((tell) => [false, true].map((on) => holdPlate(e, brace, tell, on)))),
+      );
+      hold.addChild(base, holdTell, arms, ...holdPlates.values());
       hold.visible = false;
       this.cam.addChild(hold);
-      this.holds.set(e, { root: hold, tell: holdTell, arms, strain, render: holdRender });
+      this.holds.set(e, { root: hold, k, base, tell: holdTell, arms, strain, plates: holdPlates, plate: null, render: holdRender });
     }
 
     this.dashRender = hasArt("dash_floor");
@@ -223,6 +269,10 @@ export class Scene {
       app.stage.addChild(j);
       this.jumps.push(j);
     }
+    this.jumpSeq.addChild(this.jumpSeqSprite);
+    this.jumpSeq.pivot.set(W / 2, H / 2);
+    this.jumpSeq.visible = false;
+    app.stage.addChild(this.jumpSeq);
 
     this.fade.rect(0, 0, W, H).fill(0x000000);
     this.fade.alpha = 0;
@@ -242,9 +292,11 @@ export class Scene {
     });
   }
 
-  // DESK_SCREEN in stage px at the current pan (ignores the small edge warp). For the DOM terminal.
-  deskScreenRect(): { x: number; y: number; w: number; h: number } {
-    return this.plateRect(DESK_SCREEN);
+  // Where the DOM terminal goes, in stage px at the current pan (ignores the small edge warp). The terminal is laid out
+  // at DESK_SCREEN size; `scale` fits it to this desk plate's screen (1 on the blockout desk, about 0.9 on the final).
+  deskScreenRect(): { x: number; y: number; w: number; h: number; scale: number } {
+    const r = this.deskFinal ? FINAL_DESK_SCREEN : DESK_SCREEN;
+    return { ...this.plateRect(r), scale: r.w / DESK_SCREEN.w };
   }
 
   // Any plate-px rect of the current view in stage px at the current pan and zoom (DOM hotspots on the desk).
@@ -303,19 +355,26 @@ export class Scene {
       L.root.visible = on;
       if (!on) continue;
       const lit = litEntry === e;
-      if (L.render) grade = lit ? GRADE_LIT : GRADE_DARK;
-      L.dark.visible = !lit || !L.lit;
-      if (L.lit) L.lit.visible = lit;
-      if (L.litOverlay) L.litOverlay.visible = lit;
       const vis = this.flashEntry === e ? "inside" : engine.ramVisual(e);
-      L.inside.visible = vis === "inside";
-      L.tell.visible = vis === "tell_faint" || vis === "tell_clear";
+      const tellUp = vis === "tell_faint" || vis === "tell_clear";
+      // the final full plate for this state, else the view with a coded overlay
+      const want = entryPlate(e, lit, vis);
+      const plate = L.plates.get(want) ?? null;
+      for (const c of L.plates.values()) c.visible = c === plate;
+      const useLit = lit && !!L.lit;
+      L.dark.visible = !plate && !useLit;
+      if (L.lit) L.lit.visible = !plate && useLit;
+      if (L.litOverlay) L.litOverlay.visible = !plate && lit;
+      if (plate || isFinal(useLit ? `view_${L.k}_beam` : `view_${L.k}`)) grade = GRADE_NONE;
+      else if (L.render) grade = lit ? GRADE_LIT : GRADE_DARK;
+      L.inside.visible = !plate && vis === "inside";
+      L.tell.visible = !plate && tellUp;
       // faint tells need a boost on graded renders, otherwise the night grade swallows them
       const faint = L.render ? 0.45 : 0.22;
       L.tell.alpha = vis === "tell_clear" ? 1 : faint + 0.08 * Math.sin(t * 9);
-      L.approach.visible = vis === "approach_silhouette";
+      L.approach.visible = !plate && vis === "approach_silhouette";
       // hatch lid shudders while he is at it
-      L.root.y = e === "HATCH" && L.tell.visible ? Math.sin(t * 60) * 1.5 : 0;
+      L.root.y = e === "HATCH" && tellUp ? Math.sin(t * 60) * 1.5 : 0;
     }
     // bracing: fatigue (0..1 over HOLD_MAX), push-in on press, relax-back on release, Ram's shoves
     if (bracing !== this.wasBracing) {
@@ -329,11 +388,19 @@ export class Scene {
     for (const [e, L] of this.holds) {
       L.root.visible = holding === e;
       if (holding !== e) continue;
-      if (L.render) grade = litEntry === e ? GRADE_LIT : GRADE_DARK;
+      const lit = litEntry === e;
       const vis = engine.ramVisual(e);
-      L.tell.visible = vis === "tell_faint" || vis === "tell_clear";
+      const tellUp = vis === "tell_faint" || vis === "tell_clear";
+      // the final full plate (the brace plates include the arms), else the hold view with coded tell and painted arms
+      const plate = L.plates.get(holdPlate(e, bracing, tellUp, lit)) ?? null;
+      for (const c of L.plates.values()) c.visible = c === plate;
+      L.plate = plate;
+      L.base.visible = !plate;
+      if (plate || isFinal(`hold_${L.k}`)) grade = GRADE_NONE;
+      else if (L.render) grade = lit ? GRADE_LIT : GRADE_DARK;
+      L.tell.visible = !plate && tellUp;
       L.tell.alpha = vis === "tell_clear" ? 1 : L.render ? 0.6 : 0.45;
-      pushing = bracing && L.tell.visible;
+      pushing = bracing && tellUp;
     }
     // one shove per PUSH_PERIOD: a sharp knock then a slow give (0..1). Felt, never heard: Ram is silent.
     let push = 0;
@@ -353,7 +420,9 @@ export class Scene {
     const shakeY = BRACE.SWAY_PX * 0.7 * strainK * Math.sin(ft * BRACE.SWAY_HZ * 0.77 * 6.283 + 1) + tremorPx * tr(1.3) - BRACE.PUSH_PX * push;
     if (holding) {
       const L = this.holds.get(holding)!;
-      L.arms.visible = this.armsK > 0.01;
+      // with a final plate up the arms are in the brace render (or out of frame when standing): the camera carries the
+      // brace motion (lean, tremor, Ram's shoves) for the whole plate
+      L.arms.visible = !L.plate && this.armsK > 0.01;
       L.arms.alpha = Math.min(1, this.armsK * 1.4);
       L.arms.position.set(
         BRACE.ARMS_TREMOR * tremorPx * tr(2.6),
@@ -372,6 +441,11 @@ export class Scene {
       const k = (t % SWEEP_PERIOD) / SWEEP_PERIOD;
       this.sweepBand.x = -SWEEP_W + k * (PLATE_W + 2 * SWEEP_W);
       this.sweepBand.alpha = 0.3;
+      const cx = this.sweepBand.x + SWEEP_W / 2;
+      this.paneGlow.forEach((g, i) => {
+        const p = FINAL_DESK_PANES[i];
+        g.alpha = 0.14 * Math.max(0, 1 - Math.abs(cx - (p.x + p.w / 2)) / 240);
+      });
     }
 
     // lightning across the ocean glazing, desk view only (pure ambience)
@@ -476,8 +550,29 @@ export class Scene {
       this.flashLayer.alpha = 0;
       this.views.x = 0;
     }
-    this.jumps.forEach((j, i) => (j.visible = this.jumpscare === i + 1));
-    if (this.jumpscare) {
+    // the jumpscare: the final 24 fps sequence of the breach entry when rendered (main's frame clock only starts and
+    // ends it: jumpscare.wav plays at its frame 1, the last frame holds until main clears it), else the 4 frames
+    if (this.jumpscare !== null && this.lastJump === null) {
+      this.jumpStartedAt = t;
+      const entry = engine.state.loss?.entry ?? null;
+      const frames = entry ? artFrames(jumpscareJob(entry)) : [];
+      this.jumpSeqFrames = frames.length >= JUMPSCARE_MIN_FRAMES ? frames : [];
+    }
+    this.lastJump = this.jumpscare;
+    const seq = this.jumpscare !== null && this.jumpSeqFrames.length > 0;
+    this.jumpSeq.visible = seq;
+    this.jumps.forEach((j, i) => (j.visible = !seq && this.jumpscare === i + 1));
+    if (seq) {
+      const tex = this.jumpSeqFrames[sequenceFrame(t - this.jumpStartedAt, JUMPSCARE_FPS, this.jumpSeqFrames.length)];
+      const sp = this.jumpSeqSprite;
+      sp.texture = tex;
+      const k = Math.max(W / tex.width, H / tex.height); // cover the stage (1280 x 640 frames crop a little at the sides)
+      sp.scale.set(k);
+      sp.position.set((W - tex.width * k) / 2, (H - tex.height * k) / 2);
+      // a lighter shake than the stills: the frames already move
+      this.jumpSeq.scale.set(1.03 + Math.random() * 0.015);
+      this.jumpSeq.position.set(W / 2 + (Math.random() - 0.5) * 12, H / 2 + (Math.random() - 0.5) * 12);
+    } else if (this.jumpscare) {
       const j = this.jumps[this.jumpscare - 1];
       j.scale.set(1.02 + Math.random() * 0.04);
       j.position.set(W / 2 + (Math.random() - 0.5) * 30, H / 2 + (Math.random() - 0.5) * 30);
@@ -493,6 +588,18 @@ function turnDirection(from: View, to: View): number {
   if (to === "WINDOW" || from === "HATCH") return 1;
   if (to === "HATCH" || from === "WINDOW") return -1;
   return to === "BALCONY" ? -1 : 1; // turn round to the right, back to the left
+}
+
+// The final full plates among `names` that are loaded, each a hidden plate-sized container.
+function finalPlates(names: string[]): Map<string, Container> {
+  const m = new Map<string, Container>();
+  for (const name of names) {
+    if (!hasArt(name)) continue;
+    const c = slot(name, () => undefined, "plate");
+    c.visible = false;
+    m.set(name, c);
+  }
+  return m;
 }
 
 function clamp(v: number, lo: number, hi: number): number {
