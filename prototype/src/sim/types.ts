@@ -148,7 +148,7 @@ export interface GameState {
     };
     scriptedFired: string[];
     nightOneHintsShown: number; // how many of the night 1 hints have been shown
-    paperHintShown: boolean; // the first paper drop of the run showed its on-screen hint
+    paperHintShown: boolean; // this night's first paper drop showed its on-screen hint
   };
   decoy: { nextAt: number; count: number }; // decoy noise schedule (own RNG stream, never reads Ram)
   loss: LossInfo | null;

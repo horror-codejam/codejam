@@ -1065,7 +1065,8 @@ export class GameEngine implements IGameEngine {
     if (night === ENDING.CODE_NIGHT && pp.collected === total - 1 && this.now < ENDING.LAST_PAPER_AFTER) return;
     pp.floor = { entry, index: pp.collected, droppedAt: this.now };
     this.emit({ type: "PAPER_DROPPED", entry, index: pp.collected });
-    if (!s.log.paperHintShown && pp.collected === 0 && s.run.papersCheckpoint === 0) {
+    // Each night's first drop says where it is, so a slip is never missed by not looking (a missed slip blocks night 5).
+    if (!s.log.paperHintShown) {
       s.log.paperHintShown = true;
       this.emit({ type: "HINT", text: `He left something at the ${entry.toLowerCase()}.` });
     }

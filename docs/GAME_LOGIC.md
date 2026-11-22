@@ -209,7 +209,7 @@ Supply power stays on during the nights. The shared slot can be empty, power a l
   - Collected is less than the night minus 1. Collected slips never exceed night minus 1 (1 by night 2, 4 by night 5), and a missed night can be caught up later.
   - On the code night (5), the last slip (the 4th) drops only from `LAST_PAPER_AFTER` (60 s, 1:12 AM) on, so the final night lasts more than one visit. Bot playtest: the average bot reaches the code on 22% of night 5 runs (48% without the gate), skilled 79%.
 - Slip `i` (counting from 0) carries character `i` of the code, so the first slip found is the first character.
-- **First slip of a run:** the on-screen hint "He left something at the {entry}." shows once.
+- **First slip of each night:** the on-screen hint "He left something at the {entry}." shows once per night, so a slip is not missed for lack of looking (a missed slip makes night 5 unwinnable until caught up).
 - **Where it shows:** the slip is visible in that entry's view. Faint in the dark, clearer with the entry's light.
 - **Picking it up:** stand at that entry, or brace it, and click the slip. Clicking does not start a brace. If you are braced there, the pickup ends the brace. The slip is collected and opens full-screen with the 6.6 rules: the night keeps running, inputs are blocked, you cannot brace or return while reading, and putting it down while Ram is `INSIDE` fires the scare (reason `ARTIFACT`, no flash).
 - **Uncollected:** a slip on the floor vanishes at night end.
@@ -454,7 +454,7 @@ No canned line repeats the previous line of the same kind back to back (when the
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
 | 1 | 0:08, 0:24, 0:40, 0:56 (real s) | Hints on screen, before the first visit: "Hold Shift to look. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it. Your light drops the lock.", "The more ChudGPT suspects you, the more it lies." |
-| 2 | First defended attempt of the run | On-screen hint: "He left something at the {entry}." (first kill code slip only). See 6.7 |
+| 2 to 5 | First slip drop of the night | On-screen hint: "He left something at the {entry}." See 6.7 |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |

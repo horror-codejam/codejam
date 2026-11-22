@@ -97,6 +97,14 @@ describe("paper drops", () => {
     expect(e.floorPaper()).toEqual({ entry: "HATCH", index: 0 });
   });
 
+  it("a later night's first drop shows the hint again", () => {
+    const e = playing(3, 7, { papersCheckpoint: 1 });
+    e.devSetSuspicion(0); // WARM: the quick lock is never refused
+    const evs = lockedVisit(e, "WINDOW");
+    expect(evs).toContainEqual({ type: "PAPER_DROPPED", entry: "WINDOW", index: 1 });
+    expect(evs).toContainEqual({ type: "HINT", text: "He left something at the window." });
+  });
+
   it("drops after a braced defense on night 2", () => {
     const e = playing(2);
     const evs = bracedVisit(e, "BALCONY");
