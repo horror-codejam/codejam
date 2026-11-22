@@ -6,30 +6,64 @@
 export class Sound {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
+  private stormGain!: GainNode;
+  private stormLevel = 1;
   private noise!: AudioBuffer;
   private loops = new Map<string, () => void>();
   private ambient: HTMLAudioElement | null = null;
+  private ambientPlaying = false;
+  private suspended = false;
+  private jumpData: ArrayBuffer | null = null;
   private jumpBuf: AudioBuffer | null = null;
   windowMask = 1; // the storm masks the window more on nights 4 and 5
 
   // UI pause: freeze every scheduled sound and loop, resume where they were.
   suspend(): void {
+    this.suspended = true;
     if (this.ctx) void this.ctx.suspend();
     this.ambient?.pause();
   }
 
   resume(): void {
+    this.suspended = false;
     if (this.ctx) void this.ctx.resume();
-    if (this.ambient) void this.ambient.play().catch(() => undefined);
+    this.setAmbientPlaying(this.ambientPlaying);
+  }
+
+  async preload(): Promise<void> {
+    const ambientUrl = `${import.meta.env.BASE_URL}audio/amb/ambient-noise.m4a`;
+    const ambient = fetch(ambientUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.blob();
+      })
+      .then((blob) => URL.createObjectURL(blob))
+      .catch(() => ambientUrl)
+      .then((url) => {
+        const audio = new Audio(url);
+        audio.loop = true;
+        audio.volume = 0.45;
+        audio.preload = "auto";
+        this.ambient = audio;
+      });
+    const jumpscare = fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare.wav`)
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.arrayBuffer();
+      })
+      .then((data) => { this.jumpData = data; })
+      .catch((err) => console.warn("jumpscare.wav failed to load, using the synth burst", err));
+    await Promise.all([ambient, jumpscare]);
   }
 
   unlock(): void {
     if (this.ctx) {
-      void this.ctx.resume();
+      if (!this.suspended) void this.ctx.resume();
       return;
     }
     const ctx = new AudioContext();
     this.ctx = ctx;
+    if (this.suspended) void ctx.suspend();
     this.master = ctx.createGain();
     this.master.gain.value = 0.8;
     this.master.connect(ctx.destination);
@@ -41,8 +75,13 @@ export class Sound {
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.storm();
-    this.startAmbient();
-    this.loadJumpscare();
+    this.setAmbientPlaying(this.ambientPlaying);
+    if (this.jumpData) {
+      void ctx.decodeAudioData(this.jumpData)
+        .then((buffer) => { this.jumpBuf = buffer; })
+        .catch((err) => console.warn("jumpscare.wav failed to decode, using the synth burst", err));
+      this.jumpData = null;
+    }
   }
 
   private burst(dest: AudioNode, dur: number, type: BiquadFilterType, freq: number, gain: number, q = 1, freqEnd?: number, delay = 0): void {
@@ -84,7 +123,9 @@ export class Sound {
     this.stop(key);
     let i = 0;
     fn(i++);
-    const id = window.setInterval(() => fn(i++), everyMs);
+    const id = window.setInterval(() => {
+      if (!this.suspended) fn(i++);
+    }, everyMs);
     this.loops.set(key, () => window.clearInterval(id));
   }
 
@@ -101,6 +142,9 @@ export class Sound {
 
   private storm(): void {
     const ctx = this.ctx!;
+    this.stormGain = ctx.createGain();
+    this.stormGain.gain.value = this.stormLevel;
+    this.stormGain.connect(this.master);
     const mk = (freq: number, gain: number, lfoHz: number): void => {
       const src = ctx.createBufferSource();
       src.buffer = this.noise;
@@ -115,7 +159,7 @@ export class Sound {
       const lg = ctx.createGain();
       lg.gain.value = gain * 0.6;
       lfo.connect(lg).connect(g.gain);
-      src.connect(f).connect(g).connect(this.master);
+      src.connect(f).connect(g).connect(this.stormGain);
       src.start();
       lfo.start();
     };
@@ -129,25 +173,23 @@ export class Sound {
     this.burst(this.master, 2.5, "lowpass", 140, 0.35, 0.7, 60, 0.4 + Math.random() * 0.6);
   }
 
-  // --- the ambient bed (public/audio/amb/ambient-noise.m4a) -------------------------
-
-  private startAmbient(): void {
-    if (this.ambient) return;
-    const a = new Audio(`${import.meta.env.BASE_URL}audio/amb/ambient-noise.m4a`);
-    a.loop = true;
-    a.volume = 0.45;
-    a.preload = "auto";
-    this.ambient = a;
-    void a.play().catch(() => undefined); // unlock() runs inside a click, so this is allowed
+  fadeStorm(level: number, seconds: number): void {
+    this.stormLevel = level;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.stormGain.gain.cancelScheduledValues(t);
+    this.stormGain.gain.setTargetAtTime(level, t, seconds / 5);
   }
 
-  private loadJumpscare(): void {
-    const ctx = this.ctx!;
-    void fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare.wav`)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
-      .then((buf) => ctx.decodeAudioData(buf))
-      .then((b) => (this.jumpBuf = b))
-      .catch((err) => console.warn("jumpscare.wav failed to load, using the synth burst", err));
+  menuTick(): void {
+    if (this.ctx?.state === "running") this.burst(this.master, 0.045, "highpass", 2500, 0.025);
+  }
+
+  setAmbientPlaying(on: boolean): void {
+    this.ambientPlaying = on;
+    if (!this.ambient) return;
+    if (on && this.ctx && !this.suspended) void this.ambient.play().catch(() => undefined);
+    else this.ambient.pause();
   }
 
   // --- Ram is silent (GAME_LOGIC 7.4). Decoys are the house settling, never him. ------
@@ -355,11 +397,5 @@ export class Sound {
       this.burst(this.master, 0.06, "lowpass", 600, 0.2, 1, undefined, 0.15 + i * 0.27);
     }
     this.burst(this.master, seconds, "bandpass", 1200, 0.05, 0.5); // breathing
-  }
-
-  morning(): void {
-    if (!this.ctx) return;
-    this.stopCues();
-    [523, 659, 784].forEach((f, i) => this.tone(this.master, f, 0.6, "sine", 0.06, i * 0.15));
   }
 }

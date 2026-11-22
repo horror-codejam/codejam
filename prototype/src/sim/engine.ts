@@ -186,7 +186,7 @@ export class GameEngine implements IGameEngine {
     this.say({ kind: "night_opener", night: s.run.night });
   }
 
-  // From the loss screen, or "Restart night" in the UI pause menu (phase PLAYING).
+  // Used by the dev panel to restart from the current night checkpoint.
   retryNight(): void {
     const s = this.state;
     if (s.phase !== "BREACH" && s.phase !== "PLAYING") return;

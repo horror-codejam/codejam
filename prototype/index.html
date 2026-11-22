@@ -3,17 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CHUD prototype</title>
+    <title>THE KEEPER</title>
     <link rel="stylesheet" href="/src/ui/style.css" />
+    <link rel="stylesheet" href="/src/ui/screens.css" />
   </head>
   <body>
+    <div id="loading">
+      <progress id="preload" max="1" value="0" aria-label="Loading"></progress>
+      <p>Headphones recommended.</p>
+    </div>
     <div id="frame">
       <div id="stage"></div>
       <div id="ui">
-        <div id="hud">
-          <div id="clock">NIGHT 1 · 12:00 AM</div>
-          <div id="power">POWER: NONE</div>
-          <div id="chud-status"></div>
+        <div id="hud" class="hidden">
+          <div id="clock"></div>
+          <div id="hud-night"></div>
         </div>
         <div id="hint" class="hidden"></div>
 
@@ -80,27 +84,18 @@
           <div id="release-hint">Let go to stop bracing</div>
         </div>
 
-        <button id="pause-btn" class="hidden" title="Pause (Esc)">&#10074;&#10074; Pause</button>
-
         <div id="subtitle"></div>
         <!-- Cursor ring: edge dwell, arms left while bracing, faint dash and rest progress (main.ts renderRing). -->
         <svg id="ring" class="hidden" viewBox="0 0 36 36" aria-hidden="true">
           <circle class="track" cx="18" cy="18" r="15" />
           <circle class="arc" cx="18" cy="18" r="15" pathLength="1" transform="rotate(-90 18 18)" />
         </svg>
-        <div id="screen" class="hidden"></div>
-        <div id="pause" class="hidden">
-          <div class="card">
-            <h1>PAUSED</h1>
-            <p class="small">The night is frozen. Esc resumes.</p>
-            <button id="pause-resume">Resume</button>
-            <button id="pause-restart">Restart night</button>
-          </div>
-        </div>
-        <button id="dev-badge" class="hidden" title="Dev mode (click: panel, Backquote or Ctrl+Shift+D: off)">DEV</button>
-        <div id="dev" class="hidden"><div id="dev-btns"></div><pre id="dev-text"></pre></div>
       </div>
     </div>
+    <div id="screen" class="hidden"></div>
+    <div id="pause" class="hidden" role="status">Paused</div>
+    <button id="dev-badge" class="hidden" title="Dev mode (click: panel, Backquote or Ctrl+Shift+D: off)">DEV</button>
+    <div id="dev" class="hidden"><div id="dev-btns"></div><pre id="dev-text"></pre></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
