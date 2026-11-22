@@ -2,8 +2,8 @@
 
 Lighthouse horror browser game for McGill CodeJam 16 (Nov 20 to 22, 2026). Name not final.
 
-ACCESS THE GAME HERE:
-https://codejam-rouge.vercel.app/
+# ACCESS THE GAME HERE:
+# https://codejam-rouge.vercel.app/
 
 ## Start here
 - Game design: [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)
