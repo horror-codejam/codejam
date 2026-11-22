@@ -71,7 +71,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | Visit target (no silence pulls) | 3 | 3 to 4 | 5 to 6 | 6 to 7 | 7 to 8 |
 | Measured average, 400 seeds, no pulls | 3.00 | 3.91 | 5.31 | 6.35 | 7.35 |
 
-A player who never talks gets a silence tick every 20 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 4.3, 5.6, 6.9, 8.0 and 9.3 visits.
+A player who never talks gets a silence tick every 45 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 4.3, 5.6, 6.9, 8.0 and 9.3 visits.
 
 Fixed constants:
 - `HOUR_LENGTH` = 50 s, so `NIGHT_LENGTH` = 300 s (6 in-game hours, 5 real minutes).
@@ -83,7 +83,9 @@ Fixed constants:
 - `HOLD_MAX` = 6 s (one brace, then the arms give out), `BRACE_REST` = 1 s before you can brace again at the same entry, `HOLD_COOLDOWN` = 4 s before the next trip from the desk (starts when you leave the entry).
 - `EDGE_DWELL` = 0.3 s (mouse held at a screen edge to turn or return). Turn time 0.25 s (balcony 0.4 s).
 - `QUESTION_TIMEOUT` = 10 s.
-- `SILENCE_LIMIT` = 20 s.
+- `SILENCE_LIMIT` = 45 s.
+- `LOCATION_SPAM_WINDOW` = 60 s, `LOCATION_SPAM_PENALTIES` = +5 (2nd request), +10 (3rd and later), `LOCATION_REFUSE_TIME` = 20 s (8.3).
+- `FLATTERY_WINDOW` = 60 s, `FLATTERY_COUNT` = 3, `FLATTERY_PENALTY` = +10 (8.2). `WARM_BONUS_COOLDOWN` = 45 s.
 - `INSIDE_TRIGGER_WEIGHTS` = TIMER 40%, NONE 30%, MOVE 30%. `INSIDE_TIMER` = 4 to 12 s.
 - `LOCK_REFUSAL` by band = WARM 0%, HURT 25%, JEALOUS 55%, FURIOUS 100%.
 - `LIGHT_CUT` by band = WARM 0%, HURT 25%, JEALOUS 50%, FURIOUS 85%, per light-on. `LIGHT_CUT_DELAY` = 1.0 to 2.5 s after the light came on. `LIGHT_CUT_LINE_GAP` = 5 s.
@@ -279,12 +281,14 @@ The first visit of the night uses the first visit delay instead (kind `first`). 
 | Contradicts a stored fact | +20 | Judge flag `contradiction` |
 | Memory answer fails | +20 | Code, from judge result |
 | Pending question times out (10 s) | +15 | Timer, once per question |
+| Spamming "where is it" (2nd request in 60 s / 3rd and later) | +5 / +10 | Code, reason `location_spam` (8.3) |
+| Flattery: 3rd warm message within 60 s and every one after (no warm bonus) | +10 | Code, reason `flattery`, line `flattery_reply`, counts in the message clamp |
 | Rude or hostile to CHUD | +10 | Judge flag `rude` |
-| Silence tick (20 s without a real message) | +5 | Timer |
+| Silence tick (45 s without a real message) | +5 | Timer |
 | Scripted radio beat | +20 | Script (section 10) |
 | Answers a pending question (real answer, no contradiction) | -10 | Judge `answered_question` |
 | Passes a memory question | -15 (instead of the -10 above) | Code |
-| Warm comment about staying, the lighthouse or CHUD | -5, at most once per 15 s | Judge flag `warm` |
+| Warm comment about staying, the lighthouse or CHUD | -5, at most once per 45 s | Judge flag `warm` |
 | Gibberish, empty, or repeat of any of the last 5 messages | 0, and it does not count as a real message | Judge or code |
 
 ### 8.3 Bands and behavior
@@ -295,7 +299,9 @@ The first visit of the night uses the first visit delay instead (kind `first`). 
 | JEALOUS (70 to 99) | Lies with the night's JEALOUS lie chance | Refuses 55% of the time | Cut chance 50% per light-on | Sabotage (8.8) |
 | FURIOUS (100) | Always lies | Always refuses | Cut chance 85% per light-on | Furious episode (8.9) |
 
-- **The lock hijack:** every lock request (button or typed) rolls the band's `LOCK_REFUSAL` chance at that moment. On a refusal: no lock, CHUD's malicious smile for about 1.5 s, and a short smug line that never names the threat ("Hmm. No.", "Lock it yourself, keeper.", "Why would I do that?"). The player has to run and brace it. A lock request is never gated by a question.
+- **The lock hijack:** every lock request (button or typed) rolls the band's `LOCK_REFUSAL` chance at that moment. On a refusal: no lock, CHUD's malicious smile for about 1.5 s, and a short smug line that never names the threat ("Hmm. No.", "Lock it yourself, keeper.", "Why would I do that?"). The player has to run and brace it. A lock request is never gated by a rule other than the pending question (below).
+- **Location spam:** processed location requests (quick button or typed) are counted in a rolling 60 s window. 1st: free. 2nd: +5 suspicion. 3rd and later: +10 each (reason `location_spam`, not clamped). After the 3rd, ChudGPT refuses location answers for 20 s with a `location_refused` line ("Ask me later, keeper."); refused requests still count. Other commands work during the refusal. The tutorial practice evening is exempt.
+- **A pending question blocks commands:** while a question is pending, every ChudGPT command (lock buttons, `where is it`, `unlock all`, and any LOCK, ASK_LOCATION or POWER_OFF parsed from a typed message) is refused with an `answer_first` line ("Answer me first, keeper."), with no suspicion and no spam count. A typed message that answers the question resolves it first and its command then runs. When the 10 s timeout ends the question, commands work again. Movement, looking, holding, bracing, the player's light (Shift) and the generator switch are player actions and are never blocked.
 - If the refused entry is Ram's target on this visit and he gets in there, the cause is `REFUSED`.
 
 Requests that are always obeyed while CHUD is online and not FURIOUS:
@@ -304,15 +310,15 @@ Requests that are always obeyed while CHUD is online and not FURIOUS:
 
 ### 8.4 Silence
 - A **real message** is a typed message the judge doesn't flag as gibberish, empty or a repeat. Quick buttons are not real messages.
-- When there has been no real message for 20 s and CHUD is online, a silence tick fires:
+- When there has been no real message for 45 s and CHUD is online, a silence tick fires:
   - +5 suspicion
   - a Ram pull (section 7.3)
-  - a CHUD line ("You've gone quiet, keeper.")
-- The timer then restarts, so another tick follows after a further 20 s of silence.
+  - a CHUD line (6 to 7 varied versions per band, e.g. "You've gone quiet, keeper.")
+- The timer then restarts, so another tick follows after a further 45 s of silence.
 - Being at an entry (traveling, standing, bracing) or reading does not pause the silence timer. Going quiet is the cost of leaving the desk.
 
 ### 8.5 Questions
-Only **scheduled questions:** the night's count, spread out at random times between 15 s and 285 s, at least 25 s apart. A scheduled question is never asked while another question is pending; it waits. From night 3 on, scheduled questions may land during an `AT_ENTRY` window, which is deliberate pressure. On nights 1 and 2 they never do. Lock requests never ask a question (the old gate questions are gone, replaced by the hijack in 8.3).
+Only **scheduled questions:** the night's count, spread out at random times between 15 s and 285 s, at least 45 s apart (the largest mix, 6 questions, needs 225 s of the 270 s window). A scheduled question is never asked while another question is pending; it waits. From night 3 on, scheduled questions may land during an `AT_ENTRY` window, which is deliberate pressure. On nights 1 and 2 they never do. Lock requests never ask a question (the old gate questions are gone, replaced by the hijack in 8.3).
 
 Question types:
 | Type | Example | Creates a fact? | Pass condition |
@@ -412,12 +418,14 @@ Question mix per night:
 
 Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed command.
 
+No canned line repeats the previous line of the same kind back to back (when the pool has another version).
+
 ## 10. Scripted beats
 | Night | Time | Event |
 |---|---|---|
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
-| 1 | 0:08, 0:24, 0:40 (real s) | Hints on screen, before the first visit: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it" |
+| 1 | 0:08, 0:24, 0:40, 0:56 (real s) | Hints on screen, before the first visit: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it", "The more ChudGPT suspects you, the more it lies." |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |
@@ -478,7 +486,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 
 ## 14. Tuning knobs (one config file)
 - Per night (`prototype/src/config.ts`): first visit delay, AWAY gap base range, approach time, attempt window range, lull chance, quick return chance, decoy interval, fake-out chance, starting suspicion, question mix, lie chances, whether questions may land during an attempt.
-- Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `NIGHT_ONE_HINT_TIMES`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
+- Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, `LOCATION_SPAM_WINDOW`, `LOCATION_SPAM_PENALTIES`, `LOCATION_REFUSE_TIME`, `FLATTERY_WINDOW`, `FLATTERY_COUNT`, `FLATTERY_PENALTY`, `WARM_BONUS_COOLDOWN`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `NIGHT_ONE_HINT_TIMES`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
 - UI only (`prototype/src/uiConfig.ts`): `EDGE_DWELL`, the turn times, the artifact rects, the scare timings (flash 0.4 s, jumpscare frames), how long the malicious smile shows.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
 
