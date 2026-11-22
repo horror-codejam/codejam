@@ -355,6 +355,9 @@ describe("the parser never turns a negated request into its opposite", () => {
     expect(parseCommand("Is he close to the hatch?").command).toBe("ASK_LOCATION");
     expect(parseCommand("Is the hatch locked?").command).toBe("NONE");
     expect(parseCommand("Okay, is the hatch locked?").command).toBe("NONE");
+    expect(parseCommand("shut up and get off me").command).toBe("NONE");
+    expect(parseCommand("turn it all off").command).toBe("POWER_OFF");
+    expect(parseCommand("shut the power off").command).toBe("POWER_OFF");
     expect(parseCommand("Can you tell me if the hatch is locked?").command).toBe("NONE");
     expect(parseCommand("I wonder whether the lights are off").command).toBe("NONE");
     expect(parseCommand("keep the hatch locked")).toEqual({ command: "LOCK", entry: "HATCH" });

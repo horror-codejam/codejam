@@ -45,7 +45,7 @@ export function parseEntry(text: string): Entry | null {
 
 
 const POWER_OFF_RE =
-  /\bunlock(s|ed)?\b|\b(turn|switch|shut|cut|power|kill)( \w+){0,3} off\b|\boff (the |all )?(lock|locks|lamp|lamps|beam|light|lights|power)\b|\b(power|locks|lock|lamps?|beams?|lights?) off\b/;
+  /\bunlock(s|ed)?\b|\b(turn|switch|shut|cut|power|kill)(?! up\b)( (?!and\b|me\b|you\b|him\b)\w+){0,3} off\b|\boff (the |all )?(lock|locks|lamp|lamps|beam|light|lights|power)\b|\b(power|locks|lock|lamps?|beams?|lights?) off\b/;
 // "shut" and "close" only as a verb with an object: "is he close to the hatch?" is a question, not a lock request.
 const LOCK_RE = /\block(s|ed)?\b|\bseal\b|\b(shut|close) (the|it|that|this|up)\b/;
 // "is he gone?", "still there?" and "has he left?" are location questions too (GAME_LOGIC 9 step 3).
