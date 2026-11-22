@@ -1,0 +1,94 @@
+{
+  "camera": "cam_desk",
+  "surface": "CHUD_Screen",
+  "frame": 12,
+  "corner_order": [
+    "top_left",
+    "top_right",
+    "bottom_right",
+    "bottom_left"
+  ],
+  "resolutions": {
+    "1920x960": {
+      "width": 1920,
+      "height": 960,
+      "corners_px": [
+        [
+          352.146063,
+          32.730045
+        ],
+        [
+          1567.853966,
+          32.730045
+        ],
+        [
+          1526.905174,
+          689.626894
+        ],
+        [
+          393.094883,
+          689.626894
+        ]
+      ],
+      "corners_normalized": [
+        [
+          0.183409408,
+          0.034093797
+        ],
+        [
+          0.816590607,
+          0.034093797
+        ],
+        [
+          0.795263112,
+          0.718361348
+        ],
+        [
+          0.204736918,
+          0.718361348
+        ]
+      ]
+    },
+    "2560x1280": {
+      "width": 2560,
+      "height": 1280,
+      "corners_px": [
+        [
+          469.528084,
+          43.64006
+        ],
+        [
+          2090.471954,
+          43.64006
+        ],
+        [
+          2035.873566,
+          919.502525
+        ],
+        [
+          524.126511,
+          919.502525
+        ]
+      ],
+      "corners_normalized": [
+        [
+          0.183409408,
+          0.034093797
+        ],
+        [
+          0.816590607,
+          0.034093797
+        ],
+        [
+          0.795263112,
+          0.718361348
+        ],
+        [
+          0.204736918,
+          0.718361348
+        ]
+      ]
+    }
+  },
+  "convention": "Each pair is [x, y]. Origin is the top-left image edge, x grows right and y grows down. Pixel values are fractional image-edge coordinates. Normalized corners are x/width and y/height in the same top-left convention. Corner order follows the four vertices of the CHUD_Screen quad."
+}
