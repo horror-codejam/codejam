@@ -434,6 +434,7 @@ function renderHud(t: number): void {
     : undefined;
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
+  ui.subtitle.classList.toggle("desk", deskView); // sits on the bare desk above the keyboard, not over it
 
   show(terminal.root, deskView);
   terminal.root.inert = paused || s.player.reading !== null;
