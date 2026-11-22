@@ -62,11 +62,20 @@ const NEGATED_POWER_RE =
 const STATUS_QUESTION_RE = /^(is|are|was|were|did|does|has|have|isn t|isnt|aren t|arent)\b/;
 const FILLER_RE = /^((ok|okay|so|hey|um|uh|wait|well|and|but|then|chud|chudgpt|keeper|please)\s+)+/;
 
+// Embedded status: "can you tell me if the hatch is locked", "whether the lights are off".
+const STATUS_PHRASE_RE = /\b(is|are|was|were|s)( it| they| the \w+)?( still)? (locked|unlocked|off|on)\b/;
+// An imperative power verb with an object still makes it a request: "is it there, lock the hatch".
+const POWER_IMPERATIVE_RE = /\b(lock|unlock|close|shut|seal|turn|switch|cut|kill) (the|it|that|this|up|all|everything|them)\b/;
+
+// True for a clause that asks about the power state instead of changing it.
+export function isStatusQuestion(clause: string): boolean {
+  const c = normalize(clause).replace(FILLER_RE, "");
+  if (!(LOCK_RE.test(c) || POWER_OFF_RE.test(c) || STATUS_PHRASE_RE.test(c))) return false;
+  return (STATUS_QUESTION_RE.test(c) || STATUS_PHRASE_RE.test(c)) && !POWER_IMPERATIVE_RE.test(c);
+}
+
 function statusQuestion(text: string): boolean {
-  return text.split(/[.?!;,]+/).some((clause) => {
-    const c = normalize(clause).replace(FILLER_RE, "");
-    return STATUS_QUESTION_RE.test(c) && (LOCK_RE.test(c) || POWER_OFF_RE.test(c));
-  });
+  return text.split(/[.?!;,]+/).some(isStatusQuestion);
 }
 
 export function parseCommand(text: string): ParsedCommand {
