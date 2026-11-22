@@ -1,5 +1,5 @@
 // The production plate replaces the fallback automatically when it lands in assets/.
-import { artUrl, hasArt } from "../art";
+import { artUrl, artVideoUrl, hasArt } from "../art";
 
 export const GAME_TITLE = "THE KEEPER";
 
@@ -28,8 +28,8 @@ export function renderTitle(screen: HTMLElement, actions: TitleActions): void {
   const plate = slot ? artUrl(slot) : null;
   const background = screen.querySelector<HTMLElement>(".title-plate")!;
   if (plate) background.style.backgroundImage = `url("${plate}")`;
-  const videoUrl = artUrl("title_loop");
-  if (videoUrl) {
+  const videoUrl = artVideoUrl("title_loop");
+  if (videoUrl && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const video = document.createElement("video");
     video.muted = true;
     video.loop = true;

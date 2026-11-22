@@ -4,6 +4,21 @@ import { ARTIFACTS } from "../uiConfig";
 import { artUrl } from "./art";
 import type { Scene } from "./scene";
 
+const paperFiles = import.meta.glob<string>([
+  "../../../scenes/03-watch-room/chud_launch_newspaper_clipping_v2.png",
+  "../../../scenes/03-watch-room/daniel_vale_notebook.jpg",
+  "../../../scenes/03-watch-room/leaving_calendar_aged_pen.png",
+], { eager: true, import: "default", query: "?url" });
+const paperSources: Record<string, string> = {
+  artifact_clipping: "chud_launch_newspaper_clipping_v2.png",
+  artifact_notebook: "daniel_vale_notebook.jpg",
+  artifact_calendar: "leaving_calendar_aged_pen.png",
+};
+
+function paperUrl(slot: string): string | undefined {
+  return artUrl(slot) ?? Object.entries(paperFiles).find(([file]) => file.endsWith(paperSources[slot]))?.[1];
+}
+
 export function createArtifacts(root: HTMLElement, scene: Scene, getEngine: () => GameEngine) {
   const hotspots = document.createElement("div");
   hotspots.id = "artifacts";
@@ -20,7 +35,7 @@ export function createArtifacts(root: HTMLElement, scene: Scene, getEngine: () =
     const button = document.createElement("button");
     button.title = artifact.label;
     button.setAttribute("aria-label", "Read " + artifact.label);
-    const url = artUrl(artifact.slot);
+    const url = paperUrl(artifact.slot);
     if (url) button.style.backgroundImage = `url("${url}")`;
     else button.textContent = artifact.label;
     button.addEventListener("click", () => {
@@ -54,7 +69,7 @@ export function createArtifacts(root: HTMLElement, scene: Scene, getEngine: () =
       reader.classList.toggle("hidden", id === null);
       if (id === null) return;
       const artifact = ARTIFACTS.find((item) => item.id === id);
-      const url = artifact && artUrl(artifact.slot);
+      const url = artifact && paperUrl(artifact.slot);
       image.classList.toggle("hidden", !url);
       placeholder.classList.toggle("hidden", !!url);
       if (url) image.src = url;

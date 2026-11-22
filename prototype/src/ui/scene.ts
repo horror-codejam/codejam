@@ -8,14 +8,14 @@
 //         > foreground rain (parallax, moves more than the plate) > scare flash > jumpscare frames > fade > grain > vignette
 // The DOM terminal uses the desk's camera transform and the calibrated monitor corners.
 
-import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
+import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite, VideoSource } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
 import { BRACE, CONTROLS } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
-import { artFrames, hasArt, isFinal, slot, stageSlot } from "./art";
+import { artFrames, artVideoUrl, coverSprite, hasArt, isFinal, slot, stageSlot } from "./art";
 import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./layout";
 import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
@@ -99,6 +99,12 @@ export class Scene {
   private desk = new Container();
   private deskRender: boolean;
   private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
+  private deskVideoUrl = artVideoUrl("ambient_desk");
+  private deskVideo?: HTMLVideoElement;
+  private deskVideoPlate?: Sprite;
+  private deskVideoActive = false;
+  private deskVideoFrame = -1;
+  private reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private sweep = new Container();
   private sweepBand: Sprite;
   private paneGlow: Sprite[] = []; // final desk: the beacon brightens each side pane as it passes behind the monitor
@@ -309,6 +315,55 @@ export class Scene {
     return `translate(${plate.x}px, ${plate.y}px) scale(${this.cam.scale.x}) ${projection}`;
   }
 
+  pauseDeskVideo(): void {
+    if (!this.deskVideoActive) return;
+    this.deskVideoActive = false;
+    this.deskVideo?.pause();
+  }
+
+  private syncDeskVideo(wanted: boolean): boolean {
+    if (!wanted || !this.deskFinal || !this.deskVideoUrl || this.reducedMotion.matches) {
+      this.pauseDeskVideo();
+      if (this.deskVideoPlate) this.deskVideoPlate.visible = false;
+      return false;
+    }
+    if (!this.deskVideo) {
+      const video = document.createElement("video");
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      this.deskVideo = video;
+      video.addEventListener("loadeddata", () => {
+        const source = new VideoSource({ resource: video, autoLoad: false, width: video.videoWidth, height: video.videoHeight });
+        const clip = coverSprite(new Texture({ source }), PLATE_W, PLATE_H);
+        clip.visible = false;
+        this.deskVideoPlate = clip;
+        this.desk.addChildAt(clip, 1); // above the still and below the calibrated glass mask
+        source.update();
+      }, { once: true });
+      video.addEventListener("error", () => {
+        this.pauseDeskVideo();
+        this.deskVideoUrl = null;
+      }, { once: true });
+      video.src = this.deskVideoUrl;
+    }
+    if (!this.deskVideoPlate) return false;
+    if (!this.deskVideoActive) {
+      this.deskVideoActive = true;
+      void this.deskVideo.play().catch(() => {}); // keep the still and coded sweep if playback is blocked
+    }
+    this.deskVideoPlate.visible = !this.deskVideo.paused && this.deskVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+    if (this.deskVideoPlate.visible) {
+      const frame = Math.floor(this.deskVideo.currentTime * 24);
+      if (frame !== this.deskVideoFrame) {
+        this.deskVideoFrame = frame;
+        this.deskVideoPlate.texture.source.update();
+      }
+    }
+    return this.deskVideoPlate.visible;
+  }
+
   // Any plate-px rect of the current view in stage px at the current pan and zoom (DOM hotspots on the desk).
   plateRect(r: { x: number; y: number; w: number; h: number }): { x: number; y: number; w: number; h: number } {
     const k = this.cam.scale.x;
@@ -448,7 +503,9 @@ export class Scene {
 
     // the lighthouse beacon sweeping outside the glazing: exterior ambience only, it never lights the room
     // and has nothing to do with the power slot or Ram (GAME_LOGIC 6.1)
-    const sweepOn = onDesk && s.power.generatorOn;
+    const deskPowered = s.phase === "PLAYING" && onDesk && s.power.generatorOn;
+    const playingDeskClip = this.syncDeskVideo(deskPowered);
+    const sweepOn = deskPowered && !playingDeskClip;
     this.sweep.visible = sweepOn;
     if (sweepOn) {
       const k = (t % SWEEP_PERIOD) / SWEEP_PERIOD;

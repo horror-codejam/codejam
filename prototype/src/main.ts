@@ -39,6 +39,7 @@ let engine = new GameEngine({
   ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" } } : {}),
 });
 const sound = new Sound();
+const app = new Application();
 let scene: Scene;
 let artifacts: ReturnType<typeof createArtifacts> | undefined;
 if (import.meta.env.DEV) Object.assign(window, { engine }); // console access while developing
@@ -106,8 +107,10 @@ const now = (): number => (paused ? pausedAt : wallTime()) - pauseDuration;
 
 async function boot(): Promise<void> {
   document.title = GAME_TITLE;
-  const app = new Application();
-  await app.init({ width: W, height: H, background: "#000000", antialias: true });
+  await app.init({
+    width: W, height: H, background: "#000000", antialias: false,
+    resolution: Math.min(window.devicePixelRatio || 1, 2), autoStart: false,
+  });
   $("stage").appendChild(app.canvas);
   const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
@@ -136,7 +139,15 @@ async function boot(): Promise<void> {
     window.addEventListener("keydown", unlock);
   }
   app.ticker.add((tk) => frame(tk.deltaMS / 1000));
+  if (deepNight) wake();
   $("loading").classList.add("loaded");
+}
+
+// Menus and pause have no per-frame work. Their callbacks wake the renderer when the engine can progress.
+function wake(): void {
+  if (app.ticker.started) return;
+  skipDt = true;
+  app.ticker.start();
 }
 
 function fit(): void {
@@ -155,7 +166,11 @@ function frame(dt: number): void {
     devNextAt = wallTime() + 0.2;
     renderDev();
   }
-  if (frontScreen || previewing) return;
+  if (frontScreen || previewing) {
+    scene.pauseDeskVideo();
+    app.ticker.stop();
+    return;
+  }
   const t = now();
   // Anything that leaves PLAYING (a judge verdict that triggers the safety pause, a dev jump) ends the pause.
   if (paused && engine.state.phase !== "PLAYING") setPaused(false);
@@ -184,8 +199,11 @@ function frame(dt: number): void {
     }
   }
   edgeTurn(t);
-  if (!paused) scene.update(engine, t);
+  const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
+  if (!paused && animateStage) scene.update(engine, t);
+  else scene.pauseDeskVideo();
   renderHud(t);
+  if (paused || !animateStage) app.ticker.stop();
 }
 
 function onEvent(ev: GameEvent, t: number): void {
@@ -448,6 +466,8 @@ function resetScreen(): void {
 function showTitle(): void {
   resetScreen();
   frontScreen = "title";
+  scene.pauseDeskVideo();
+  app.ticker.stop();
   stopChudSpeech();
   sound.stopCues();
   sound.setAmbientPlaying(false);
@@ -489,9 +509,9 @@ function startRun(saved?: SavedRun): void {
     sound.fadeStorm(0, 0.15);
     playIntro({
       root: $("ui"),
-      onDone: () => { frontScreen = null; },
+      onDone: () => { frontScreen = null; wake(); },
     });
-  }
+  } else wake();
 }
 
 function showScreen(phase: Phase): void {
@@ -505,22 +525,23 @@ function showScreen(phase: Phase): void {
       renderName(ui.screen, (name) => {
         sound.unlock();
         engine.setName(name);
+        wake();
       });
       break;
     case "NIGHT_CARD":
-      renderNightCard(ui.screen, engine.state.run.night, () => engine.beginNight(), signal);
+      renderNightCard(ui.screen, engine.state.run.night, () => { engine.beginNight(); wake(); }, signal);
       break;
     case "BREACH":
       renderLoss(ui.screen, title, signal);
       break;
     case "NIGHT_WON":
-      renderMorning(ui.screen, previewing ? endPreview : () => engine.nextNight(), signal);
+      renderMorning(ui.screen, previewing ? endPreview : () => { engine.nextNight(); wake(); }, signal);
       break;
     case "GAME_WON":
       renderMorning(ui.screen, () => renderEnding(ui.screen, title, signal), signal);
       break;
     case "SAFETY_PAUSE":
-      renderSafetyPause(ui.screen, () => engine.resumeFromSafetyPause());
+      renderSafetyPause(ui.screen, () => { engine.resumeFromSafetyPause(); wake(); });
       break;
     case "PLAYING":
       break;
@@ -584,12 +605,15 @@ function setPaused(on: boolean): void {
   artifacts?.pause(on);
   if (on) {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    scene.pauseDeskVideo();
+    app.ticker.stop();
     sound.suspend();
     show(ui.ring, false);
   } else {
     skipDt = true;
     if (!shiftDown) engine.setLight(false);
     sound.resume();
+    wake();
   }
   show(ui.pause, on);
 }
@@ -609,7 +633,15 @@ function wireInput(): void {
     const ticket = res.ticket;
     if (ticket.repeat) return;
     const run = engine;
-    void judge(ticket.judgeInput).then((r) => run.applyJudge(ticket.id, r));
+    void judge(ticket.judgeInput).then((r) => {
+      run.applyJudge(ticket.id, r);
+      if (run === engine && frontScreen === null && !previewing) wake();
+    });
+  });
+  terminal.chat.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.isComposing) return;
+    e.preventDefault();
+    terminal.form.requestSubmit();
   });
   for (const ev of ["paste", "drop"]) terminal.chat.addEventListener(ev, (e) => e.preventDefault());
 
@@ -863,7 +895,10 @@ function endPreview(): void {
   previewing = false;
   skipDt = true;
   if (frontScreen === "title") showTitle();
-  else showScreen(engine.state.phase);
+  else {
+    showScreen(engine.state.phase);
+    wake();
+  }
 }
 
 function buildDevButtons(): void {
@@ -886,6 +921,7 @@ function buildDevButtons(): void {
       fn();
       b.blur();
       renderDev();
+      wake();
     });
     g.appendChild(b);
     return b;

@@ -4,12 +4,11 @@
 //      for the older slot names (`view_window` -> `view_window_off`). Made by tools/convert_renders.mjs.
 //   3. the team's earlier render in scenes/ listed in SCENE_ART below
 //   4. a coded placeholder
-// Plates (views) are 2:1 stills (finals 1920 x 960) cover-fitted to PLATE_W x PLATE_H; overlays use the same frame.
-// Frame sequences (final/webp/<job>/<job>_0001.webp ...) load as ordered texture lists: artFrames(job).
+// Plates are 2:1 stills. Only jumpscares are loaded as ordered frame textures. Other sequences are videos.
 
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { H, PLATE_H, PLATE_W, W } from "./layout";
-import { FINAL_ALIASES } from "./plates";
+import { FINAL_ALIASES, JUMPSCARE_MIN_FRAMES } from "./plates";
 
 const overrides = import.meta.glob("../../assets/*.{png,webp,jpg,jpeg}", { eager: true, import: "default" }) as Record<string, string>;
 
@@ -20,16 +19,16 @@ const sceneFiles = import.meta.glob(
     "../../../scenes/03-watch-room/render_dash_floor.png",
     "../../../scenes/03-watch-room/final/png/title_bg/title_bg.png",
     "../../../scenes/03-watch-room/chud_smiley_four_moods.png",
-    "../../../scenes/03-watch-room/chud_launch_newspaper_clipping_v2.png",
-    "../../../scenes/03-watch-room/daniel_vale_notebook.jpg",
-    "../../../scenes/03-watch-room/leaving_calendar_aged_pen.png",
     "../../../scenes/04-ram/*.png",
     "../../../scenes/99-final-cage-hall/render_*.png",
     "../../../scenes/01-shipwreck/render_blockout.png",
   ],
   { eager: true, import: "default" },
 ) as Record<string, string>;
-const videoFiles = import.meta.glob("../../../scenes/03-watch-room/final/title_loop.webm", {
+const videoFiles = import.meta.glob([
+  "../../../scenes/03-watch-room/final/title_loop.webm",
+  "../../../scenes/03-watch-room/final/webm/*.webm",
+], {
   eager: true,
   import: "default",
   query: "?url",
@@ -47,10 +46,6 @@ const SCENE_ART: Record<string, string> = {
   dash_floor: "03-watch-room/render_dash_floor.png",
   title_bg: "03-watch-room/final/png/title_bg/title_bg.png",
   chud_faces: "03-watch-room/chud_smiley_four_moods.png",
-  // desk artifacts (DOM only: the hotspot thumbnail and the reading view)
-  artifact_clipping: "03-watch-room/chud_launch_newspaper_clipping_v2.png",
-  artifact_notebook: "03-watch-room/daniel_vale_notebook.jpg",
-  artifact_calendar: "03-watch-room/leaving_calendar_aged_pen.png",
   // Ram after a silent breach: the creepy flash (960 x 480 plates from the entry cameras) and the jumpscare (1280 x 720)
   ram_inside_window: "04-ram/ram_inside_window.png",
   ram_inside_hatch: "04-ram/ram_inside_hatch.png",
@@ -66,7 +61,10 @@ const SCENE_ART: Record<string, string> = {
 
 // Final renders (WebP, committed). Stills: final/webp/<job>.webp. Sequences: final/webp/<job>/<job>_0001.webp ...
 // Eager glob of URLs only (nothing is fetched until loadArt): new files are picked up on the next dev reload or build.
-const finalFiles = import.meta.glob("../../../scenes/03-watch-room/final/webp/**/*.webp", { eager: true, import: "default" }) as Record<string, string>;
+const finalFiles = import.meta.glob([
+  "../../../scenes/03-watch-room/final/webp/*.webp",
+  "../../../scenes/03-watch-room/final/webp/jumpscare_{window,hatch,balcony}/*.webp",
+], { eager: true, import: "default" }) as Record<string, string>;
 const finalStills = new Map<string, string>(); // job -> url
 const finalSeqs = new Map<string, string[]>(); // job -> frame urls in order (only sequences numbered 0001.. without gaps)
 {
@@ -88,8 +86,11 @@ const finalSeqs = new Map<string, string[]>(); // job -> frame urls in order (on
   }
   for (const [job, list] of frames) {
     list.sort((a, b) => a.n - b.n);
-    if (list.every((fr, i) => fr.n === i + 1)) finalSeqs.set(job, list.map((fr) => fr.url));
-    else console.warn(`final sequence ${job} has missing frames, ignored`);
+    if (list.length >= JUMPSCARE_MIN_FRAMES && list.every((fr, i) => fr.n === i + 1)) {
+      finalSeqs.set(job, list.map((fr) => fr.url));
+    } else {
+      console.warn(`final sequence ${job} is incomplete, using the fallback`);
+    }
   }
 }
 
@@ -114,31 +115,35 @@ for (const [path, url] of Object.entries(overrides)) {
   urlBySlot.set(slotName, url);
   finalSlots.delete(slotName);
 }
-const titleLoop = Object.values(videoFiles)[0];
-if (titleLoop) urlBySlot.set("title_loop", titleLoop);
+const videos = new Map(Object.entries(videoFiles).map(([path, url]) => [
+  path.split("/").pop()!.slice(0, -".webm".length), url,
+]));
 
 const textures = new Map<string, Texture>();
 const frameTextures = new Map<string, Texture[]>();
-const DOM_ONLY = /^(artifact_|title_loop$)/; // DOM only, never loaded as a texture: artifacts (<img>) and the title video
+const DOM_ONLY = /^(artifact_|ending_)/;
+const LEGACY_SCARE = /^ram_jumpscare_[1-4]$/;
 
 // URL of a slot for DOM use (faces, ending backgrounds, title_bg). Null if the slot has no art yet.
 export function artUrl(slotName: string): string | null {
   return urlBySlot.get(slotName) ?? null;
 }
 
-// Frame URLs of a final sequence (e.g. `jumpscare_window`, `title_loop`), in order. Empty if not rendered yet.
-export function artFrameUrls(job: string): string[] {
-  return finalSeqs.get(job) ?? [];
+// A URL only. The title and desk request their loops when they become visible.
+export function artVideoUrl(job: string): string | null {
+  return videos.get(job) ?? null;
 }
 
 // Preload progress for a loading screen: files done (loaded or failed) out of total. Updated by loadArt.
 export const artProgress = { done: 0, total: 0 };
 
-// Loads every texture slot and every final sequence frame. Boot awaits it, so every final is in memory before a night
-// starts. Resolves with the loaded slot names (sequences listed as `<job>[frames]`). `onProgress` fires after each file.
+// Preload stills and jumpscares for instant plate changes. Videos are loaded on demand.
 export async function loadArt(onProgress?: (done: number, total: number) => void): Promise<string[]> {
   const loaded: string[] = [];
-  const stills = [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName));
+  const allStills = [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName));
+  const legacyScares = allStills.filter(([slotName]) => LEGACY_SCARE.test(slotName));
+  const haveAllScares = finalSeqs.size === 3;
+  const stills = haveAllScares ? allStills.filter(([slotName]) => !LEGACY_SCARE.test(slotName)) : allStills;
   const seqs = [...finalSeqs];
   artProgress.done = 0;
   artProgress.total = stills.length + seqs.reduce((n, [, urls]) => n + urls.length, 0);
@@ -147,7 +152,7 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
     artProgress.done++;
     onProgress?.(artProgress.done, artProgress.total);
   };
-  const stillJobs = stills.map(async ([slotName, url]) => {
+  const loadStill = async ([slotName, url]: [string, string]): Promise<void> => {
     try {
       textures.set(slotName, await Assets.load<Texture>(url));
       loaded.push(slotName);
@@ -156,7 +161,7 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
     } finally {
       tick();
     }
-  });
+  };
   const seqJobs = seqs.map(async ([job, urls]) => {
     const list = await Promise.all(
       urls.map(async (url): Promise<Texture | null> => {
@@ -175,7 +180,12 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
       loaded.push(`${job}[${list.length}]`);
     }
   });
-  await Promise.all([...stillJobs, ...seqJobs]);
+  await Promise.all([...stills.map(loadStill), ...seqJobs]);
+  if (haveAllScares && frameTextures.size < finalSeqs.size) {
+    artProgress.total += legacyScares.length;
+    onProgress?.(artProgress.done, artProgress.total);
+    await Promise.all(legacyScares.map(loadStill));
+  }
   return loaded.sort();
 }
 

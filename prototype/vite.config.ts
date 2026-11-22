@@ -27,12 +27,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       chudApi(env.ANTHROPIC_API_KEY || undefined),
-      // The final renders live outside the Vite root, which is not watched by default: watch them so newly converted
-      // WebP files reach the art glob (src/ui/art.ts) without restarting the dev server.
+      // Final stills and clips live outside the Vite root. Include new conversions in the art globs.
       {
         name: "watch-final-renders",
         configureServer(server) {
-          server.watcher.add(fileURLToPath(new URL("../scenes/03-watch-room/final/webp", import.meta.url)));
+          server.watcher.add(fileURLToPath(new URL("../scenes/03-watch-room/final", import.meta.url)));
         },
       },
     ],
