@@ -34,8 +34,10 @@ Last updated: 2026-11-21 (late night)
 - Next: team playtest of the new loop (is night 1 tense rather than empty, are PEEKED and refusals fair, light cut rate), tune numbers in prototype/src/config.ts, then commit and PR with the team's go-ahead.
 
 ## Codex (art pre-production)
+- Release merge: resolved the audio and Vercel conflicts in PR #29. The production build, all 265 tests, and loopback checks of the hosted API adapter passed.
 - Tutorial: added a safe practice evening after the keeper name on New Game, with live control lessons and a clean reset into Night 1. Removed the generator toggle from the desk. The production build and all 265 tests passed. Verified the shipwreck handoff, lesson completion, Skip practice, and Continue in Chrome.
 - Audio integration: wired recorded ambience, effects and scripted radio to the release build. Exact canned CHUD lines use the matching mood recordings; custom lines use Piper. The silent entry, scare reveal and loss cut have separate audio timing. The production build, 261 tests and a headless Chrome playback check passed.
+- Audio: the public Vercel game calls the Python speech function at `/api/tts`. The deployed function returned distinct WAVs for all four moods using the Ryan model. Local Vite uses the separate Piper process.
 - Audio checklist: delivered 40 CC0-sourced effects and beds, 521 CHUD clips, two radio lines, and five archival Ram logs in `prototype/assets/audio/` on `codex/source-audio`. Verified Ogg Vorbis decoding, 44.1 kHz channel formats, loop seams, and file coverage. Source credits are in `scenes/03-watch-room/CREDITS.md`.
 - Release visual audit: recorded every player-facing slot, replaced the gray-box dash and name backgrounds, and wired optional WebMs for both run directions, turns, desk ambience and desk typing. Each breach uses its final flash plate and full 24-frame scare sequence when those assets are available.
 - Visual checks: inspected six headless captures and tested the render paths with missing clips and temporary FFmpeg WebMs. The build and all 261 tests passed.

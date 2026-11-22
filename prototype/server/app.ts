@@ -1,10 +1,10 @@
-// The game's API. Runs inside the Vite dev server for now (see vite.config.ts); the same Hono app
-// can be deployed as a Vercel function later. The API key never reaches the browser.
+// The game's API runs inside the Vite dev server and the Vercel turn function.
+// The API key stays on the server.
 
 import { Hono } from "hono";
 import type { Band, JudgeInput } from "../src/sim/types";
-import { judgeWithClaude, makeClient, voiceWithClaude } from "./llm";
-import { mentionsForbiddenName, VOICED_KINDS, type VoiceRequest } from "./prompts";
+import { judgeWithClaude, makeClient, voiceWithClaude } from "./llm.js";
+import { mentionsForbiddenName, VOICED_KINDS, type VoiceRequest } from "./prompts.js";
 
 const BANDS: Band[] = ["WARM", "HURT", "JEALOUS", "FURIOUS"];
 const RATE_PER_MIN = 90;

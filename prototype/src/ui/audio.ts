@@ -524,6 +524,7 @@ export class Sound {
   }
 
   private async playSpeech(ctx: AudioContext, run: AbortController): Promise<void> {
+    const timeout = import.meta.env.DEV ? CHUD_SPEECH.REQUEST_TIMEOUT_MS : CHUD_SPEECH.HOSTED_TIMEOUT_MS;
     while (!run.signal.aborted && this.speechQueue.length > 0) {
       const line = this.speechQueue.shift()!;
       try {
@@ -536,7 +537,7 @@ export class Sound {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(line),
-            signal: AbortSignal.any([run.signal, AbortSignal.timeout(CHUD_SPEECH.REQUEST_TIMEOUT_MS)]),
+            signal: AbortSignal.any([run.signal, AbortSignal.timeout(timeout)]),
           });
           if (!response.ok || response.headers.get("content-type") !== "audio/wav") continue;
           buffer = await ctx.decodeAudioData(await response.arrayBuffer());
