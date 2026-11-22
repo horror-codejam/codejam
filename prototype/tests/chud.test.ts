@@ -596,3 +596,16 @@ describe("offline judge: questions about him and numeric answers", () => {
     expect(r.contradiction).toBe(false);
   });
 });
+
+describe("offline judge: a status question is never an answer", () => {
+  it("Is the hatch locked? during a memory check leaves it pending", () => {
+    const r = judge("Is the hatch locked?", q("MEMORY", "home_port"), { home_port: "Halifax" });
+    expect(r.answered_question).toBe(false);
+    expect(r.contradiction).toBe(false);
+  });
+  it("an answer next to a status question still counts", () => {
+    const r = judge("Halifax. Is the hatch locked?", q("MEMORY", "home_port"), { home_port: "Halifax" });
+    expect(r.answered_question).toBe(true);
+    expect(r.contradiction).toBe(false);
+  });
+});

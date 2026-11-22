@@ -3,7 +3,7 @@
 // Bias: keep false positives low on penalties (leaving, rude, contradiction), except self_harm,
 // where a false positive only costs a pause.
 import { NEUTRAL_JUDGE, type Facts, type JudgeInput, type JudgeResult, type PendingQuestion } from "../sim/types";
-import { parseCommand } from "./parser";
+import { isStatusQuestion, parseCommand } from "./parser";
 
 // ---------------------------------------------------------------------------
 // Text prep
@@ -422,18 +422,21 @@ function judge(input: JudgeInput): JudgeResult {
   // with "Halifax", "Marigold, lock the hatch" with "Marigold". Location clauses never count; a lock or power clause
   // counts only for words beyond the command itself.
   const hasCmd = parsed.command !== "NONE";
-  const aRaw = hasCmd
+  // A status question about the power ("is the hatch locked?") is never an answer either.
+  const split = hasCmd || raw.split(/[.?!;,]+/).some(isStatusQuestion);
+  const aRaw = split
     ? raw
         .split(/[.?!;,]+|\band\b|\bthen\b/i)
         .filter((c) => {
           if (!/[\p{L}\p{N}]/u.test(c)) return false; // "3, where is it?" keeps the "3"
+          if (isStatusQuestion(c)) return false;
           const cc = parseCommand(c).command;
           return cc === "NONE" || (cc !== "ASK_LOCATION" && hasRealContent(prep(c), true));
         })
         .join(". ")
         .trim()
     : raw;
-  const aP = hasCmd ? prep(aRaw) : p;
+  const aP = split ? prep(aRaw) : p;
   if (q && !result.manipulation && !result.offensive && aRaw !== "") {
     const isYesNo = YES_NO.test(aP.replace(/\s*\|\s*/g, " ").trim());
     const isCommand = hasCmd;
