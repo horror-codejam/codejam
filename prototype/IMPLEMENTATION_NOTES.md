@@ -2,27 +2,6 @@
 
 docs/GAME_LOGIC.md is the rule source. This file only records how the prototype fills gaps in it. If a note here conflicts with GAME_LOGIC.md, GAME_LOGIC.md wins and this note is a bug.
 
-## Release presentation
-
-- Gameplay HUD: clock and night, one shared subtitle line for CHUD away from the desk, radio and Night 1 engine hints, and the pointer ring for active control timers. Esc opens the pause overlay. Backtick opens dev mode.
-- CHUD's terminal uses a CSS homography calibrated to the normalized Blender monitor corners. The desk plate stays planar so the same camera pan, scale and slide move the render and the terminal. Entry controls on the map use the same quick commands as before.
-- Desk artifact hotspots and the reader live behind `ARTIFACTS_ENABLED` in `src/uiConfig.ts`. The flag defaults to false. Engine support is available for a later UI.
-- Pixi caps its resolution at 2, uses no antialiasing and stops the game ticker on pause and menus. Menu callbacks resume it as needed. The title and powered desk play their loops when the clips are available and motion is enabled. Jumpscares preload as WebP frames. Stills convert at 1600 x 800.
-
-### Release verification
-
-- After loading Night 1 in headless Chrome, unique Pixi sources plus three frame buffers total about 582.5 MB of RGBA pixels at DPR 2. Chrome reported 11.9 MB of JS heap in that run. Removing the dormant ending plates and conditional legacy scare frames from the normal preload saved 31.3 MB of counted textures.
-- A cold run through New Game and into Night 1, with the intro started and then skipped, transferred 18.49 MB across 141 requests from the local production build, including Pixi worker requests. Audio accounted for 7.78 MB.
-- All 13 requested captures are in [screenshots](screenshots/). The browser check covered menu and pause idling, the dawn transition to Night 2, reduced-motion terminal behavior, and title and desk WebM playback with temporary clips. The terminal corners were within 0.04 stage pixels of the calibrated glass at both horizontal pan extremes.
-- The committed set contains 45 resized stills and all 72 final scare frames. Four hatch hold stills were resized from the team's WebPs because their original PNGs were unavailable. Complete production loop sequences are still pending.
-
-### Vercel
-
-1. Set the project Root Directory to `prototype` and enable **Include source files outside of the Root Directory** for the sibling `scenes/` folder. [Vercel project setup](https://vercel.com/docs/monorepos/monorepo-faq#can-i-share-source-files-between-projects-are-shared-packages-supported)
-2. Set the server-side `ANTHROPIC_API_KEY` in the Vercel environment for the target deployment.
-3. Use the committed `vercel.json` to run `npm run build` and publish `dist/`. `/turn` aliases the existing judge contract, with `/api/health`, `/api/judge`, `/api/voice` and `/api/tts` routed to the same Hono app.
-4. Piper still runs locally. The hosted API uses the existing speech-unavailable fallback when Piper is unreachable.
-
 ## Layout
 - `src/config.ts`: every number. Engine code never hardcodes a tuning value.
 - `src/sim/types.ts`: the shared contract (state, events, outcomes, engine interface).
@@ -152,7 +131,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - The `morning` line is produced even if CHUD is offline at 6 AM (the win screen needs it). Night 5 emits GAME_WON only.
 - Parser bias: miss a command rather than invent one. Direction words (left, right, back, behind) count only outside idioms like "right now" or "he's back". "off" counts only with a power verb or noun. "where" counts only as a question about him.
 
-## UI layer (historical, M2 first pass)
+## UI layer (playable loop, M2 first pass)
 - `src/main.ts` owns the loop: each frame `engine.tick(min(dt, 0.1) * devSpeed)`, then `drainEvents()` for one-shot effects (sound, subtitles, log, jumpscare), then the scene and HUD redraw from `engine.state`. The UI never changes game state except through `IGameEngine` methods.
 - The dt clamp means a hidden or stalled tab pauses the night instead of fast-forwarding it.
 - `src/ui/scene.ts` (PixiJS) draws views, hold views, the dash, CHUD's face and screen effects. `src/ui/placeholders.ts` holds the coded stand-ins. `src/ui/art.ts` swaps in any render found in `prototype/assets/` by slot name (see `prototype/assets/README.md`).
@@ -195,7 +174,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Screens (current): preload, title, skippable shipwreck on New Game, name prompt, timed midnight cards, dawn, loss, ending and credits. The local checkpoint stores the highest unlocked night and its facts.
 - Navigation and hint: see "Controls (adopted)" (edge turns, `#brace-hint`, night 1 hints). There are no nav buttons.
 
-## Controls (adopted, before the release presentation pass)
+## Controls (adopted)
 Adopted 2026-11-21 after playtest on branch `proto/v3-controls-edge`; rules in docs/GAME_LOGIC.md section 6 (history in docs/CONTROLS_PROPOSAL.md). Click to go, hold to brace, edge to return (an earlier press-and-hold to run and brace was not smooth in playtest). A / D / S, 1 2 3, Space, the map-dot holds, the desk hold buttons and the Behind and Back to desk buttons were removed.
 - Tunables in `src/uiConfig.ts` (UI only). `CONTROLS`: `EDGE_DWELL` 0.3 s, `EDGE_ZONE_SIDE` 70 stage px, `EDGE_ZONE_BOTTOM` 40 stage px, `TURN_TIME` 0.25 s, `TURN_TIME_BALCONY` 0.4 s, `TURN_BLUR` 24, `TURN_DIM` 0.35. `RING`: size 32 screen px, stroke 3, colors, `BRACE_WARN` 1.5 s. `BRACE`: the bracing feel (see "Bracing feel" below). The zone sizes are repeated in `style.css` (`.edge`). Game timers in `config.ts`: `TRAVEL_TIME`, `HOLD_MAX`, `HOLD_COOLDOWN` unchanged, `BRACE_REST` 1.0 s new.
 - Engine additions (`src/sim`, the GAME_LOGIC 6.4 API `startHold` / `backToDesk` still works and the old tests use it):

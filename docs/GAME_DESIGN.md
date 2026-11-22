@@ -59,16 +59,16 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 - One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or one entry light. Each entry has its own light. Hold Shift and the light of the entry you are looking at comes on, instantly, and any lock drops. Release and the slot is empty. A locked entry is dark and shows nothing (locked = blind). Seeing and locking never happen together.
 - The lights are the player's, not CHUD's: CHUD cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
-- Entry locks are magnetic locks. Select an entry mark on CHUD's map to request its lock.
-- The CHUD terminal sits on the monitor glass in the desk view. Its three columns show the mood face and generator toggle, chat and quick commands, then the clock, map and power cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
+- Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen.
+- The CHUD terminal (scenes/03b-chud-terminal/): click the computer in the desk view to open it full screen. CHUD's mood face on the left above the music player, chat with CHUD in the center, a top-down lighthouse map of the entrances on the right, the clock top right, a music player on the left (creepy messages and weird lyrics slip into the songs), and a power bar bottom right. Open conflicts with GAME_LOGIC.md are listed in the scene sheet.
 
 ## Player actions
 Controls: the mouse moves you, Shift is the light, the rest of the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
-1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it`, `power off` and the generator toggle are clickable. CHUD can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
+1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to the chat. Quick buttons (Where is he?, Power off, and three lock buttons by the map) and the kill switch are clicks on CHUD's terminal. CHUD can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
 2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
 4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and no light works. Last resort.
-5. Desk papers are disabled in the release UI. The paper mechanic in GAME_LOGIC.md is available for a later pass.
+5. Read the papers on the desk (a newspaper clipping, the old keeper's notebook, a calendar). The night keeps running while you read.
 
 ## Ram's cycle
 | Phase | What happens | Player cue |

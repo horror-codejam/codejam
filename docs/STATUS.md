@@ -11,13 +11,11 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
-- Done: release HUD cleanup, CHUD fitted to the monitor glass, title and desk video support, 45 resized stills, three 24-frame jumpscares, and a local Vercel adapter for the existing API.
-- Checks: build and all 261 tests passed. Reviewed 13 headless screenshots. First-night texture and frame-buffer estimate was 582.5 MB at DPR 2. Cold production transfer was 18.49 MB.
-- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the production still while its video renders.
+- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the desk fallback until the production still or video lands.
 - Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
-- Working on: final Blender clip renders.
-- Blockers: the title and desk loops need complete PNG sequences before their production WebMs can be encoded.
-- Next: convert and verify the completed loops in the browser.
+- Working on: watch room look pass.
+- Blockers: none. Poly Haven is switched on in the MCP for Blender tab.
+- Next: real materials from Poly Haven (wet stone, worn metal, glass), then moody lighting per camera, then the hands and animated props.
 - Blender MCP setup per person: install uv, run `claude mcp add -s user blender uvx mcp-for-blender` (or `codex mcp add blender -- uvx mcp-for-blender`), run `uvx mcp-for-blender install-addon`, open Blender once first, enable "MCP for Blender" in Preferences, Add-ons, press N and start the MCP server, restart the AI tool.
 
 ## Vidush (Vidush-jpg)
@@ -35,7 +33,7 @@ Last updated: 2026-11-21 (late night)
 
 ## Codex (art pre-production)
 - Audio checklist: delivered 40 CC0-sourced effects and beds, 521 CHUD clips, two radio lines, and five archival Ram logs in `prototype/assets/audio/` on `codex/source-audio`. Verified Ogg Vorbis decoding, 44.1 kHz channel formats, loop seams, and file coverage. Source credits are in `scenes/03-watch-room/CREDITS.md`.
-- Audio: wired the local Piper service to CHUD's scripted and generated dialogue on `audio/chud-piper-playback`. It uses the line's mood, plays from the desk, and falls back to the existing subtitle and chime. Setup in `prototype/tools/chud-tts/README.md`.
+- Audio: integrated CHUD's mood-based Piper speech with THE KEEPER title, pause and night transitions on `integration/keeper-ui-piper`. Spoken lines use the event mood, play from the desk, and fall back to the existing subtitle and chime. Setup in `prototype/tools/chud-tts/README.md`.
 - Audio: extracted the full stereo ambience from the supplied `FNAF Ambience Extended.mp4` to `prototype/public/audio/amb/ambient-noise.m4a` without re-encoding. Reuse rights are unverified.
 - Audio: trimmed the first jumpscare (0:04.84 to 0:07.22) from the supplied CaseOh compilation to `prototype/public/audio/sfx/jumpscare.wav`. The clip includes the source reaction. Reuse rights are unverified.
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.

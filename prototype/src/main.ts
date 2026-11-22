@@ -6,14 +6,13 @@ import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
-import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand } from "./sim/types";
-import { loadArt } from "./ui/art";
+import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
+import { artUrl, loadArt } from "./ui/art";
 import { Sound } from "./ui/audio";
-import { EdgeTurner } from "./ui/edges";
+import { EDGE_TARGET, EdgeTurner, EDGES } from "./ui/edges";
 import { playIntro } from "./ui/intro";
 import { H, W } from "./ui/layout";
 import { Scene } from "./ui/scene";
-import { Terminal } from "./ui/terminal";
 import { renderMorning, renderNightCard } from "./ui/screens/clock";
 import { renderEnding } from "./ui/screens/credits";
 import { preloadScreens } from "./ui/screens/loading";
@@ -22,8 +21,7 @@ import { renderName } from "./ui/screens/name";
 import { renderSafetyPause } from "./ui/screens/safety";
 import { clearSave, readSave, writeSave, type SavedRun } from "./ui/screens/save";
 import { GAME_TITLE, renderTitle } from "./ui/screens/title";
-import type { createArtifacts } from "./ui/artifacts";
-import { ARTIFACTS_ENABLED, MALICE, RING, SCARE } from "./uiConfig";
+import { ARTIFACTS, MALICE, RING, SCARE } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -39,15 +37,31 @@ let engine = new GameEngine({
   ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" } } : {}),
 });
 const sound = new Sound();
-const app = new Application();
 let scene: Scene;
-let artifacts: ReturnType<typeof createArtifacts> | undefined;
 if (import.meta.env.DEV) Object.assign(window, { engine }); // console access while developing
 
 const ui = {
   hud: $("hud"),
   clock: $("clock"),
   night: $("hud-night"),
+  hint: $("hint"),
+  desk: $("terminal"),
+  face: $("t-face"),
+  band: $("t-band"),
+  tClock: $("t-clock"),
+  map: $("t-map"),
+  powerCells: $("t-power"),
+  log: $("log"),
+  question: $("question"),
+  questionLabel: $("question-label"),
+  questionBar: $("question-bar"),
+  chatForm: $<HTMLFormElement>("chat-form"),
+  chat: $<HTMLInputElement>("chat"),
+  chatNote: $("chat-note"),
+  kill: $<HTMLButtonElement>("kill"),
+  edges: $("edges"),
+  braceHint: $("brace-hint"),
+  holdPanel: $("hold-panel"),
   ring: $("ring"),
   subtitle: $("subtitle"),
   screen: $("screen"),
@@ -56,11 +70,22 @@ const ui = {
   devText: $("dev-text"),
   devBtns: $("dev-btns"),
   pause: $("pause"),
+  artifacts: $("artifacts"),
+  reader: $("reader"),
+  readerImg: $<HTMLImageElement>("reader-img"),
 };
 
 const NAME: Record<Entry, string> = { WINDOW: "window", HATCH: "hatch", BALCONY: "balcony" };
 
-const terminal = new Terminal($("terminal"));
+// CHUD's face: Vidush's four-mood sheet (2172 x 724, WARM HURT JEALOUS FURIOUS left to right),
+// one 540 px square frame per band, shown through CSS background-position.
+const FACE_URL = artUrl("chud_faces");
+const FACE_SHEET = { w: 2172, h: 724, frame: 540, top: 90, left: [20, 550, 1080, 1610] };
+const BAND_INDEX: Record<Band, number> = { WARM: 0, HURT: 1, JEALOUS: 2, FURIOUS: 3 };
+const FACE_GLYPH: Record<Band, string> = { WARM: "( ^_^ )", HURT: "( ._. )", JEALOUS: "( >_< )", FURIOUS: "( X_X )" };
+// The malicious smile (lock hijack, sabotage, forced light cuts): `chud_face_malicious` art, else a coded grin.
+const MALICIOUS_URL = artUrl("chud_face_malicious");
+const MALICIOUS_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" fill="none" stroke="#ff4a3a" stroke-width="3"/><path d="M26 38 L42 44" stroke="#ff4a3a" stroke-width="5" stroke-linecap="round"/><path d="M74 38 L58 44" stroke="#ff4a3a" stroke-width="5" stroke-linecap="round"/><path d="M20 58 Q50 92 80 58 Q50 74 20 58 Z" fill="#ff4a3a"/><path d="M30 63 L34 69 M40 67 L42 74 M50 68 L50 76 M60 67 L58 74 M70 63 L66 69" stroke="#1a0000" stroke-width="2.5"/></svg>`;
 
 // UI-only state
 let lastPhase: Phase | null = null;
@@ -68,14 +93,10 @@ let frontScreen: "title" | "intro" | null = null; // presentation before the eng
 let screenAbort = new AbortController();
 let devRun = deepNight !== null;
 let breachShown = false;
-type Caption = { text: string; until: number };
-let chudCaption: Caption | undefined;
-let radioCaption: Caption | undefined;
-let hintCaption: Caption | undefined;
+let subtitleUntil = 0;
+let hintUntil = 0;
+let noteUntil = 0;
 let powerAlarmUntil = 0;
-let powerAlarmEntry: Entry | null = null;
-let previousPowerSlot: PowerSlot = "NONE";
-let powerFlicker = false;
 let maliciousUntil = 0; // real seconds: CHUD's malicious smile is up
 let lightCutUntil = 0; // real seconds: the LIGHT cell flashes red after CHUD forced the light off
 let shiftDown = false; // Shift held (the player's light)
@@ -107,10 +128,8 @@ const now = (): number => (paused ? pausedAt : wallTime()) - pauseDuration;
 
 async function boot(): Promise<void> {
   document.title = GAME_TITLE;
-  await app.init({
-    width: W, height: H, background: "#000000", antialias: false,
-    resolution: Math.min(window.devicePixelRatio || 1, 2), autoStart: false,
-  });
+  const app = new Application();
+  await app.init({ width: W, height: H, background: "#000000", antialias: true });
   $("stage").appendChild(app.canvas);
   const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
@@ -122,10 +141,7 @@ async function boot(): Promise<void> {
   fit();
   window.addEventListener("resize", fit);
   wireInput();
-  if (ARTIFACTS_ENABLED) {
-    const { createArtifacts } = await import("./ui/artifacts");
-    artifacts = createArtifacts($("ui"), scene, () => engine);
-  }
+  buildArtifacts();
   buildDevButtons();
   initDev();
   if (!deepNight) showTitle();
@@ -139,15 +155,7 @@ async function boot(): Promise<void> {
     window.addEventListener("keydown", unlock);
   }
   app.ticker.add((tk) => frame(tk.deltaMS / 1000));
-  if (deepNight) wake();
   $("loading").classList.add("loaded");
-}
-
-// Menus and pause have no per-frame work. Their callbacks wake the renderer when the engine can progress.
-function wake(): void {
-  if (app.ticker.started) return;
-  skipDt = true;
-  app.ticker.start();
 }
 
 function fit(): void {
@@ -166,11 +174,7 @@ function frame(dt: number): void {
     devNextAt = wallTime() + 0.2;
     renderDev();
   }
-  if (frontScreen || previewing) {
-    scene.pauseDeskVideo();
-    app.ticker.stop();
-    return;
-  }
+  if (frontScreen || previewing) return;
   const t = now();
   // Anything that leaves PLAYING (a judge verdict that triggers the safety pause, a dev jump) ends the pause.
   if (paused && engine.state.phase !== "PLAYING") setPaused(false);
@@ -197,13 +201,14 @@ function frame(dt: number): void {
       sound.setAmbientPlaying(true);
       if (document.hidden) setPaused(true);
     }
+    if (phase === "PLAYING" && engine.state.run.night === 1 && engine.state.clock.elapsed < 1) {
+      ui.hint.textContent = "Push the mouse to the left, right or bottom edge to look around";
+      hintUntil = t + 8;
+    }
   }
   edgeTurn(t);
-  const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
-  if (!paused && animateStage) scene.update(engine, t);
-  else scene.pauseDeskVideo();
+  if (!paused) scene.update(engine, t);
   renderHud(t);
-  if (paused || !animateStage) app.ticker.stop();
 }
 
 function onEvent(ev: GameEvent, t: number): void {
@@ -213,18 +218,16 @@ function onEvent(ev: GameEvent, t: number): void {
       sound.stopCues();
       sound.fadeStorm(1, 0.9);
       sound.windowMask = ev.night >= 4 ? 0.55 : 1;
-      terminal.clear();
+      ui.log.replaceChildren();
       convo = [];
-      chudCaption = radioCaption = hintCaption = undefined;
+      hintUntil = 0;
+      subtitleUntil = 0;
       breachShown = false;
       endScare();
-      artifacts?.read(null);
+      showReader(null);
       maliciousUntil = 0;
       lightCutUntil = 0;
       powerAlarmUntil = 0;
-      powerAlarmEntry = null;
-      previousPowerSlot = "NONE";
-      powerFlicker = false;
       // Also handles dev jumps within the same phase, including those that skip the card.
       showScreen(engine.state.phase);
       break;
@@ -232,45 +235,31 @@ function onEvent(ev: GameEvent, t: number): void {
     case "DECOY":
       sound.decoy(ev.sound, ev.pan);
       break;
-    case "POWER_CHANGED": {
-      const previous = previousPowerSlot;
-      previousPowerSlot = ev.slot;
-      powerFlicker ||= previous !== ev.slot;
-      if ((ev.cause === "sabotage" || ev.cause === "furious") && previous.startsWith("LOCK_")) {
-        powerAlarmEntry = previous.slice(5) as Entry;
-        powerAlarmUntil = t + 2.5;
-      }
+    case "POWER_CHANGED":
       if (ev.cause === "light") {
         sound.lightClick(ev.slot !== "NONE");
         break;
       }
       if (ev.cause === "light_cut") break; // LIGHT_CUT plays the tick
       sound.relay(ev.cause === "sabotage" || ev.cause === "furious" || ev.cause === "kill_switch");
+      if (ev.cause === "sabotage" || ev.cause === "furious") powerAlarmUntil = t + 2.5;
       if (ev.cause === "sabotage") maliciousUntil = Math.max(maliciousUntil, t + MALICE.SABOTAGE_TIME);
       break;
-    }
     case "LOCK_REFUSED":
       maliciousUntil = t + MALICE.REFUSE_TIME;
       break;
     case "LIGHT_CUT":
       sound.lightTick();
-      powerAlarmEntry = ev.entry;
-      lightCutUntil = powerAlarmUntil = t + 0.9;
+      lightCutUntil = t + 0.6;
       scene.lightFlickerUntil = t + 0.18;
       if (ev.band === "JEALOUS" || ev.band === "FURIOUS") maliciousUntil = Math.max(maliciousUntil, t + MALICE.LIGHT_CUT_TIME);
       break;
     case "ARTIFACT":
-      if (artifacts) {
-        sound.paper();
-        artifacts.read(ev.id);
-      }
+      sound.paper();
+      showReader(ev.id);
       break;
     case "CHUD_ONLINE":
-      powerFlicker = true;
       if (!ev.online) stopChudSpeech();
-      break;
-    case "GENERATOR":
-      powerFlicker = true;
       break;
     case "CHUD_SAY": {
       if (!ev.text) break;
@@ -281,6 +270,7 @@ function onEvent(ev: GameEvent, t: number): void {
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
       const token = dialogueToken;
+      const typing = addLog("typing", "CHUD is typing...");
       void voiceRemote({
         kind: o.kind,
         pass: o.kind === "answer_ack" ? o.pass : undefined,
@@ -291,6 +281,7 @@ function onEvent(ev: GameEvent, t: number): void {
         night: engine.state.run.night,
         recent: convo.slice(-6),
       }).then((text) => {
+        typing.remove();
         if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
           showChud(text ?? ev.text, ev.band, now());
         }
@@ -299,10 +290,12 @@ function onEvent(ev: GameEvent, t: number): void {
     }
     case "RADIO":
       sound.radio();
-      radioCaption = { text: ev.text, until: t + 4 };
+      say(`RADIO: "${ev.text}"`, "radio", t, 4);
+      addLog("radio", ev.text);
       break;
     case "HINT":
-      if (engine.state.run.night === 1) hintCaption = { text: ev.text, until: t + 6 };
+      ui.hint.textContent = ev.text;
+      hintUntil = t + 6;
       break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
@@ -311,11 +304,14 @@ function onEvent(ev: GameEvent, t: number): void {
     case "HOLD_ENDED":
       sound.braceEnd(ev.reason === "arms");
       break;
+    case "MESSAGE_REJECTED":
+      note(ev.reason, t);
+      break;
     case "BREACH":
       stopChudSpeech();
       resetScreen();
       show(ui.screen, false);
-      artifacts?.read(null);
+      showReader(null);
       startScare(ev.loss);
       break;
     case "SAFETY_PAUSE":
@@ -323,12 +319,13 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "NIGHT_WON":
     case "GAME_WON": {
+      stopChudSpeech();
       // Record the unlocked night even if the browser closes during dawn.
       if (!devRun) {
         const { night, factsCheckpoint } = engine.state.run;
         writeSave({ night: ev.type === "NIGHT_WON" ? night + 1 : night, factsCheckpoint });
       }
-      artifacts?.read(null);
+      showReader(null);
       sound.stopCues();
       sound.setAmbientPlaying(false);
       sound.fadeStorm(0, 1.9);
@@ -342,17 +339,51 @@ function onEvent(ev: GameEvent, t: number): void {
 // ---------------------------------------------------------------------------
 // HUD
 
+function say(text: string, kind: "chud" | "radio", t: number, secs?: number): void {
+  ui.subtitle.textContent = text;
+  ui.subtitle.className = kind;
+  ui.subtitle.style.opacity = "1";
+  subtitleUntil = t + (secs ?? Math.max(2.5, text.length * 0.06));
+}
+
+const LOG_PREFIX = { me: "> ", chud: "CHUD: ", radio: "RADIO: ", typing: "" };
+
+function addLog(who: keyof typeof LOG_PREFIX, text: string): HTMLElement {
+  const d = document.createElement("div");
+  d.className = who;
+  d.textContent = LOG_PREFIX[who] + text;
+  ui.log.appendChild(d);
+  while (ui.log.children.length > 7) ui.log.firstChild!.remove();
+  return d;
+}
+
 function stopChudSpeech(): void {
   dialogueToken++;
   sound.stopSpeech();
 }
 
 function showChud(text: string, band: Band, t: number): void {
-  chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
-  terminal.addLine("chud", text, t);
+  say(text, "chud", t);
+  addLog("chud", text);
   convo.push(`CHUD: ${text}`);
   sound.chime();
   if (engine.state.power.chudOnline) sound.speak(text, band);
+  scene.speakingUntil = t + Math.min(3, 0.4 + text.length * 0.035);
+}
+
+const NOTE: Record<RejectReason, string> = {
+  CHUD_OFFLINE: "CHUD is offline.",
+  NOT_AT_DESK: "You have to be at the desk to type.",
+  RATE_LIMIT: "Too fast. One message every 1.5 s.",
+  TOO_LONG: "200 characters max.",
+  EMPTY: "",
+  NOT_PLAYING: "",
+  READING: "",
+};
+
+function note(reason: RejectReason, t: number): void {
+  ui.chatNote.textContent = NOTE[reason];
+  noteUntil = t + 2;
 }
 
 function clockText(): string {
@@ -384,30 +415,61 @@ function renderHud(t: number): void {
 
   const p = s.power;
 
+  // At the desk the log already shows every line, so subtitles only appear away from it.
   const deskView = playing && atDesk && view === "DESK";
-  const caption = playing
-    ? [radioCaption, deskView ? undefined : chudCaption, hintCaption].find((line) => line && line.until > t)
-    : undefined;
-  if (caption) setText(ui.subtitle, caption.text);
-  ui.subtitle.classList.toggle("visible", !!caption);
+  if (t > subtitleUntil || deskView) ui.subtitle.style.opacity = "0";
+  show(ui.hint, playing && t < hintUntil);
+  if (t > noteUntil) setText(ui.chatNote, "");
 
-  show(terminal.root, deskView);
-  if (deskView) {
-    terminal.root.style.transform = scene.deskScreenTransform();
-    terminal.root.style.opacity = String(1 - scene.fadeAlpha);
-    terminal.render(s, clockText(), t, {
-      malicious: p.chudOnline && t < maliciousUntil,
-      flicker: powerFlicker,
-      alertEntry: powerAlarmEntry,
-      alert: t < powerAlarmUntil,
-      lightCut: t < lightCutUntil,
-    });
-  } else if (document.activeElement === terminal.chat) {
-    terminal.chat.blur();
+  // CHUD's terminal on the desk screen, following the camera pan
+  const deskOn = deskView;
+  show(ui.desk, deskOn);
+  if (deskOn) {
+    renderTerminal(t);
+    ui.chat.disabled = !p.chudOnline;
+    for (const b of ui.desk.querySelectorAll<HTMLButtonElement>("[data-quick]")) b.disabled = !p.chudOnline;
+    ui.kill.classList.toggle("off", !p.generatorOn);
+    ui.kill.querySelector("b")!.textContent = p.generatorOn ? "ON" : "OFF";
+    const q = s.chud.pendingQuestion;
+    show(ui.question, !!q && p.chudOnline);
+    if (q) {
+      const left = 1 - (s.clock.elapsed - q.askedAt) / CONFIG.QUESTION_TIMEOUT;
+      ui.questionBar.style.width = `${Math.max(0, left) * 100}%`;
+      setText(ui.questionLabel, "CHUD is waiting for an answer");
+    }
+  } else if (document.activeElement === ui.chat) {
+    ui.chat.blur();
   }
-  powerFlicker = false;
-  artifacts?.render(deskView && s.player.reading === null);
+  renderArtifacts(deskOn && s.player.reading === null);
+
+  // edge indicators, the brace hint and the cursor ring (edge controls)
+  const atEntry = pos.kind === "STANDING" || (pos.kind === "HOLDING" && !!pos.stay);
+  const canLook = playing && !paused && (atDesk || atEntry);
+  show(ui.edges, canLook);
+  if (canLook) {
+    for (const el of ui.edges.querySelectorAll<HTMLElement>(".edge")) {
+      const edge = el.dataset.edge as (typeof EDGES)[number];
+      const to = EDGE_TARGET[view][edge];
+      show(el, !!to);
+      if (!to) continue;
+      setText(el.querySelector("span")!, to === "DESK" ? "DESK" : to === "BALCONY" ? "BEHIND" : to);
+      el.classList.toggle("on", edges.active === edge);
+    }
+  }
+  const hint = !playing || paused ? null : braceHint(view);
+  show(ui.braceHint, hint !== null);
+  if (hint !== null) setText(ui.braceHint, hint);
+  show(ui.holdPanel, playing && pos.kind === "HOLDING");
   renderRing();
+}
+
+function braceHint(view: View): string | null {
+  const s = engine.state;
+  const pos = s.player.position;
+  const now = s.clock.elapsed;
+  if (pos.kind === "DESK" && view !== "DESK") return now < s.player.holdCooldownUntil ? "Catching your breath..." : `Click to go to the ${NAME[view]}`;
+  if (pos.kind === "STANDING") return now < pos.restUntil ? "Arms resting..." : "Hold left click to brace. Edge to go back.";
+  return null;
 }
 
 // One small ring on the pointer for whichever timer is running: edge dwell (fills), arms left while bracing
@@ -449,6 +511,84 @@ function renderRing(): void {
   arc.setAttribute("stroke-dasharray", `${Math.max(0, Math.min(1, k)).toFixed(4)} 1`);
 }
 
+let faceKey = "";
+
+function renderTerminal(t: number): void {
+  const s = engine.state;
+  const p = s.power;
+
+  const r = scene.deskScreenRect();
+  ui.desk.style.transform = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px)`;
+  ui.desk.style.opacity = String(1 - scene.fadeAlpha);
+
+  // face by band; blank while offline, a reboot readout while rebooting
+  const band = s.chud.band;
+  const malicious = p.chudOnline && t < maliciousUntil;
+  let key: string;
+  if (malicious) key = "MALICIOUS";
+  else if (p.chudOnline) key = band;
+  else if (p.rebootingUntil !== null) key = `REBOOT ${Math.round((1 - Math.max(0, p.rebootingUntil - s.clock.elapsed) / CONFIG.REBOOT_TIME) * 100)}%`;
+  else key = "OFFLINE";
+  if (key !== faceKey) {
+    faceKey = key;
+    const f = ui.face;
+    f.classList.toggle("off", !p.chudOnline);
+    f.classList.toggle("furious", p.chudOnline && band === "FURIOUS" && !malicious);
+    f.classList.toggle("malicious", malicious);
+    f.classList.toggle("art", malicious && !!MALICIOUS_URL);
+    if (!p.chudOnline) {
+      f.style.backgroundImage = "";
+      f.textContent = key;
+    } else if (malicious) {
+      if (MALICIOUS_URL) {
+        f.textContent = "";
+        f.style.backgroundImage = `url("${MALICIOUS_URL}")`;
+        f.style.backgroundSize = "cover";
+        f.style.backgroundPosition = "center";
+      } else {
+        f.style.backgroundImage = "";
+        f.innerHTML = MALICIOUS_SVG;
+      }
+    } else if (FACE_URL) {
+      const k = f.clientWidth / FACE_SHEET.frame || 120 / FACE_SHEET.frame;
+      f.textContent = "";
+      f.style.backgroundImage = `url("${FACE_URL}")`;
+      f.style.backgroundSize = `${FACE_SHEET.w * k}px ${FACE_SHEET.h * k}px`;
+      f.style.backgroundPosition = `${-FACE_SHEET.left[BAND_INDEX[band]] * k}px ${-FACE_SHEET.top * k}px`;
+    } else {
+      f.style.backgroundImage = "";
+      f.textContent = FACE_GLYPH[band];
+    }
+    setText(ui.band, p.chudOnline ? band : "");
+  }
+  ui.face.classList.toggle("talking", p.chudOnline && t < scene.speakingUntil);
+
+  setText(ui.tClock, clockText());
+
+  // map: entries and lock state only, never Ram (a display only on this branch: holds start from the entry view)
+  for (const g of ui.map.querySelectorAll<SVGGElement>(".entry")) {
+    const lock = `LOCK_${g.dataset.entry}` as PowerSlot;
+    g.classList.toggle("locked", p.slot === lock);
+    g.classList.toggle("pending", p.pending?.target === lock);
+  }
+
+  // power bar: 4 cells, green = what the one slot feeds now (a lock, or the LIGHT cell for the Shift light on any
+  // entry); all red = NONE; flashing red on a cut. The LIGHT cell flashes red when CHUD forces the light off.
+  ui.powerCells.classList.toggle("cut", t < powerAlarmUntil && Math.floor(t * 6) % 2 === 0);
+  const lit = p.slot.startsWith("LIGHT_");
+  for (const c of ui.powerCells.querySelectorAll<HTMLElement>("i")) {
+    const cell = c.dataset.cell!;
+    if (cell === "LIGHT") {
+      c.classList.toggle("on", lit);
+      c.classList.toggle("cutoff", t < lightCutUntil);
+      setText(c, lit ? "LIGHT " + p.slot.slice(6, 7) : "LIGHT");
+      continue;
+    }
+    c.classList.toggle("on", p.slot === cell);
+    c.classList.toggle("pending", p.pending?.target === cell);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Screens
 
@@ -466,8 +606,6 @@ function resetScreen(): void {
 function showTitle(): void {
   resetScreen();
   frontScreen = "title";
-  scene.pauseDeskVideo();
-  app.ticker.stop();
   stopChudSpeech();
   sound.stopCues();
   sound.setAmbientPlaying(false);
@@ -498,9 +636,8 @@ function startRun(saved?: SavedRun): void {
   frontScreen = null;
   lastPhase = null;
   devRun = false;
-  terminal.chat.value = "";
-  terminal.clear();
-  chudCaption = radioCaption = hintCaption = undefined;
+  ui.chat.value = "";
+  ui.log.replaceChildren();
   sound.unlock();
 
   if (!saved && !params.has("nointro")) {
@@ -509,9 +646,9 @@ function startRun(saved?: SavedRun): void {
     sound.fadeStorm(0, 0.15);
     playIntro({
       root: $("ui"),
-      onDone: () => { frontScreen = null; wake(); },
+      onDone: () => { frontScreen = null; },
     });
-  } else wake();
+  }
 }
 
 function showScreen(phase: Phase): void {
@@ -525,27 +662,78 @@ function showScreen(phase: Phase): void {
       renderName(ui.screen, (name) => {
         sound.unlock();
         engine.setName(name);
-        wake();
       });
       break;
     case "NIGHT_CARD":
-      renderNightCard(ui.screen, engine.state.run.night, () => { engine.beginNight(); wake(); }, signal);
+      renderNightCard(ui.screen, engine.state.run.night, () => engine.beginNight(), signal);
       break;
     case "BREACH":
       renderLoss(ui.screen, title, signal);
       break;
     case "NIGHT_WON":
-      renderMorning(ui.screen, previewing ? endPreview : () => { engine.nextNight(); wake(); }, signal);
+      renderMorning(ui.screen, previewing ? endPreview : () => engine.nextNight(), signal);
       break;
     case "GAME_WON":
       renderMorning(ui.screen, () => renderEnding(ui.screen, title, signal), signal);
       break;
     case "SAFETY_PAUSE":
-      renderSafetyPause(ui.screen, () => { engine.resumeFromSafetyPause(); wake(); });
+      renderSafetyPause(ui.screen, () => engine.resumeFromSafetyPause());
       break;
     case "PLAYING":
       break;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Desk artifacts (GAME_LOGIC 6.6): hotspots on the desk render, the full-screen reader
+
+function buildArtifacts(): void {
+  for (const a of ARTIFACTS) {
+    const b = document.createElement("button");
+    b.dataset.artifact = a.id;
+    b.title = a.label;
+    b.setAttribute("aria-label", `Read: ${a.label}`);
+    const url = artUrl(a.slot);
+    if (url) b.style.backgroundImage = `url("${url}")`;
+    else b.textContent = a.label;
+    b.addEventListener("click", () => {
+      engine.pickUpArtifact(a.id);
+      b.blur();
+    });
+    ui.artifacts.appendChild(b);
+  }
+}
+
+function renderArtifacts(on: boolean): void {
+  show(ui.artifacts, on);
+  if (!on) return;
+  for (const b of ui.artifacts.querySelectorAll<HTMLButtonElement>("button")) {
+    const a = ARTIFACTS.find((x) => x.id === b.dataset.artifact)!;
+    const r = scene.plateRect(a.rect);
+    b.style.transform = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px) rotate(${a.tilt}deg)`;
+    b.style.width = `${r.w.toFixed(1)}px`;
+    b.style.height = `${r.h.toFixed(1)}px`;
+  }
+}
+
+function showReader(id: string | null): void {
+  show(ui.reader, id !== null);
+  if (id === null) return;
+  const a = ARTIFACTS.find((x) => x.id === id);
+  const url = a ? artUrl(a.slot) : null;
+  const ph = ui.reader.querySelector(".ph");
+  ph?.remove();
+  if (url) {
+    ui.readerImg.src = url;
+    show(ui.readerImg, true);
+  } else {
+    show(ui.readerImg, false);
+    const d = document.createElement("div");
+    d.className = "ph";
+    d.textContent = a?.label ?? id;
+    ui.reader.prepend(d);
+  }
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 }
 
 // ---------------------------------------------------------------------------
@@ -601,19 +789,15 @@ function setPaused(on: boolean): void {
   paused = on;
   scene.paused = on;
   // Keep Tab and Space from reaching the terminal or the desk papers behind the overlay.
-  terminal.root.inert = on;
-  artifacts?.pause(on);
+  for (const el of [ui.desk, ui.artifacts, ui.reader, ui.holdPanel]) el.toggleAttribute("inert", on);
   if (on) {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    scene.pauseDeskVideo();
-    app.ticker.stop();
     sound.suspend();
     show(ui.ring, false);
   } else {
     skipDt = true;
     if (!shiftDown) engine.setLight(false);
     sound.resume();
-    wake();
   }
   show(ui.pause, on);
 }
@@ -622,33 +806,25 @@ function setPaused(on: boolean): void {
 // Input
 
 function wireInput(): void {
-  terminal.form.addEventListener("submit", (e) => {
+  ui.chatForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const text = terminal.chat.value;
+    const text = ui.chat.value;
     const res = engine.submitMessage(text);
-    if (!res.ok) return;
-    terminal.addLine("me", text, now());
+    if (!res.ok) return; // MESSAGE_REJECTED event shows the note
+    addLog("me", text);
     convo.push(`Keeper: ${text}`);
-    terminal.chat.value = "";
+    ui.chat.value = "";
     const ticket = res.ticket;
     if (ticket.repeat) return;
     const run = engine;
-    void judge(ticket.judgeInput).then((r) => {
-      run.applyJudge(ticket.id, r);
-      if (run === engine && frontScreen === null && !previewing) wake();
-    });
+    void judge(ticket.judgeInput).then((r) => run.applyJudge(ticket.id, r));
   });
-  terminal.chat.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" || e.isComposing) return;
-    e.preventDefault();
-    terminal.form.requestSubmit();
-  });
-  for (const ev of ["paste", "drop"]) terminal.chat.addEventListener(ev, (e) => e.preventDefault());
+  for (const ev of ["paste", "drop"]) ui.chat.addEventListener(ev, (e) => e.preventDefault());
 
-  for (const b of terminal.quick) {
+  for (const b of document.querySelectorAll<HTMLButtonElement>("[data-quick]")) {
     b.addEventListener("click", () => engine.pressQuick(b.dataset.quick as QuickCommand));
   }
-  terminal.kill.addEventListener("click", () => engine.toggleGenerator());
+  ui.kill.addEventListener("click", () => engine.toggleGenerator());
   wireBrace();
 
   document.addEventListener("visibilitychange", () => {
@@ -661,6 +837,14 @@ function wireInput(): void {
     if (e.key === "Shift") setShift(false);
   });
   window.addEventListener("blur", () => setShift(false));
+
+  // the reader: click, right-click or Space puts the artifact down
+  ui.reader.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    engine.putDownArtifact();
+  });
+  ui.reader.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
 function setShift(down: boolean): void {
@@ -686,8 +870,8 @@ function onKey(e: KeyboardEvent): void {
     if (e.key === "Escape") endPreview();
     return;
   }
-  if (e.target === terminal.chat) {
-    if (e.key === "Escape") terminal.chat.blur();
+  if (e.target === ui.chat) {
+    if (e.key === "Escape") ui.chat.blur();
     return;
   }
   if (e.target instanceof HTMLInputElement) return;
@@ -699,7 +883,7 @@ function onKey(e: KeyboardEvent): void {
     return;
   }
   if (paused) return;
-  if (ARTIFACTS_ENABLED && s.player.reading !== null) {
+  if (s.player.reading !== null) {
     if (e.code === "Space") {
       e.preventDefault();
       engine.putDownArtifact();
@@ -707,16 +891,16 @@ function onKey(e: KeyboardEvent): void {
     return;
   }
   // Keyboard is chat only (edge controls): at the desk, any printable key starts typing to CHUD.
-  if (s.player.position.kind !== "DESK" || s.player.view !== "DESK" || terminal.chat.disabled) return;
+  if (s.player.position.kind !== "DESK" || s.player.view !== "DESK" || ui.chat.disabled) return;
   if (e.key === "Enter") {
     e.preventDefault();
-    terminal.chat.focus();
+    ui.chat.focus();
   } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault(); // also keeps Space or Enter from clicking a focused quick button
-    terminal.chat.focus();
-    if (terminal.chat.value.length < terminal.chat.maxLength) terminal.chat.value += e.key;
-    const end = terminal.chat.value.length;
-    terminal.chat.setSelectionRange(end, end);
+    ui.chat.focus();
+    if (ui.chat.value.length < ui.chat.maxLength) ui.chat.value += e.key;
+    const end = ui.chat.value.length;
+    ui.chat.setSelectionRange(end, end);
   }
 }
 
@@ -895,10 +1079,7 @@ function endPreview(): void {
   previewing = false;
   skipDt = true;
   if (frontScreen === "title") showTitle();
-  else {
-    showScreen(engine.state.phase);
-    wake();
-  }
+  else showScreen(engine.state.phase);
 }
 
 function buildDevButtons(): void {
@@ -921,7 +1102,6 @@ function buildDevButtons(): void {
       fn();
       b.blur();
       renderDev();
-      wake();
     });
     g.appendChild(b);
     return b;

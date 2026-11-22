@@ -1,14 +1,11 @@
 // Art slots. Each slot resolves, in order, to:
 //   1. prototype/assets/<slot>.(png|webp|jpg)   manual override, see prototype/assets/README.md
-//   2. a final render in scenes/03-watch-room/final/webp/, by job name (`tell_window_on`) or through FINAL_ALIASES
-//      for the older slot names (`view_window` -> `view_window_off`). Made by tools/convert_renders.mjs.
-//   3. the team's earlier render in scenes/ listed in SCENE_ART below
-//   4. a coded placeholder
-// Plates are 2:1 stills. Only jumpscares are loaded as ordered frame textures. Other sequences are videos.
+//   2. the team's render in scenes/ listed in SCENE_ART below (picked up automatically when re-rendered)
+//   3. a coded placeholder
+// Plates (views) are 2:1 stills fitted to PLATE_W x PLATE_H; overlays use the same frame.
 
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { H, PLATE_H, PLATE_W, W } from "./layout";
-import { FINAL_ALIASES, JUMPSCARE_MIN_FRAMES } from "./plates";
 
 const overrides = import.meta.glob("../../assets/*.{png,webp,jpg,jpeg}", { eager: true, import: "default" }) as Record<string, string>;
 
@@ -19,16 +16,16 @@ const sceneFiles = import.meta.glob(
     "../../../scenes/03-watch-room/render_dash_floor.png",
     "../../../scenes/03-watch-room/final/png/title_bg/title_bg.png",
     "../../../scenes/03-watch-room/chud_smiley_four_moods.png",
+    "../../../scenes/03-watch-room/chud_launch_newspaper_clipping_v2.png",
+    "../../../scenes/03-watch-room/daniel_vale_notebook.jpg",
+    "../../../scenes/03-watch-room/leaving_calendar_aged_pen.png",
     "../../../scenes/04-ram/*.png",
     "../../../scenes/99-final-cage-hall/render_*.png",
     "../../../scenes/01-shipwreck/render_blockout.png",
   ],
   { eager: true, import: "default" },
 ) as Record<string, string>;
-const videoFiles = import.meta.glob([
-  "../../../scenes/03-watch-room/final/title_loop.webm",
-  "../../../scenes/03-watch-room/final/webm/*.webm",
-], {
+const videoFiles = import.meta.glob("../../../scenes/03-watch-room/final/title_loop.webm", {
   eager: true,
   import: "default",
   query: "?url",
@@ -46,6 +43,10 @@ const SCENE_ART: Record<string, string> = {
   dash_floor: "03-watch-room/render_dash_floor.png",
   title_bg: "03-watch-room/final/png/title_bg/title_bg.png",
   chud_faces: "03-watch-room/chud_smiley_four_moods.png",
+  // desk artifacts (DOM only: the hotspot thumbnail and the reading view)
+  artifact_clipping: "03-watch-room/chud_launch_newspaper_clipping_v2.png",
+  artifact_notebook: "03-watch-room/daniel_vale_notebook.jpg",
+  artifact_calendar: "03-watch-room/leaving_calendar_aged_pen.png",
   // Ram after a silent breach: the creepy flash (960 x 480 plates from the entry cameras) and the jumpscare (1280 x 720)
   ram_inside_window: "04-ram/ram_inside_window.png",
   ram_inside_hatch: "04-ram/ram_inside_hatch.png",
@@ -59,158 +60,47 @@ const SCENE_ART: Record<string, string> = {
   intro: "01-shipwreck/render_blockout.png",
 };
 
-// Final renders (WebP, committed). Stills: final/webp/<job>.webp. Sequences: final/webp/<job>/<job>_0001.webp ...
-// Eager glob of URLs only (nothing is fetched until loadArt): new files are picked up on the next dev reload or build.
-const finalFiles = import.meta.glob([
-  "../../../scenes/03-watch-room/final/webp/*.webp",
-  "../../../scenes/03-watch-room/final/webp/jumpscare_{window,hatch,balcony}/*.webp",
-], { eager: true, import: "default" }) as Record<string, string>;
-const finalStills = new Map<string, string>(); // job -> url
-const finalSeqs = new Map<string, string[]>(); // job -> frame urls in order (only sequences numbered 0001.. without gaps)
-{
-  const frames = new Map<string, { n: number; url: string }[]>();
-  for (const [path, url] of Object.entries(finalFiles)) {
-    const m = /final\/webp\/(?:([^/]+)\/)?([^/]+)\.webp$/.exec(path);
-    if (!m) continue;
-    const [, folder, name] = m;
-    if (!folder) {
-      finalStills.set(name, url);
-      continue;
-    }
-    if (!name.startsWith(`${folder}_`)) continue;
-    const n = Number(name.slice(folder.length + 1));
-    if (!Number.isInteger(n) || n < 1) continue;
-    const list = frames.get(folder) ?? [];
-    list.push({ n, url });
-    frames.set(folder, list);
-  }
-  for (const [job, list] of frames) {
-    list.sort((a, b) => a.n - b.n);
-    if (list.length >= JUMPSCARE_MIN_FRAMES && list.every((fr, i) => fr.n === i + 1)) {
-      finalSeqs.set(job, list.map((fr) => fr.url));
-    } else {
-      console.warn(`final sequence ${job} is incomplete, using the fallback`);
-    }
-  }
-}
-
 const urlBySlot = new Map<string, string>();
-const finalSlots = new Set<string>(); // slots that resolved to a final render (already graded: no night grade on top)
 for (const [slotName, suffix] of Object.entries(SCENE_ART)) {
   const hit = Object.entries(sceneFiles).find(([p]) => p.endsWith(suffix));
   if (hit) urlBySlot.set(slotName, hit[1]);
 }
-for (const [job, url] of finalStills) {
-  urlBySlot.set(job, url);
-  finalSlots.add(job);
-}
-for (const [slotName, job] of Object.entries(FINAL_ALIASES)) {
-  const url = finalStills.get(job);
-  if (!url) continue;
-  urlBySlot.set(slotName, url);
-  finalSlots.add(slotName);
-}
 for (const [path, url] of Object.entries(overrides)) {
-  const slotName = path.split("/").pop()!.replace(/\.(png|webp|jpe?g)$/i, "");
-  urlBySlot.set(slotName, url);
-  finalSlots.delete(slotName);
+  urlBySlot.set(path.split("/").pop()!.replace(/\.(png|webp|jpe?g)$/i, ""), url);
 }
-const videos = new Map(Object.entries(videoFiles).map(([path, url]) => [
-  path.split("/").pop()!.slice(0, -".webm".length), url,
-]));
+const titleLoop = Object.values(videoFiles)[0];
+if (titleLoop) urlBySlot.set("title_loop", titleLoop);
 
 const textures = new Map<string, Texture>();
-const frameTextures = new Map<string, Texture[]>();
-const DOM_ONLY = /^(artifact_|ending_)/;
-const LEGACY_SCARE = /^ram_jumpscare_[1-4]$/;
+const DOM_ONLY = /^(artifact_|title_loop$)/; // artifacts and the title video are only used in the DOM
 
-// URL of a slot for DOM use (faces, ending backgrounds, title_bg). Null if the slot has no art yet.
+// URL of a slot for DOM use (faces, ending backgrounds). Null if the slot has no art yet.
 export function artUrl(slotName: string): string | null {
   return urlBySlot.get(slotName) ?? null;
 }
 
-// A URL only. The title and desk request their loops when they become visible.
-export function artVideoUrl(job: string): string | null {
-  return videos.get(job) ?? null;
-}
-
-// Preload progress for a loading screen: files done (loaded or failed) out of total. Updated by loadArt.
-export const artProgress = { done: 0, total: 0 };
-
-// Preload stills and jumpscares for instant plate changes. Videos are loaded on demand.
-export async function loadArt(onProgress?: (done: number, total: number) => void): Promise<string[]> {
+export async function loadArt(progress: (complete: number, total: number) => void): Promise<string[]> {
   const loaded: string[] = [];
-  const allStills = [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName));
-  const legacyScares = allStills.filter(([slotName]) => LEGACY_SCARE.test(slotName));
-  const haveAllScares = finalSeqs.size === 3;
-  const stills = haveAllScares ? allStills.filter(([slotName]) => !LEGACY_SCARE.test(slotName)) : allStills;
-  const seqs = [...finalSeqs];
-  artProgress.done = 0;
-  artProgress.total = stills.length + seqs.reduce((n, [, urls]) => n + urls.length, 0);
-  onProgress?.(0, artProgress.total);
-  const tick = (): void => {
-    artProgress.done++;
-    onProgress?.(artProgress.done, artProgress.total);
-  };
-  const loadStill = async ([slotName, url]: [string, string]): Promise<void> => {
-    try {
-      textures.set(slotName, await Assets.load<Texture>(url));
-      loaded.push(slotName);
-    } catch (err) {
-      console.warn(`art slot ${slotName} failed to load`, err);
-    } finally {
-      tick();
-    }
-  };
-  const seqJobs = seqs.map(async ([job, urls]) => {
-    const list = await Promise.all(
-      urls.map(async (url): Promise<Texture | null> => {
-        try {
-          return await Assets.load<Texture>(url);
-        } catch (err) {
-          console.warn(`frame ${url} failed to load`, err);
-          return null;
-        } finally {
-          tick();
-        }
-      }),
-    );
-    if (list.every((tx) => tx !== null)) {
-      frameTextures.set(job, list as Texture[]);
-      loaded.push(`${job}[${list.length}]`);
-    }
-  });
-  await Promise.all([...stills.map(loadStill), ...seqJobs]);
-  if (haveAllScares && frameTextures.size < finalSeqs.size) {
-    artProgress.total += legacyScares.length;
-    onProgress?.(artProgress.done, artProgress.total);
-    await Promise.all(legacyScares.map(loadStill));
-  }
+  const imageSlots = [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName));
+  let complete = 0;
+  progress(complete, imageSlots.length);
+  await Promise.all(
+    imageSlots.map(async ([slotName, url]) => {
+      try {
+        textures.set(slotName, await Assets.load<Texture>(url));
+        loaded.push(slotName);
+      } catch (err) {
+        console.warn(`art slot ${slotName} failed to load`, err);
+      } finally {
+        progress(++complete, imageSlots.length);
+      }
+    }),
+  );
   return loaded.sort();
 }
 
 export function hasArt(slotName: string): boolean {
   return textures.has(slotName);
-}
-
-// True when the slot shows a final render (already lit and graded in Blender: no night grade, no light wash).
-export function isFinal(slotName: string): boolean {
-  return finalSlots.has(slotName) && textures.has(slotName);
-}
-
-// Loaded frames of a final sequence, in order. Empty if the sequence is missing or failed to load.
-export function artFrames(job: string): Texture[] {
-  return frameTextures.get(job) ?? [];
-}
-
-// A sprite cover-fitted into a w x h box. For sequences, swap `.texture`: the fit holds while every frame has one size.
-export function coverSprite(tex: Texture, w: number, h: number): Sprite {
-  const s = new Sprite(tex);
-  const k = Math.max(w / tex.width, h / tex.height);
-  s.scale.set(k);
-  s.x = (w - tex.width * k) / 2;
-  s.y = (h - tex.height * k) / 2;
-  return s;
 }
 
 // A plate-sized container: the render fitted to the plate, or the placeholder.

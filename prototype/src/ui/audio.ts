@@ -89,6 +89,7 @@ export class Sound {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.storm();
     this.setAmbientPlaying(this.ambientPlaying);
+    this.startSpeech();
     if (this.jumpData) {
       void ctx.decodeAudioData(this.jumpData)
         .then((buffer) => { this.jumpBuf = buffer; })
@@ -326,11 +327,14 @@ export class Sound {
   }
 
   speak(text: string, band: Band): void {
-    const ctx = this.ctx;
-    if (!ctx) return;
     if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift();
     this.speechQueue.push({ text, band });
-    if (this.speechRun) return;
+    this.startSpeech();
+  }
+
+  private startSpeech(): void {
+    const ctx = this.ctx;
+    if (!ctx || this.speechRun || this.speechQueue.length === 0) return;
     const run = new AbortController();
     this.speechRun = run;
     void this.playSpeech(ctx, run);
