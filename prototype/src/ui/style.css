@@ -28,8 +28,8 @@ button:disabled { opacity: 0.35; cursor: default; }
 
 #subtitle {
   position: absolute; left: 4%; right: 4%; bottom: 32px;
-  color: #e5dfd2; text-align: center; font: 25px/1.1 var(--screen-mono);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #e5dfd2; text-align: center; font: 27px/1.2 var(--screen-mono);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: balance;
   text-shadow: 0 0 2px #000, 0 0 3px #000, 0 1px 6px #000, 0 2px 14px #000;
   opacity: 0; transition: opacity 0.4s;
 }
