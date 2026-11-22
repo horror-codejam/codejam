@@ -1,4 +1,4 @@
-// Playable loop: engine (src/sim) + PixiJS scene (src/ui/scene) + DOM HUD + synthesized sound.
+// Playable loop: engine (src/sim) + PixiJS scene (src/ui/scene) + DOM HUD + Web Audio.
 // The UI only reads engine.state and calls engine methods. All rules live in the engine.
 
 import { Application } from "pixi.js";
@@ -8,7 +8,7 @@ import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
 import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand } from "./sim/types";
 import { loadArt } from "./ui/art";
-import { Sound } from "./ui/audio";
+import type { Sound } from "./ui/audio";
 import { EdgeTurner } from "./ui/edges";
 import { playIntro } from "./ui/intro";
 import { H, W } from "./ui/layout";
@@ -38,7 +38,7 @@ let engine = new GameEngine({
   seed: Date.now() % 2147483647,
   ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" } } : {}),
 });
-const sound = new Sound();
+let sound: Sound;
 const app = new Application();
 let scene: Scene;
 let artifacts: ReturnType<typeof createArtifacts> | undefined;
@@ -109,10 +109,13 @@ const now = (): number => (paused ? pausedAt : wallTime()) - pauseDuration;
 
 async function boot(): Promise<void> {
   document.title = GAME_TITLE;
+  const audio = import("./ui/audio");
   await app.init({
     width: W, height: H, background: "#000000", antialias: false,
     resolution: Math.min(window.devicePixelRatio || 1, 2), autoStart: false,
   });
+  const { Sound } = await audio;
+  sound = new Sound();
   $("stage").appendChild(app.canvas);
   const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
@@ -196,7 +199,9 @@ function frame(dt: number): void {
     lastPhase = phase;
     if (phase !== "BREACH" && phase !== "NIGHT_CARD") showScreen(phase);
     if (phase === "PLAYING") {
+      sound.setGeneratorPowered(engine.state.power.generatorOn);
       sound.setAmbientPlaying(true);
+      if (engine.state.player.position.kind === "HOLDING") sound.braceStart();
       if (document.hidden) setPaused(true);
     }
   }
@@ -214,8 +219,9 @@ function onEvent(ev: GameEvent, t: number): void {
     case "NIGHT_CARD":
       if (!devRun) writeSave(engine.state.run);
       sound.stopCues();
+      sound.setGeneratorPowered(true);
       sound.fadeStorm(1, 0.9);
-      sound.windowMask = ev.night >= 4 ? 0.55 : 1;
+      if (engine.state.phase === "NIGHT_CARD") sound.nightStart();
       terminal.clear();
       convo = [];
       chudCaption = radioCaption = hintCaption = undefined;
@@ -244,11 +250,13 @@ function onEvent(ev: GameEvent, t: number): void {
         powerAlarmUntil = t + 2.5;
       }
       if (ev.cause === "light") {
+        if (previous !== ev.slot) sound.relay(false);
         sound.lightClick(ev.slot !== "NONE");
         break;
       }
       if (ev.cause === "light_cut") break; // LIGHT_CUT plays the tick
       sound.relay(ev.cause === "sabotage" || ev.cause === "furious" || ev.cause === "kill_switch");
+      if (previous !== ev.slot && ev.slot.startsWith("LOCK_")) sound.lockEngage();
       if (ev.cause === "sabotage") maliciousUntil = Math.max(maliciousUntil, t + MALICE.SABOTAGE_TIME);
       break;
     }
@@ -256,6 +264,7 @@ function onEvent(ev: GameEvent, t: number): void {
       maliciousUntil = t + MALICE.REFUSE_TIME;
       break;
     case "LIGHT_CUT":
+      sound.relay(false);
       sound.lightTick();
       powerAlarmEntry = ev.entry;
       lightCutUntil = powerAlarmUntil = t + 0.9;
@@ -273,6 +282,7 @@ function onEvent(ev: GameEvent, t: number): void {
       if (!ev.online) stopChudSpeech();
       break;
     case "GENERATOR":
+      sound.generator(ev.on);
       powerFlicker = true;
       break;
     case "CHUD_SAY": {
@@ -301,7 +311,7 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     }
     case "RADIO":
-      sound.radio();
+      sound.radio(ev.text);
       radioCaption = { text: ev.text, until: t + 4 };
       break;
     case "HINT":
@@ -316,6 +326,7 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "BREACH":
       stopChudSpeech();
+      sound.stopCues();
       resetScreen();
       show(ui.screen, false);
       artifacts?.read(null);
@@ -323,6 +334,7 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "SAFETY_PAUSE":
       stopChudSpeech();
+      sound.stopCues();
       break;
     case "NIGHT_WON":
     case "GAME_WON": {
@@ -332,9 +344,9 @@ function onEvent(ev: GameEvent, t: number): void {
         writeSave({ night: ev.type === "NIGHT_WON" ? night + 1 : night, factsCheckpoint });
       }
       artifacts?.read(null);
+      stopChudSpeech();
       sound.stopCues();
       sound.setAmbientPlaying(false);
-      sound.fadeStorm(0, 1.9);
       break;
     }
     default:
@@ -474,7 +486,8 @@ function showTitle(): void {
   stopChudSpeech();
   sound.stopCues();
   sound.setAmbientPlaying(false);
-  sound.fadeStorm(0.65, 0.9);
+  sound.fadeStorm(0, 0.9);
+  sound.setTitlePlaying(true);
   const saved = readSave();
   renderTitle(ui.screen, {
     start: () => {
@@ -483,12 +496,12 @@ function showTitle(): void {
     },
     resume: saved ? { night: saved.night, start: () => startRun(saved) } : undefined,
     activateAudio: () => sound.unlock(),
-    tick: () => sound.menuTick(),
   });
   show(ui.screen, true);
 }
 
 function startRun(saved?: SavedRun): void {
+  sound.setTitlePlaying(false);
   resetScreen();
   show(ui.screen, false);
   engine = new GameEngine({
@@ -523,6 +536,10 @@ function showScreen(phase: Phase): void {
   show(ui.screen, phase !== "PLAYING");
   const signal = screenAbort.signal;
   const title = previewing ? endPreview : showTitle;
+  const dawn = previewing ? undefined : () => {
+    sound.dawn();
+    sound.fadeStorm(0, 1.5);
+  };
   switch (phase) {
     case "NAME_PROMPT":
       renderName(ui.screen, (name) => {
@@ -538,10 +555,10 @@ function showScreen(phase: Phase): void {
       renderLoss(ui.screen, title, signal);
       break;
     case "NIGHT_WON":
-      renderMorning(ui.screen, previewing ? endPreview : () => { engine.nextNight(); wake(); }, signal);
+      renderMorning(ui.screen, previewing ? endPreview : () => { engine.nextNight(); wake(); }, signal, dawn);
       break;
     case "GAME_WON":
-      renderMorning(ui.screen, () => renderEnding(ui.screen, title, signal), signal);
+      renderMorning(ui.screen, () => renderEnding(ui.screen, title, signal), signal, dawn);
       break;
     case "SAFETY_PAUSE":
       renderSafetyPause(ui.screen, () => { engine.resumeFromSafetyPause(); wake(); });
@@ -568,13 +585,14 @@ function startScare(l: LossInfo): void {
   }
   after(snap + (l.flash ? SCARE.FLASH_TIME : 0), () => {
     const duration = scene.playScare(l.entry, now());
-    sound.jumpscare();
+    sound.jumpscare(l.entry);
     after(duration, () => {
       scene.clearScare();
       if (engine.state.phase === "BREACH" && !breachShown) {
         breachShown = true;
         sound.setAmbientPlaying(false);
         sound.fadeStorm(0, 0.65);
+        sound.lossStatic();
         showScreen("BREACH");
       }
     });
@@ -619,6 +637,10 @@ function setPaused(on: boolean): void {
 // Input
 
 function wireInput(): void {
+  const menuClick = (ev: MouseEvent): void => {
+    if (ev.target instanceof Element && ev.target.closest("button:not(:disabled)")) sound.menuTick();
+  };
+  ui.screen.addEventListener("click", menuClick, { capture: true });
   terminal.form.addEventListener("submit", (e) => {
     e.preventDefault();
     const text = terminal.chat.value;
@@ -636,7 +658,10 @@ function wireInput(): void {
       if (run === engine && frontScreen === null && !previewing) wake();
     });
   });
-  terminal.chat.addEventListener("input", () => { lastTypedAt = now(); });
+  terminal.chat.addEventListener("input", () => {
+    lastTypedAt = now();
+    sound.keyboard();
+  });
   terminal.chat.addEventListener("blur", () => { lastTypedAt = -Infinity; });
   terminal.chat.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" || e.isComposing) return;
@@ -717,6 +742,7 @@ function onKey(e: KeyboardEvent): void {
     if (terminal.chat.value.length < terminal.chat.maxLength) {
       terminal.chat.value += e.key;
       lastTypedAt = now();
+      sound.keyboard();
     }
     const end = terminal.chat.value.length;
     terminal.chat.setSelectionRange(end, end);
@@ -835,6 +861,7 @@ function enterDevRun(): boolean {
   if (frontScreen === "intro") return false;
   if (previewing) endPreview();
   if (frontScreen === "title") {
+    sound.setTitlePlaying(false);
     resetScreen();
     show(ui.screen, false);
     frontScreen = null;
@@ -883,8 +910,8 @@ function devSkipClock(): void {
     "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "HINT", "SILENCE_PULL",
     "DECOY", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
   ]);
-  for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
   sound.stopCues();
+  for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
 }
 
 function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON"): void {

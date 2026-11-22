@@ -7,7 +7,6 @@ type TitleActions = {
   start: () => void;
   resume?: { night: number; start: () => void };
   activateAudio: () => void;
-  tick: () => void;
 };
 
 export function renderTitle(screen: HTMLElement, actions: TitleActions): void {
@@ -51,10 +50,6 @@ export function renderTitle(screen: HTMLElement, actions: TitleActions): void {
     resume.textContent = `Continue Night ${actions.resume.night}`;
     resume.addEventListener("click", actions.resume.start);
     screen.querySelector("nav")!.append(resume);
-  }
-  for (const option of screen.querySelectorAll("button")) {
-    option.addEventListener("pointerenter", actions.tick);
-    option.addEventListener("focus", actions.tick);
   }
   screen.onpointerdown = actions.activateAudio;
   screen.onkeydown = actions.activateAudio;
