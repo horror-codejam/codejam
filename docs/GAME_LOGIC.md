@@ -81,7 +81,7 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 3. **At 6:00 AM:** the night ends immediately and is won, even if Ram is mid-attempt. The tide wins. Any visit in progress is cancelled with no breach. Then:
    - Save `facts_checkpoint` = current facts.
    - Go to the next night, or to the win ending after night 5.
-4. **On breach:** freeze the game, play the jumpscare, show the loss screen (section 11), then offer "Retry night N". A retry restarts from night start (step 1). Earlier nights stay won.
+4. **On breach:** the breach is an instant jumpscare. Freeze the game, play that entry's opening burst (a few frames of the door, window or hatch flying open, Ram not shown), and at its cut frame go straight into the jumpscare: if the player is looking elsewhere, snap the view to that entry (about 0.15 s), then play the jumpscare clip for that entry. Then show the loss screen (section 11) and offer "Retry night N". A retry restarts from night start (step 1). Earlier nights stay won.
 
 ## 6. The player
 

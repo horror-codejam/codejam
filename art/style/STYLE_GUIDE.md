@@ -43,7 +43,7 @@ Keep CHUD's mood readable in its mouth and eye shapes as well as color. Warm ope
 
 - Establish a stable empty frame first. Keep roughly one third of the composition unclaimed by props so a small change can register.
 - Put the first sign of Ram at a depth break or near the edge of the lit patch. Use the right hatch seam for fingers under a lifting lid, the left window mullion for a hand or half a face, and the rear balcony rail for a broken silhouette.
-- Crop or obscure his head and torso with architecture, rain, darkness, or the edge of the frame. The closest reveal can briefly crowd the opening while still exposing only a fragment.
+- The tells crop or obscure him naturally with architecture, rain, darkness or the edge of the frame. How much of him shows is judged per shot; the jumpscare shows him in full.
 - Favor human details at real scale. Ram's eyes reflect light, his fingers leave clear tracks in condensation, and the rail and balcony doorframe break up his silhouette.
 
 ## Sound to sight
