@@ -14,12 +14,15 @@ export function renderNightCard(screen: HTMLElement, night: number, begin: () =>
   });
 }
 
-export function renderMorning(screen: HTMLElement, next: () => void, signal: AbortSignal): void {
+export function renderMorning(screen: HTMLElement, next: () => void, signal: AbortSignal, dawn?: () => void): void {
   screen.dataset.screen = "morning";
   const time = document.createElement("div");
   time.className = "screen-clock";
   time.textContent = "5:59 AM";
   screen.replaceChildren(time);
-  after(650, signal, () => { time.textContent = "6:00 AM"; });
+  after(650, signal, () => {
+    time.textContent = "6:00 AM";
+    dawn?.();
+  });
   after(2150, signal, next);
 }
