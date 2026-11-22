@@ -261,7 +261,13 @@ function onEvent(ev: GameEvent, t: number): void {
         powerAlarmUntil = t + 2.5;
       }
       if (ev.cause === "light") {
-        if (previous !== ev.slot) sound.relay(false);
+        // The light took the slot from a lock: a loud clunk and the red cell, so a peek never drops a lock silently.
+        const droppedLock = previous.startsWith("LOCK_") && ev.slot.startsWith("LIGHT_");
+        if (droppedLock) {
+          powerAlarmEntry = previous.slice(5) as Entry;
+          powerAlarmUntil = t + 1.5;
+        }
+        if (previous !== ev.slot) sound.relay(droppedLock);
         sound.lightClick(ev.slot !== "NONE");
         break;
       }
