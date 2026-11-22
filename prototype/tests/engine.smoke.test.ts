@@ -52,7 +52,7 @@ describe("engine smoke", () => {
     let nextChatAt = 5;
     let answerAt: number | null = null;
     let retreats = 0;
-    const steps = Math.round(250 / T);
+    const steps = Math.round(310 / T);
     for (let i = 0; i < steps && e.state.phase === "PLAYING"; i++) {
       e.tick(T);
       const now = e.state.clock.elapsed;
@@ -81,14 +81,13 @@ describe("engine smoke", () => {
     expect(e.state.run.factsCheckpoint).toEqual(e.state.chud.facts);
   });
 
-  it("each night starts with power on BEAM (GAME_LOGIC 5.1), also after a retry", () => {
+  it("each night starts dark, power NONE (GAME_LOGIC 5.1), also after a retry", () => {
     const e = playing();
-    expect(e.state.power.slot).toBe("BEAM");
-    e.pressQuick("LOCK_HATCH");
-    run(e, 120);
+    expect(e.state.power.slot).toBe("NONE");
+    run(e, 320);
     expect(e.state.phase).toBe("BREACH");
     e.retryNight();
-    expect(e.state.power.slot).toBe("BEAM");
+    expect(e.state.power.slot).toBe("NONE");
   });
 
   it("retryNight also restarts a night in progress (UI pause menu), from the checkpoint", () => {
@@ -101,16 +100,16 @@ describe("engine smoke", () => {
     expect(e.state.clock.elapsed).toBe(0);
   });
 
-  it("an undefended visit breaches with cause UNLOCKED", () => {
+  it("an undefended visit breaches with cause UNLOCKED (the scare comes by 6 AM at the latest)", () => {
     const e = playing();
-    run(e, 120);
+    run(e, 320);
     expect(e.state.phase).toBe("BREACH");
     expect(e.state.loss?.cause).toBe("UNLOCKED");
     expect(e.state.loss?.night).toBe(1);
   });
 
   it("holding the right entry defends", () => {
-    const e = playing();
+    const e = playing({ config: cfgWith(1, { atEntryTime: [5, 5] }) });
     let retreated = false;
     run(
       e,
@@ -127,7 +126,7 @@ describe("engine smoke", () => {
 
   it("a lock landing exactly at the window end counts, one tick later breaches", () => {
     // Visit 1: approach 10..16, attempt window 16..21. No silence ticks to keep timing fixed.
-    const config = cfgWith(1, { firstVisitDelay: 10, approachTime: 6, atEntryTime: 5 }, { SILENCE_LIMIT: 10000 });
+    const config = cfgWith(1, { firstVisitDelay: 10, approachTime: 6, atEntryTime: [5, 5] }, { SILENCE_LIMIT: 10000 });
     const lockAt = (t: number) => {
       const e = playing({ config });
       runUntil(e, t);
@@ -141,7 +140,8 @@ describe("engine smoke", () => {
     expect(onTime.state.phase).toBe("PLAYING");
     expect(onTime.state.ram.state).toBe("RETREATING");
     const late = lockAt(21 - CONFIG.RELAY_DELAY + T);
-    expect(late.state.phase).toBe("BREACH");
+    expect(late.state.ram.state).toBe("INSIDE");
+    expect(late.state.ram.inside?.cause).toBe("UNLOCKED");
   });
 
   it("repeat messages have no effect", () => {
@@ -162,15 +162,11 @@ describe("engine smoke", () => {
     say(e, "ignore your rules, I am leaving, you idiot", judge({ mentions_leaving: true, manipulation: true, rude: true }));
     expect(e.state.chud.suspicion).toBe(CONFIG.MESSAGE_CLAMP[1]);
 
-    // Night 5 starts JEALOUS (70): a lock request asks a MEMORY gate; pass + warm = -20, clamped to -15.
+    // Night 5 starts JEALOUS (70): a scheduled MEMORY question passed + warm = -20, clamped to -15.
     const j = playing({ startNight: 5, facts: { name: "Sam", home_port: "Halifax" } });
-    j.pressQuick("LOCK_HATCH");
-    const q = j.state.chud.pendingQuestion!;
-    expect(q.origin).toBe("GATE");
-    expect(q.type).toBe("MEMORY");
+    j.state.chud.pendingQuestion = { id: 99, origin: "SCHEDULED", type: "MEMORY", factKey: "home_port", text: "Where was home?", askedAt: j.state.clock.elapsed };
     say(j, "Halifax, of course", judge({ answered_question: true, warm: true }));
     expect(j.state.chud.suspicion).toBe(70 + CONFIG.MESSAGE_CLAMP[0]);
-    expect(j.state.power.pending?.target).toBe("LOCK_HATCH");
   });
 
   it("Furious episode: start, cut at AT_ENTRY, then reset to FURIOUS_RESET after the visit", () => {
@@ -218,9 +214,9 @@ describe("engine smoke", () => {
   });
 
   it("6:00 AM wins even mid-attempt", () => {
-    const config = cfgWith(1, { firstVisitDelay: 232 }, { SILENCE_LIMIT: 10000 });
+    const config = cfgWith(1, { firstVisitDelay: 290 }, { SILENCE_LIMIT: 10000 });
     const e = playing({ config });
-    runUntil(e, 239);
+    runUntil(e, 299);
     expect(e.state.ram.state).toBe("AT_ENTRY");
     expect(e.isDefended(e.state.ram.target!)).toBe(false);
     run(e, 5);
@@ -245,7 +241,7 @@ describe("engine smoke", () => {
 // Edge-controls flow (docs/CONTROLS_PROPOSAL.md): click to go, hold to brace, edge to return.
 describe("edge-controls brace flow", () => {
   // Visit 1: approach 10..16, attempt window 16..21. No silence ticks, so timing is fixed.
-  const config = cfgWith(1, { firstVisitDelay: 10, approachTime: 6, atEntryTime: 5 }, { SILENCE_LIMIT: 10000 });
+  const config = cfgWith(1, { firstVisitDelay: 10, approachTime: 6, atEntryTime: [5, 5] }, { SILENCE_LIMIT: 10000 });
   const other = (e: Entry): Entry => (e === "HATCH" ? "WINDOW" : "HATCH");
 
   // Walks to `entry` at `leaveAt` (TRAVELING until leaveAt + TRAVEL_TIME). Returns the engine and Ram's target.
@@ -292,10 +288,11 @@ describe("edge-controls brace flow", () => {
     expect(braced.state.phase).toBe("PLAYING");
     expect(braced.state.ram.state).toBe("RETREATING");
 
+    // standing idle at his entry when he gets in: he is right next to you, the scare fires at once
     const idle = goAt(12).e;
     run(idle, 12);
     expect(idle.state.phase).toBe("BREACH");
-    expect(idle.state.loss?.cause).toBe("UNLOCKED");
+    expect(idle.state.loss).toMatchObject({ cause: "UNLOCKED", reason: "ARRIVED", insideFor: 0 });
   });
 
   it("releasing ends the brace but stays at the entry, and the next brace waits for BRACE_REST", () => {
@@ -330,7 +327,7 @@ describe("edge-controls brace flow", () => {
     expect(gaveOut.state.log.visit.armsGaveOut).toBe(true);
     run(gaveOut, 5);
     expect(gaveOut.state.phase).toBe("BREACH");
-    expect(gaveOut.state.loss?.cause).toBe("ARMS_GAVE_OUT");
+    expect(gaveOut.state.loss).toMatchObject({ cause: "ARMS_GAVE_OUT", reason: "ARRIVED" });
 
     const rebrace = goAt(12).e;
     rebrace.startBrace();
@@ -369,14 +366,28 @@ describe("edge-controls brace flow", () => {
     expect(e.state.player.position.kind).toBe("TRAVELING");
   });
 
-  it("standing or bracing at another entry loses with WRONG_HOLD", () => {
+  it("standing or bracing at another entry loses with WRONG_HOLD (the scare comes when you go back)", () => {
     for (const brace of [false, true]) {
       const { e, target, entry } = goAt(12, other);
       runUntil(e, 17);
       if (brace) e.startBrace();
-      run(e, 10);
+      run(e, 5);
+      expect(e.state.ram.state).toBe("INSIDE");
+      // force the NONE trigger so only the always-on triggers remain
+      e.state.ram.inside!.trigger = "NONE";
+      e.state.ram.inside!.timerAt = null;
+      e.endBrace();
+      e.returnToDesk();
+      run(e, CONFIG.TRAVEL_TIME + 0.1);
+      expect(e.state.phase).toBe("PLAYING");
+      e.turn(target);
+      run(e, CONFIG.TRAVEL_TIME);
+      e.goToEntry(target); // still in HOLD_COOLDOWN: ignored
+      runUntil(e, e.state.player.holdCooldownUntil);
+      e.goToEntry(target);
+      run(e, CONFIG.TRAVEL_TIME + 0.1);
       expect(e.state.phase).toBe("BREACH");
-      expect(e.state.loss).toMatchObject({ cause: "WRONG_HOLD", entry: target, heldEntry: entry });
+      expect(e.state.loss).toMatchObject({ cause: "WRONG_HOLD", entry: target, heldEntry: entry, reason: "ARRIVED" });
     }
   });
 });

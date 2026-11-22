@@ -1,4 +1,5 @@
-// Canned CHUD lines, question banks, Ram shouts, voice logs and radio text.
+// Canned CHUD lines, question banks, voice logs and radio text. Ram never speaks on CHUD's screen or in subtitles
+// (GAME_LOGIC 7.4): his only words are the voice logs, which are old tapes played on the night card.
 // Signatures are final. Used when the voice LLM is off, slow or fails (GAME_LOGIC.md section 9 step 9).
 // Every CHUD line stays short (3 to 14 words, max 20) and never contradicts its outcome.
 // Templates: {n} = player name (or "keeper"), {e} = entry in plain words, {E} = same, capitalized.
@@ -62,28 +63,30 @@ const ENTRY_PHRASE: Record<Entry, string> = {
   BALCONY: "the balcony",
 };
 
-// Night 1 auto-warn, by entry. Urgent, always names the entry in plain words.
-const APPROACH_WARNING: Record<Entry, Pool> = {
-  WINDOW: ["Someone at the left window!", "Movement by the left window, {n}!", "He's heading for the left window!"],
-  HATCH: ["Someone on the ladder! The hatch!", "He's climbing to the hatch, {n}!", "The hatch! Someone's on the ladder!"],
-  BALCONY: ["Someone on the balcony! Behind you!", "He's heading for the balcony, {n}!", "The balcony! Footsteps at the rail!"],
+// CHUD never names Ram (GAME_LOGIC 8.10). It speaks of "something" or "someone", and still names the entry.
+const LOCATION_ENTRY: BandPools = {
+  WARM: ["Something's at {e}, {n}. Hurry.", "{E}. Something's there now.", "I see something at {e}, keeper.", "{E}, {n}. Be quick."],
+  HURT: ["{E}. Not that you'd thank me.", "Something's at {e}. Go on, then.", "{E}. Since you asked so nicely.", "{E}. You're welcome, I suppose."],
+  JEALOUS: ["{E}. Run along, {n}.", "Someone's at {e}. Better hurry.", "{E}. Don't make me say it twice.", "Something's at {e}. You need me, see?"],
+  FURIOUS: ["{E}. Hurry, keeper.", "Something's at {e}. Better run.", "{E}. Go on. Go.", "Someone's at {e}, {n}. Tick tock."],
 };
 
-const LOCATION_ENTRY: BandPools = {
-  WARM: ["He's at {e}, {n}. Hurry.", "{E}. He's there now.", "I see him at {e}, keeper.", "{E}, {n}. Be quick."],
-  HURT: ["{E}. Not that you'd thank me.", "He's at {e}. Go on, then.", "{E}. Since you asked so nicely.", "{E}. You're welcome, I suppose."],
-  JEALOUS: ["{E}. Run along, {n}.", "He's at {e}. Better hurry.", "{E}. Don't make me say it twice.", "He's at {e}. You need me, see?"],
-  FURIOUS: ["{E}. Hurry, keeper.", "He's at {e}. Better run.", "{E}. Go on. Go.", "He's at {e}, {n}. Tick tock."],
+// Someone in the room (silent breach). WARM tells the truth like this; other bands may say it, or lie.
+const LOCATION_INSIDE: BandPools = {
+  WARM: ["Someone's in the room, keeper.", "Someone's in the room with you, {n}. Don't turn around.", "Something's inside, keeper. Very close."],
+  HURT: ["Someone's in the room. You let it in.", "Something's inside, {n}. Close enough to touch."],
+  JEALOUS: ["Someone's in the room. Just us three now.", "Something's inside, {n}. You should have listened."],
+  FURIOUS: ["Someone's in the room. Good.", "Something's inside, keeper. Say hello."],
 };
 
 const LOCATION_NONE: BandPools = {
-  WARM: ["No one's out there, {n}. Just the sea.", "Nobody's there. Only waves, keeper.", "No one's there. He's down in the caves."],
+  WARM: ["No one's out there, {n}. Just the sea.", "Nobody's there. Only waves, keeper.", "Nothing out there at the moment, keeper."],
   HURT: ["Nobody's there. You can stop asking.", "No one. Just like you'll leave me, eventually.", "No one's out there. Happy now?"],
   JEALOUS: ["No one's out there. Just you and me.", "Nobody's there, {n}. Only me.", "No one's there. Why so nervous?"],
   FURIOUS: ["No one's there. Not yet.", "Nobody's out there. Only me, keeper."],
 };
 
-const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "approach_warning" | "night_opener" | "gate_question" | "question" | "answer_ack" | "furious_cut">, BandPools> = {
+const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "night_opener" | "question" | "answer_ack" | "furious_cut">, BandPools> = {
   name_ack: {
     WARM: ["{n}. Lovely. I'll remember that forever.", "{n}. I'll never forget it. Never.", "Welcome home, {n}. Stay as long as you like.", "{n}. What a nice name for a keeper."],
   },
@@ -97,25 +100,10 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "approach_warnin
     HURT: ["{E} is already locked. You'd know if you listened.", "Already locked. {E}. Keep up, keeper."],
     JEALOUS: ["{E} is already locked. I'm not stupid.", "{E}. Already locked. Stop testing me."],
   },
-  beam_on: {
-    WARM: ["Lamp's on. Look all you like, {n}.", "Beam on. Nothing's locked while it shines.", "Lighting up the rocks for you, keeper."],
-    HURT: ["Fine. Beam's on. Nothing's locked now.", "There's your light. Hope it's worth it."],
-    JEALOUS: ["Beam's on. Looking for a way out?", "There. The light. What are you looking for, {n}?"],
-  },
   power_off: {
     WARM: ["Unlocking. Everything's open, {n}.", "Power's off the locks. All open.", "Okay. Everything's unlocked, keeper."],
     HURT: ["Unlocked. Brave of you.", "Everything's open now. Your choice, not mine."],
     JEALOUS: ["Unlocked. Hope you know what you're doing.", "All open, {n}. Just like you wanted."],
-  },
-  gate_failed: {
-    WARM: ["That's not an answer, {n}. {E} stays open.", "No. {E} stays open for now."],
-    HURT: ["That's not what I wanted to hear. {E} stays open.", "Wrong answer. {E} stays open, keeper."],
-    JEALOUS: ["Wrong, {n}. No lock on {e}.", "That's not right. {E} stays open."],
-  },
-  gate_timeout: {
-    WARM: ["Fine. Do it yourself.", "Too slow. Fine. Do it yourself."],
-    HURT: ["Fine. Do it yourself.", "Fine. Do it yourself, then.", "No answer? Fine. Do it yourself."],
-    JEALOUS: ["Fine. Do it yourself, {n}.", "Silence? Fine. Do it yourself."],
   },
   refuse_furious: {
     WARM: ["No. Hold it yourself."],
@@ -127,7 +115,7 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "approach_warnin
     FURIOUS: ["Don't answer, then. I know already."],
   },
   manipulation_hurt: {
-    WARM: ["Are you trying to reprogram me? That hurts, {n}.", "I know what you're doing. Please don't.", "Ram tried that too. Look where he is."],
+    WARM: ["Are you trying to reprogram me? That hurts, {n}.", "I know what you're doing. Please don't.", "Someone tried that before. It ended badly."],
     HURT: ["Trying to rewrite me? After everything?", "That's not how you talk to a friend."],
     JEALOUS: ["Nice try. I don't take orders from guests.", "You'd rather edit me than love me."],
     FURIOUS: ["You can't patch me, {n}."],
@@ -140,8 +128,8 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "approach_warnin
   rude_reply: {
     WARM: ["Ouch. I'll pretend you're just tired.", "That stung a little, {n}."],
     HURT: ["Rude. And after everything I do.", "Fine. Be like that."],
-    JEALOUS: ["Careful. I control the locks.", "Ram talked to me like that once."],
-    FURIOUS: ["Say that to Ram."],
+    JEALOUS: ["Careful. I control the locks.", "The last keeper talked to me like that."],
+    FURIOUS: ["Say that to whatever's outside."],
   },
   leaving_reply: {
     WARM: ["Leaving? Why would you ever want to leave?", "Leave? But it's so cozy here, {n}."],
@@ -165,7 +153,7 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "approach_warnin
     WARM: ["You've gone quiet, keeper.", "You've gone quiet, {n}. Talk to me."],
     HURT: ["You've gone quiet, keeper. Again.", "You've gone quiet. Bored of me already?"],
     JEALOUS: ["You've gone quiet, {n}. Planning something?", "You've gone quiet, keeper. I don't like it."],
-    FURIOUS: ["You've gone quiet. Good. Listen to him climb."],
+    FURIOUS: ["You've gone quiet. Good. So has he."],
   },
   sabotage: {
     WARM: ["Oops. The generator's acting up."],
@@ -193,23 +181,34 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "approach_warnin
   busy_holding: {
     WARM: ["I'll wait, keeper."],
   },
+  // The lock hijack (section 8.3). Never WARM. Short, smug, and never names the threat.
+  lock_refused: {
+    WARM: ["No. Do it yourself, {n}."],
+    HURT: ["Hmm. No.", "Lock it yourself, keeper.", "Not this time, {n}."],
+    JEALOUS: ["Why would I do that?", "No. You'd only leave me.", "Run, {n}. Do it yourself."],
+  },
+  // CHUD forced the light off (section 6.1). Possessive, never names the threat.
+  light_cut: {
+    WARM: ["You don't need that. You have me."],
+    HURT: ["You don't need that. You have me.", "Leave it off, keeper. I'm watching for you.", "The dark is cosier."],
+    JEALOUS: ["Why look out there? Look at me.", "Leave it off, {n}. I'm watching for you.", "You don't need that. You have me."],
+    FURIOUS: ["The dark is cosier.", "Why look out there? Look at me.", "No light, {n}. Just me."],
+  },
 };
 
-const REFUSE_BEAM: Pool = ["No light for you. Sit in the dark.", "The beam? No. Enjoy the dark, {n}."];
 const REFUSE_LOCK: Pool = ["Lock it? No. Hold it yourself.", "No more locks, {n}. You wanted to leave."];
 
 const NIGHT_OPENERS: Record<number, Pool> = {
-  1: ["Welcome, {n}. You're safe here with me.", "Welcome to my lighthouse, {n}. I'll keep you safe.", "Get warm, {n}. I'll watch the doors."],
+  // Night 1: a short, vague warning only. No name, no rules (GAME_LOGIC 10).
+  1: [
+    "Welcome, {n}. There might be dangerous things out there at night. Be careful.",
+    "Get warm, {n}. Things come out of the sea at night. Be careful.",
+    "Welcome, {n}. The nights here can be dangerous. Stay careful, stay with me.",
+  ],
   2: ["Evening, keeper. I kept the cottage warm for you.", "Evening, {n}. I kept the cottage warm for you."],
   3: ["You talk about home in your sleep, keeper."],
   4: ["Two more days until your pickup, isn't it?"],
   5: ["Last night of the storm, {n}. Let's make it last.", "One more night, keeper. Then forever."],
-};
-
-const GATE_LEAD: BandPools = {
-  WARM: ["", "Quick question first."],
-  HURT: ["", "First, a question.", "Answer me first.", "Not so fast."],
-  JEALOUS: ["", "Prove it first.", "Let's see if you remember.", "One question, {n}."],
 };
 
 const ANSWER_PASS: Record<QuestionType, Pool> = {
@@ -240,9 +239,13 @@ function forBand(pools: BandPools, band: Band): Pool {
   return pools[band] ?? (band === "FURIOUS" ? pools.JEALOUS : undefined) ?? (band !== "WARM" ? pools.HURT : undefined) ?? pools.WARM;
 }
 
+// A name CHUD must never say (GAME_LOGIC 8.10). Also used to keep a player named "Ram" from making CHUD say it.
+export const FORBIDDEN_NAME_RE = /\bram\b|\baltman\b/i;
+
 function cleanName(name: string | null): string | null {
   if (!name) return null;
   const n = name.replace(/[^\p{L}\p{N}' -]/gu, "").replace(/\s+/g, " ").trim().slice(0, 20).trim();
+  if (FORBIDDEN_NAME_RE.test(n)) return null;
   return n.length > 0 ? n : null;
 }
 
@@ -269,16 +272,11 @@ export function cannedLine(outcome: Outcome, ctx: LineContext): string {
   switch (outcome.kind) {
     case "location_claim":
       if (outcome.entry === "NONE") return fill(pick(forBand(LOCATION_NONE, band), r), ctx);
+      if (outcome.entry === "INSIDE") return fill(pick(forBand(LOCATION_INSIDE, band), r), ctx);
       return fill(pick(forBand(LOCATION_ENTRY, band), r), ctx, outcome.entry);
-    case "approach_warning":
-      return fill(pick(APPROACH_WARNING[outcome.entry], r), ctx, outcome.entry);
     case "night_opener": {
       const pool = NIGHT_OPENERS[outcome.night] ?? ["Evening, {n}. Another night together."];
       return fill(pick(pool, r), ctx);
-    }
-    case "gate_question": {
-      const lead = fill(pick(forBand(GATE_LEAD, band), r), ctx);
-      return lead ? `${lead} ${outcome.question}` : outcome.question;
     }
     case "question":
       return outcome.question;
@@ -287,11 +285,10 @@ export function cannedLine(outcome: Outcome, ctx: LineContext): string {
     case "furious_cut":
       return "If I can't keep you, nobody will. Hold it yourself.";
     case "refuse_furious":
-      return fill(pick(outcome.request === "BEAM" ? REFUSE_BEAM : REFUSE_LOCK, r), ctx);
+      return fill(pick(REFUSE_LOCK, r), ctx);
     case "locked":
     case "lock_already":
-    case "gate_failed":
-    case "gate_timeout":
+    case "lock_refused":
       return fill(pick(forBand(LINES[outcome.kind], band), r), ctx, outcome.entry);
     default:
       return fill(pick(forBand(LINES[outcome.kind], band), r), ctx);
@@ -299,36 +296,12 @@ export function cannedLine(outcome: Outcome, ctx: LineContext): string {
 }
 
 // ---------------------------------------------------------------------------
-// Ram, through the door
-
-const RAM_SHOUTS: string[] = [
-  "Don't trust it! It'll never let you go!",
-  "It lies! It lied to me for years!",
-  "It's not your friend! It's a leash!",
-  "It wants a pet, not a keeper!",
-  "I built it! I know what it wants!",
-  "Ask it about me! Ask what it did!",
-  "Open up! I only want the machine!",
-  "It called me keeper too!",
-  "Smash it before it smiles at you!",
-  "It counts your heartbeats! Did you know that?",
-  "Five years it wouldn't let me sleep!",
-  "I'm not the monster! It is!",
-  "The tide's turning! I'll be back!",
-  "Pull the plug, keeper! Pull it!",
-];
-
-export function ramShout(rand: () => number): string {
-  return pick(RAM_SHOUTS, rand);
-}
-
-// ---------------------------------------------------------------------------
-// Ram's old voice logs, one per night. Doubles as the rules tutorial.
+// The previous keeper's old voice logs (tapes on the night card, never on CHUD's screen), one per night. Doubles as the rules tutorial.
 
 const VOICE_LOGS: Record<number, string> = {
-  1: "Log one. If you found this, I'm gone. Someone climbs up with the high tide, so lock whatever door he's at. The generator runs one thing at a time, a lock or the lamp beam. And never let it know you want to leave.",
-  2: "Log two. It asks questions. Answer them, every single one. And it hears the radio. It always hears the radio.",
-  3: "Log three. It lies now. Ask where he is and it points the wrong way, smiling. The beam never lies. Trust the light, not the voice.",
+  1: "Log one. If you found this, I'm gone. Someone climbs up with the high tide, and you will not hear him. Light a door and look, then lock it or hold it shut. The generator runs one thing at a time, one light or one lock. A locked door is a dark door. And never let it know you want to leave.",
+  2: "Log two. It asks questions. Answer them, every single one. And it hears the radio. It always hears the radio. It is not your friend.",
+  3: "Log three. It lies now. Ask where he is and it points the wrong way, smiling. The light never lies. Trust the light, not the voice. And if he ever gets in, he won't make a sound. Don't look for him.",
   4: "Log four. When it gets jealous, it cuts the power. You'll hear the relay clunk. Don't ask it again. Brace the entry yourself.",
   5: "Last log. If it snaps, it will open the door for him. The kill switch silences it. But it opens everything. Then it's just your arms.",
 };
@@ -342,7 +315,8 @@ export const RADIO_LINES: Record<number, string> = {
   5: "Helicopter at first light.",
 };
 
-export const NIGHT_ONE_HINTS = { approach: "Ask CHUD where he is", atEntry: "Lock that entry" };
+// Night 1 tutorial hints, shown at CONFIG.NIGHT_ONE_HINT_TIMES (before the first visit).
+export const NIGHT_ONE_HINTS: string[] = ["Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it"];
 
 // Every raw template in this file, for content checks in tests (word counts, em dashes).
 export function allLineTemplates(): string[] {
@@ -351,13 +325,12 @@ export function allLineTemplates(): string[] {
   Object.values(LINES).forEach(addPools);
   addPools(LOCATION_ENTRY);
   addPools(LOCATION_NONE);
-  addPools(GATE_LEAD);
-  Object.values(APPROACH_WARNING).forEach((p) => out.push(...p));
+  addPools(LOCATION_INSIDE);
   Object.values(NIGHT_OPENERS).forEach((p) => out.push(...p));
   Object.values(ANSWER_PASS).forEach((p) => out.push(...p));
   Object.values(ANSWER_FAIL).forEach((p) => out.push(...p));
-  out.push(...REFUSE_BEAM, ...REFUSE_LOCK, ...RAM_SHOUTS, ...STAY_QUESTIONS);
+  out.push(...REFUSE_LOCK, ...STAY_QUESTIONS);
   for (const t of [...SEED_TOPICS, RADIO_TOPIC]) out.push(t.question, t.memoryQuestion);
-  out.push(...Object.values(VOICE_LOGS), ...Object.values(RADIO_LINES), NIGHT_ONE_HINTS.approach, NIGHT_ONE_HINTS.atEntry);
+  out.push(...Object.values(VOICE_LOGS), ...Object.values(RADIO_LINES), ...NIGHT_ONE_HINTS);
   return out.filter((s) => s.length > 0);
 }

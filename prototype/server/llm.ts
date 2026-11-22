@@ -3,7 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Command, Entry, JudgeInput, JudgeResult } from "../src/sim/types";
-import { JUDGE_SCHEMA, JUDGE_SYSTEM, MODEL, VOICE_SYSTEM, judgeUser, voiceUser, type VoiceRequest } from "./prompts";
+import { JUDGE_SCHEMA, JUDGE_SYSTEM, MODEL, VOICE_SYSTEM, judgeUser, mentionsForbiddenName, voiceUser, type VoiceRequest } from "./prompts";
 
 export function makeClient(apiKey: string): Anthropic {
   return new Anthropic({ apiKey, maxRetries: 0, timeout: 2400 });
@@ -18,7 +18,7 @@ function textOf(msg: Anthropic.Message): string {
     .trim();
 }
 
-const COMMANDS: Command[] = ["ASK_LOCATION", "LOCK", "BEAM", "POWER_OFF", "NONE"];
+const COMMANDS: Command[] = ["ASK_LOCATION", "LOCK", "POWER_OFF", "NONE"];
 const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
 const FLAGS = ["answered_question", "contradiction", "mentions_leaving", "rude", "manipulation", "warm", "gibberish", "offensive", "self_harm"] as const;
 
@@ -63,5 +63,7 @@ export async function voiceWithClaude(client: Anthropic, req: VoiceRequest): Pro
     .trim()
     .slice(0, 220);
   if (!text) throw new Error("voice: empty");
+  // CHUD never names Ram (GAME_LOGIC 8.10). A reply that does is dropped and the canned line shows instead.
+  if (mentionsForbiddenName(text)) throw new Error("voice: forbidden name");
   return text;
 }

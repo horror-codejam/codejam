@@ -5,12 +5,37 @@
 export type Entry = "WINDOW" | "HATCH" | "BALCONY";
 export const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
 export type View = "DESK" | Entry;
-export type PowerSlot = "NONE" | "LOCK_WINDOW" | "LOCK_HATCH" | "LOCK_BALCONY" | "BEAM";
+// One power slot, one thing at a time (GAME_LOGIC 2): a light for one entry, or a lock for one entry, or nothing.
+export type PowerSlot =
+  | "NONE"
+  | "LIGHT_WINDOW"
+  | "LIGHT_HATCH"
+  | "LIGHT_BALCONY"
+  | "LOCK_WINDOW"
+  | "LOCK_HATCH"
+  | "LOCK_BALCONY";
 export const lockSlot = (e: Entry): PowerSlot => `LOCK_${e}` as PowerSlot;
+export const lightSlot = (e: Entry): PowerSlot => `LIGHT_${e}` as PowerSlot;
+export const slotEntry = (slot: PowerSlot): Entry | null => (slot === "NONE" ? null : (slot.slice(slot.indexOf("_") + 1) as Entry));
+export const isLockSlot = (slot: PowerSlot): boolean => slot.startsWith("LOCK_");
+export const isLightSlot = (slot: PowerSlot): boolean => slot.startsWith("LIGHT_");
 export type Band = "WARM" | "HURT" | "JEALOUS" | "FURIOUS";
-export type RamState = "AWAY" | "APPROACHING" | "AT_ENTRY" | "RETREATING";
+// INSIDE: the attempt ended undefended and he is in the room, silent, until the scare (GAME_LOGIC 7.7).
+export type RamState = "AWAY" | "APPROACHING" | "AT_ENTRY" | "RETREATING" | "INSIDE";
 export type QuestionType = "SEED" | "STAY" | "MEMORY";
-export type Command = "ASK_LOCATION" | "LOCK" | "BEAM" | "POWER_OFF" | "NONE";
+export type Command = "ASK_LOCATION" | "LOCK" | "POWER_OFF" | "NONE";
+
+// What CHUD can claim about Ram's whereabouts: an entry, no one, or in the room with you.
+export type LocationClaim = Entry | "NONE" | "INSIDE";
+
+// The extra scare trigger rolled at each silent breach (GAME_LOGIC 7.7). Looking at him with his entry's light on,
+// putting down an artifact, walking up to his entry and 6:00 AM always trigger the scare as well.
+export type InsideTrigger = "TIMER" | "NONE" | "MOVE";
+// What actually set off the scare.
+export type ScareReason = "LOOK" | "ARTIFACT" | "TIMER" | "MOVE" | "ARRIVED" | "DAWN";
+
+// Decoy noises (GAME_LOGIC 7.4): random room sounds that never depend on Ram.
+export type DecoySound = "creak" | "knock" | "metal" | "glass";
 
 export type Phase =
   | "NAME_PROMPT" // fresh game, CHUD asks the player's name (setName)
@@ -33,12 +58,11 @@ export type PlayerPosition =
 
 export interface PendingQuestion {
   id: number;
-  origin: "SCHEDULED" | "GATE" | "SCRIPT";
+  origin: "SCHEDULED" | "SCRIPT";
   type: QuestionType;
   factKey: string | null; // SEED: key the answer will be stored under. MEMORY: key being checked.
   text: string;
   askedAt: number;
-  gateFor: Entry | null; // GATE only: the lock request waiting on this answer
 }
 
 export type Facts = Record<string, string>;
@@ -59,6 +83,8 @@ export interface GameState {
     holdCooldownUntil: number;
     lastMessageAt: number; // -Infinity if none, for the rate limit
     lastQuickAt: number;
+    reading: string | null; // id of the desk artifact being read (full-screen), null if none
+    lightHeld: boolean; // Shift held: the light of the viewed entry is on (section 6.1)
   };
   power: {
     slot: PowerSlot;
@@ -66,6 +92,7 @@ export interface GameState {
     chudOnline: boolean;
     generatorOn: boolean; // kill switch position
     rebootingUntil: number | null;
+    lightCutAt: number | null; // CHUD will force the current light off at this time (rolled at light-on)
   };
   ram: {
     state: RamState;
@@ -76,22 +103,23 @@ export interface GameState {
     fakeOutAt: number | null; // elapsed time of the planned switch, null if none
     pendingPull: number; // silence pulls owed to the next AWAY gap (count)
     lastTarget: Entry | null; // night 1 no-repeat rule
+    attemptLength: number; // the current (or last) attempt window, rolled per visit
+    lastGap: { length: number; kind: "first" | "normal" | "lull" | "quick" } | null; // for the dev panel
+    inside: InsideInfo | null; // set while state is INSIDE
   };
   chud: {
     suspicion: number;
     band: Band;
     pendingQuestion: PendingQuestion | null;
-    // A scheduled or script question set aside while a gate question is pending (section 13:
-    // "the scheduled question keeps its timer"). Restored as pendingQuestion when the gate resolves.
-    suspendedQuestion?: PendingQuestion | null;
     queuedScriptQuestion: PendingQuestion | null; // radio question waiting for a free slot
     facts: Facts;
-    lastLocationClaim: Entry | "NONE" | null; // null = never asked
-    visitDecision: { visitId: number; lie: boolean; entry: Entry | "NONE"; rolledAfterFake: boolean } | null;
+    lastLocationClaim: LocationClaim | null; // null = never asked
+    visitDecision: { visitId: number; lie: boolean; entry: LocationClaim; rolledAfterFake: boolean; rolledInside: boolean } | null;
     lastSabotageHour: number | null;
     sabotageRolledVisit: number | null;
     furiousActive: boolean;
     furiousCutDone: boolean;
+    lastLightCutLineAt: number; // rate limit for the light_cut line
     furiousVisitId: number | null; // visit the episode covers
     questionPlan: QuestionPlanItem[];
     usedSeedKeys: string[];
@@ -108,22 +136,39 @@ export interface GameState {
       sabotaged: boolean;
       furiousCut: boolean;
       armsGaveOut: boolean; // a hold of the target entry ended by HOLD_MAX during AT_ENTRY
-      claimThisVisit: Entry | "NONE" | null;
+      claimThisVisit: LocationClaim | null;
+      peekedFrom: Entry | null; // a lock on this entry was dropped for a light while he was on this visit
+      refusedEntry: Entry | null; // CHUD refused to lock this entry (his target) during this visit
     };
     scriptedFired: string[];
-    nightOneHintsShown: boolean;
+    nightOneHintsShown: number; // how many of the night 1 hints have been shown
   };
+  decoy: { nextAt: number; count: number }; // decoy noise schedule (own RNG stream, never reads Ram)
   loss: LossInfo | null;
 }
 
-export type LossCause = "UNLOCKED" | "LIED" | "SABOTAGE" | "FURIOUS" | "WRONG_HOLD" | "ARMS_GAVE_OUT" | "POWER_OFF";
+export type LossCause = "UNLOCKED" | "LIED" | "SABOTAGE" | "FURIOUS" | "WRONG_HOLD" | "PEEKED" | "REFUSED" | "ARMS_GAVE_OUT" | "POWER_OFF";
+
+// Ram in the room after a silent breach. The cause is decided at the breach moment; the scare comes later.
+export interface InsideInfo {
+  entry: Entry;
+  since: number; // elapsed time he got in
+  trigger: InsideTrigger; // the rolled extra trigger
+  timerAt: number | null; // TIMER: when the scare fires wherever the player is
+  cause: LossCause;
+  heldEntry: Entry | null;
+  lastClaim: LocationClaim | null; // CHUD's last location claim at the breach moment (loss screen)
+}
 
 export interface LossInfo {
   night: number;
   entry: Entry;
   cause: LossCause;
-  lastClaim: Entry | "NONE" | null;
+  lastClaim: LocationClaim | null;
   heldEntry: Entry | null; // for WRONG_HOLD
+  reason: ScareReason; // what set off the scare
+  flash: boolean; // the player saw him first: the creepy still before the jumpscare
+  insideFor: number; // seconds he was in the room before the scare
 }
 
 // What the judge (LLM or offline) returns. Exactly the schema in GAME_LOGIC.md section 9 step 4.
@@ -176,13 +221,11 @@ export type Outcome =
   | { kind: "night_opener"; night: number }
   | { kind: "locked"; entry: Entry } // lock request accepted (lands after RELAY_DELAY)
   | { kind: "lock_already"; entry: Entry }
-  | { kind: "beam_on" }
   | { kind: "power_off" } // unlock / power off request
-  | { kind: "gate_question"; entry: Entry; question: string }
-  | { kind: "gate_failed"; entry: Entry }
-  | { kind: "gate_timeout"; entry: Entry } // "Fine. Do it yourself."
-  | { kind: "refuse_furious"; request: "LOCK" | "BEAM" }
-  | { kind: "location_claim"; entry: Entry | "NONE" } // never told whether it is a lie
+  | { kind: "lock_refused"; entry: Entry } // CHUD hijacks the lock: a malicious smile, no lock
+  | { kind: "light_cut" } // CHUD forced the player's light off: a short possessive line
+  | { kind: "refuse_furious"; request: "LOCK" }
+  | { kind: "location_claim"; entry: LocationClaim } // never told whether it is a lie
   | { kind: "question"; question: string; type: QuestionType }
   | { kind: "answer_ack"; pass: boolean; type: QuestionType }
   | { kind: "question_timeout" }
@@ -196,25 +239,28 @@ export type Outcome =
   | { kind: "sabotage" } // "Oops. The generator's acting up."
   | { kind: "furious_start" }
   | { kind: "furious_cut" } // "If I can't keep you, nobody will. Hold it yourself."
-  | { kind: "approach_warning"; entry: Entry } // night 1, WARM
   | { kind: "radio_reaction" }
   | { kind: "reboot_back" }
   | { kind: "morning" }
   | { kind: "busy_holding" }; // never spoken by CHUD, reserved
 
-export type Shout = string;
-
-export type PowerCause = "player" | "gate_pass" | "sabotage" | "furious" | "kill_switch" | "reboot";
+export type PowerCause = "player" | "light" | "light_cut" | "sabotage" | "furious" | "kill_switch" | "reboot";
 
 export type GameEvent =
   | { type: "NIGHT_CARD"; night: number; voiceLog: string }
   | { type: "NIGHT_START"; night: number }
   | { type: "HOUR"; hour: number }
-  | { type: "RAM_APPROACH"; visitId: number } // splashing on rock, same for every target
-  | { type: "RAM_FAKE_OUT"; visitId: number; from: Entry; to: Entry } // silent, dev panel only
-  | { type: "RAM_AT_ENTRY"; visitId: number; entry: Entry } // entry audio cue starts
-  | { type: "RAM_RETREAT"; visitId: number; entry: Entry; shout: Shout }
+  // Ram events are silent by rule (GAME_LOGIC 7.4): the UI must never play a sound or show text for them.
+  | { type: "RAM_APPROACH"; visitId: number }
+  | { type: "RAM_FAKE_OUT"; visitId: number; from: Entry; to: Entry }
+  | { type: "RAM_AT_ENTRY"; visitId: number; entry: Entry }
+  | { type: "RAM_RETREAT"; visitId: number; entry: Entry }
   | { type: "RAM_AWAY"; nextVisitAt: number }
+  | { type: "RAM_INSIDE"; entry: Entry; trigger: InsideTrigger }
+  | { type: "DECOY"; sound: DecoySound; pan: number } // pan -1 (left) .. 1 (right)
+  | { type: "ARTIFACT"; id: string | null } // picked up (id) or put down (null)
+  | { type: "LOCK_REFUSED"; entry: Entry } // CHUD hijacked a lock request: the malicious smile
+  | { type: "LIGHT_CUT"; entry: Entry; band: Band } // CHUD forced the light off: flicker, tick, smile in JEALOUS/FURIOUS
   | { type: "SILENCE_PULL"; newEndsAt: number | null }
   | { type: "POWER_REQUESTED"; target: PowerSlot; landsAt: number }
   | { type: "POWER_CHANGED"; slot: PowerSlot; cause: PowerCause }
@@ -247,9 +293,15 @@ export type RejectReason =
   | "RATE_LIMIT"
   | "TOO_LONG"
   | "EMPTY"
-  | "NOT_PLAYING";
+  | "NOT_PLAYING"
+  | "READING";
 
-export type QuickCommand = "ASK_LOCATION" | "LOCK_WINDOW" | "LOCK_HATCH" | "LOCK_BALCONY" | "BEAM" | "POWER_OFF";
+export type QuickCommand =
+  | "ASK_LOCATION"
+  | "LOCK_WINDOW"
+  | "LOCK_HATCH"
+  | "LOCK_BALCONY"
+  | "POWER_OFF";
 
 // Returned by submitMessage. The caller runs the judge (LLM or offline) on `judgeInput`,
 // then calls applyJudge(ticket.id, result or null). null means the judge failed or timed out.
@@ -266,7 +318,8 @@ export interface MessageTicket {
 }
 
 // What a view shows of Ram right now. Pure function of state, used by the UI and tests.
-export type RamVisual = "none" | "approach_silhouette" | "tell_faint" | "tell_clear";
+// "inside": he is in the room at that entry and its light is on (the creepy flash, then the scare).
+export type RamVisual = "none" | "approach_silhouette" | "tell_faint" | "tell_clear" | "inside";
 
 export interface EngineOptions {
   seed?: number;
@@ -292,6 +345,9 @@ export interface IGameEngine {
 
   // Player
   turn(view: View): void; // only when position is DESK
+  setLight(on: boolean): void; // Shift held or released: the light of the viewed entry (the player's, not CHUD's)
+  pickUpArtifact(id: string): void; // DESK position and view: read a desk artifact full-screen (the night keeps running)
+  putDownArtifact(): void; // put it down; if Ram is inside, the scare fires now
   startHold(entry: Entry): void; // GAME_LOGIC 6.4 flow: dash, then HOLDING, then RETURNING when the hold ends
   backToDesk(): void; // while HOLDING (either flow) or STANDING; in the edge flow same as returnToDesk
   // Edge-controls flow (docs/CONTROLS_PROPOSAL.md): click to go, hold to brace, edge to return

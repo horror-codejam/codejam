@@ -1,20 +1,22 @@
 // Every tuning knob from docs/GAME_LOGIC.md section 14. Times are in seconds of game time.
 // Change numbers here only. Rule changes go in docs/GAME_LOGIC.md and docs/DECISIONS.md.
 
-import type { Entry, QuestionType } from "./sim/types";
+import type { Band, Entry, InsideTrigger, QuestionType } from "./sim/types";
 
 export interface NightParams {
   activeEntries: Entry[];
   firstVisitDelay: number;
-  awayGap: [number, number]; // random, inclusive range
+  awayGap: [number, number]; // base range, random; then times the hour ramp (GAME_LOGIC 7.6)
   approachTime: number;
-  atEntryTime: number; // attempt window
+  atEntryTime: [number, number]; // attempt window, random per visit
+  lullChance: number; // 0..1, a rolled gap is multiplied by LULL_MULT
+  quickReturnChance: number; // 0..1, after a retreat the next gap is QUICK_RETURN_GAP instead
+  decoyInterval: [number, number]; // seconds between decoy noises, random
   fakeOutChance: number; // 0..1
   startingSuspicion: number;
   questionMix: QuestionType[]; // scheduled questions, count = length
   lieChanceHurt: number; // 0..1
   lieChanceJealous: number; // 0..1
-  autoWarnAtApproach: boolean; // WARM only
   questionsMayLandDuringAttempt: boolean; // nights 3+
 }
 
@@ -32,12 +34,23 @@ export interface Config {
   SILENCE_LIMIT: number;
   SILENCE_PULL: number; // fraction of remaining AWAY time cut per silence tick
   MIN_AWAY_GAP: number;
+  HOUR_RAMP: number[]; // AWAY gap multiplier by in-game hour, index 0 = 12 AM
+  LULL_MULT: number;
+  QUICK_RETURN_GAP: [number, number];
+  // Silent breach (GAME_LOGIC 7.7): the extra scare trigger rolled per breach, as weights, and the TIMER delay.
+  INSIDE_TRIGGER_WEIGHTS: Record<InsideTrigger, number>;
+  INSIDE_TIMER: [number, number];
+  NIGHT_ONE_HINT_TIMES: number[]; // elapsed seconds of the night 1 tutorial hints (before the first visit)
   TICK: number; // fixed simulation step
   MESSAGE_RATE_LIMIT: number;
   QUICK_BUTTON_COOLDOWN: number;
   MAX_MESSAGE_LENGTH: number;
   REPEAT_WINDOW: number; // last N messages checked for repeats
   WARM_BONUS_COOLDOWN: number;
+  LOCK_REFUSAL: Record<Band, number>; // chance CHUD hijacks a lock request, by band (section 8.3)
+  LIGHT_CUT: Record<Band, number>; // chance CHUD forces a light off, rolled once per light-on (section 6.1)
+  LIGHT_CUT_DELAY: [number, number]; // seconds after the light came on that the cut lands
+  LIGHT_CUT_LINE_GAP: number; // min seconds between CHUD's possessive lines on cuts (cuts themselves are not limited)
   SABOTAGE_CHANCE: number;
   SABOTAGE_MARGIN: number; // seconds needed beyond TRAVEL_TIME
   FURIOUS_RESET: number;
@@ -67,76 +80,86 @@ export const CONFIG: Config = {
   nights: [
     {
       activeEntries: ["HATCH", "WINDOW"],
-      firstVisitDelay: 25,
-      awayGap: [35, 55],
-      approachTime: 6,
-      atEntryTime: 5,
+      firstVisitDelay: 60,
+      awayGap: [50, 70],
+      approachTime: 7,
+      atEntryTime: [9, 11],
+      lullChance: 0,
+      quickReturnChance: 0,
+      decoyInterval: [15, 30],
       fakeOutChance: 0,
       startingSuspicion: 0,
       questionMix: ["SEED"],
       lieChanceHurt: 0.2,
       lieChanceJealous: 0.5,
-      autoWarnAtApproach: true,
       questionsMayLandDuringAttempt: false,
     },
     {
       activeEntries: ["HATCH", "WINDOW", "BALCONY"],
-      firstVisitDelay: 20,
-      awayGap: [22, 34],
-      approachTime: 5,
-      atEntryTime: 4.5,
+      firstVisitDelay: 40,
+      awayGap: [36, 52],
+      approachTime: 6,
+      atEntryTime: [8, 10],
+      lullChance: 0.15,
+      quickReturnChance: 0,
+      decoyInterval: [12, 25],
       fakeOutChance: 0,
       startingSuspicion: 10,
       questionMix: ["SEED", "SEED", "STAY"],
       lieChanceHurt: 0.2,
       lieChanceJealous: 0.5,
-      autoWarnAtApproach: false,
       questionsMayLandDuringAttempt: false,
     },
     {
       activeEntries: ["HATCH", "WINDOW", "BALCONY"],
-      firstVisitDelay: 15,
-      awayGap: [14, 24],
-      approachTime: 4.5,
-      atEntryTime: 4,
+      firstVisitDelay: 30,
+      awayGap: [32, 46],
+      approachTime: 5,
+      atEntryTime: [7, 9],
+      lullChance: 0.15,
+      quickReturnChance: 0.15,
+      decoyInterval: [10, 20],
       fakeOutChance: 0,
       startingSuspicion: 30,
       questionMix: ["SEED", "STAY", "MEMORY", "MEMORY"],
       lieChanceHurt: 0.25,
       lieChanceJealous: 0.55,
-      autoWarnAtApproach: false,
       questionsMayLandDuringAttempt: true,
     },
     {
       activeEntries: ["HATCH", "WINDOW", "BALCONY"],
-      firstVisitDelay: 12,
-      awayGap: [9, 15],
-      approachTime: 4,
-      atEntryTime: 3.5,
+      firstVisitDelay: 20,
+      awayGap: [28, 42],
+      approachTime: 4.5,
+      atEntryTime: [6, 8],
+      lullChance: 0.15,
+      quickReturnChance: 0.2,
+      decoyInterval: [8, 16],
       fakeOutChance: 0.3,
       startingSuspicion: 50,
       questionMix: ["SEED", "STAY", "MEMORY", "MEMORY", "MEMORY"],
       lieChanceHurt: 0.3,
       lieChanceJealous: 0.6,
-      autoWarnAtApproach: false,
       questionsMayLandDuringAttempt: true,
     },
     {
       activeEntries: ["HATCH", "WINDOW", "BALCONY"],
-      firstVisitDelay: 10,
-      awayGap: [6, 11],
-      approachTime: 3.5,
-      atEntryTime: 3,
+      firstVisitDelay: 15,
+      awayGap: [25, 37],
+      approachTime: 4,
+      atEntryTime: [5, 7],
+      lullChance: 0.15,
+      quickReturnChance: 0.25,
+      decoyInterval: [6, 14],
       fakeOutChance: 0.4,
       startingSuspicion: 70,
       questionMix: ["STAY", "STAY", "MEMORY", "MEMORY", "MEMORY", "MEMORY"],
       lieChanceHurt: 0.35,
       lieChanceJealous: 0.65,
-      autoWarnAtApproach: false,
       questionsMayLandDuringAttempt: true,
     },
   ],
-  HOUR_LENGTH: 40,
+  HOUR_LENGTH: 50,
   NIGHT_HOURS: 6,
   RETREAT_TIME: 3,
   RELAY_DELAY: 0.5,
@@ -148,12 +171,22 @@ export const CONFIG: Config = {
   SILENCE_LIMIT: 20,
   SILENCE_PULL: 0.25,
   MIN_AWAY_GAP: 4,
+  HOUR_RAMP: [1.25, 1.15, 1.0, 0.95, 0.85, 0.8],
+  LULL_MULT: 1.8,
+  QUICK_RETURN_GAP: [4, 7],
+  INSIDE_TRIGGER_WEIGHTS: { TIMER: 0.4, NONE: 0.3, MOVE: 0.3 },
+  INSIDE_TIMER: [4, 12],
+  NIGHT_ONE_HINT_TIMES: [8, 24, 40],
   TICK: 0.05,
   MESSAGE_RATE_LIMIT: 1.5,
   QUICK_BUTTON_COOLDOWN: 0.5,
   MAX_MESSAGE_LENGTH: 200,
   REPEAT_WINDOW: 5,
   WARM_BONUS_COOLDOWN: 15,
+  LOCK_REFUSAL: { WARM: 0, HURT: 0.25, JEALOUS: 0.55, FURIOUS: 1 },
+  LIGHT_CUT: { WARM: 0, HURT: 0.25, JEALOUS: 0.5, FURIOUS: 0.85 },
+  LIGHT_CUT_DELAY: [1.0, 2.5],
+  LIGHT_CUT_LINE_GAP: 5,
   SABOTAGE_CHANCE: 0.5,
   SABOTAGE_MARGIN: 1.0,
   FURIOUS_RESET: 80,
@@ -175,7 +208,7 @@ export const CONFIG: Config = {
     warm: -5,
   },
   bands: { hurtFrom: 40, jealousFrom: 70, furiousAt: 100 },
-  scheduledQuestionWindow: [15, 225],
+  scheduledQuestionWindow: [15, 285],
   scheduledQuestionMinSpacing: 25,
 };
 

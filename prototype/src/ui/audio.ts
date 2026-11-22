@@ -1,25 +1,26 @@
-// Synthesized placeholder sound with Web Audio. Every cue from GAME_LOGIC.md 7.4 exists here as a
-// procedural stand-in so the loop is playable by ear. Real recordings replace these one by one.
+// Sound with Web Audio. Ram makes no sound at all (GAME_LOGIC 7.4): what you hear is the storm, the ambient bed
+// (public/audio/amb/ambient-noise.m4a), decoy noises of the house, the player, CHUD, the lights and the jumpscare
+// (public/audio/sfx/jumpscare.wav). Synth stand-ins cover everything that has no recording yet.
 
-import type { Entry } from "../sim/types";
-
-type Where = "left" | "right" | "behind" | "center";
-const WHERE: Record<Entry, Where> = { WINDOW: "left", HATCH: "right", BALCONY: "behind" };
 
 export class Sound {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
   private noise!: AudioBuffer;
   private loops = new Map<string, () => void>();
+  private ambient: HTMLAudioElement | null = null;
+  private jumpBuf: AudioBuffer | null = null;
   windowMask = 1; // the storm masks the window more on nights 4 and 5
 
   // UI pause: freeze every scheduled sound and loop, resume where they were.
   suspend(): void {
     if (this.ctx) void this.ctx.suspend();
+    this.ambient?.pause();
   }
 
   resume(): void {
     if (this.ctx) void this.ctx.resume();
+    if (this.ambient) void this.ambient.play().catch(() => undefined);
   }
 
   unlock(): void {
@@ -40,30 +41,8 @@ export class Sound {
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.storm();
-  }
-
-  private out(where: Where): AudioNode {
-    const ctx = this.ctx!;
-    if (where === "center") return this.master;
-    const p = ctx.createPanner();
-    p.panningModel = "HRTF";
-    p.distanceModel = "inverse";
-    p.refDistance = 1;
-    const pos = where === "left" ? [-2, 0, -0.3] : where === "right" ? [2, -0.6, -0.3] : [0, 0, 2];
-    p.positionX.value = pos[0];
-    p.positionY.value = pos[1];
-    p.positionZ.value = pos[2];
-    if (where === "behind") {
-      // HRTF front/back is weak on headphones; a duller tone sells "behind"
-      const lp = ctx.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 1800;
-      lp.connect(p);
-      p.connect(this.master);
-      return lp;
-    }
-    p.connect(this.master);
-    return p;
+    this.startAmbient();
+    this.loadJumpscare();
   }
 
   private burst(dest: AudioNode, dur: number, type: BiquadFilterType, freq: number, gain: number, q = 1, freqEnd?: number, delay = 0): void {
@@ -150,62 +129,114 @@ export class Sound {
     this.burst(this.master, 2.5, "lowpass", 140, 0.35, 0.7, 60, 0.4 + Math.random() * 0.6);
   }
 
-  // --- Ram (GAME_LOGIC 7.4) ---------------------------------------------------
+  // --- the ambient bed (public/audio/amb/ambient-noise.m4a) -------------------------
 
-  approachStart(): void {
-    if (!this.ctx) return;
-    // splashing and climbing on wet rock, same for every target, not directional
-    this.loop("approach", 420, (i) => {
-      this.burst(this.master, 0.18, "bandpass", 900 + Math.random() * 700, 0.12, 0.8);
-      if (i % 3 === 0) this.tone(this.master, 70, 0.15, "sine", 0.15);
-    });
+  private startAmbient(): void {
+    if (this.ambient) return;
+    const a = new Audio(`${import.meta.env.BASE_URL}audio/amb/ambient-noise.m4a`);
+    a.loop = true;
+    a.volume = 0.45;
+    a.preload = "auto";
+    this.ambient = a;
+    void a.play().catch(() => undefined); // unlock() runs inside a click, so this is allowed
   }
 
-  approachStop(): void {
-    this.stop("approach");
+  private loadJumpscare(): void {
+    const ctx = this.ctx!;
+    void fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare.wav`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((b) => (this.jumpBuf = b))
+      .catch((err) => console.warn("jumpscare.wav failed to load, using the synth burst", err));
   }
 
-  entryStart(entry: Entry): void {
+  // --- Ram is silent (GAME_LOGIC 7.4). Decoys are the house settling, never him. ------
+
+  // A decoy noise, panned in stereo (-1 left .. 1 right). Decided by the engine's decoy stream only.
+  decoy(sound: "creak" | "knock" | "metal" | "glass", pan: number): void {
     if (!this.ctx) return;
-    this.stop("approach");
-    const dest = this.out(WHERE[entry]);
-    if (entry === "HATCH") {
-      // metal rungs clatter below right, then the lid knocks. Loud
-      this.loop("entry", 520, (i) => {
-        if (i < 3) {
-          this.tone(dest, 410, 0.25, "square", 0.08);
-          this.tone(dest, 633, 0.2, "triangle", 0.1, 0.01);
-          this.burst(dest, 0.08, "highpass", 3000, 0.1);
-        } else {
-          this.tone(dest, 95, 0.18, "sine", 0.6);
-          this.burst(dest, 0.12, "lowpass", 400, 0.5);
-          this.tone(dest, 90, 0.16, "sine", 0.5, 0.18);
-        }
-      });
-    } else if (entry === "WINDOW") {
-      // soft tapping on glass, left. Quiet
-      const g = 0.09 * this.windowMask;
-      this.loop("entry", 650, () => {
-        this.burst(dest, 0.03, "highpass", 3500, g, 2);
-        this.tone(dest, 2400, 0.05, "sine", g * 0.6);
-        this.burst(dest, 0.03, "highpass", 3200, g * 0.8, 2, undefined, 0.14);
-      });
+    const ctx = this.ctx;
+    const p = ctx.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    const g = ctx.createGain();
+    g.gain.value = 0.7;
+    g.connect(p).connect(this.master);
+    const t = ctx.currentTime;
+    if (sound === "creak") {
+      const dur = 0.5 + Math.random() * 0.5;
+      const o = ctx.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(26 + Math.random() * 10, t);
+      o.frequency.linearRampToValueAtTime(18 + Math.random() * 6, t + dur);
+      const f = ctx.createBiquadFilter();
+      f.type = "bandpass";
+      f.frequency.value = 800 + Math.random() * 500;
+      f.Q.value = 6;
+      const eg = ctx.createGain();
+      eg.gain.setValueAtTime(0.0001, t);
+      eg.gain.exponentialRampToValueAtTime(0.18, t + 0.08);
+      eg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(f).connect(eg).connect(g);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    } else if (sound === "knock") {
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        this.tone(g, 90 + Math.random() * 20, 0.14, "sine", 0.3, i * 0.22);
+        this.burst(g, 0.07, "lowpass", 500, 0.15, 1, undefined, i * 0.22);
+      }
+    } else if (sound === "metal") {
+      const f0 = 300 + Math.random() * 300;
+      this.tone(g, f0, 0.6, "triangle", 0.06);
+      this.tone(g, f0 * 1.51, 0.45, "sine", 0.04, 0.01);
+      this.burst(g, 0.05, "highpass", 2500, 0.08);
     } else {
-      // scraping on the rail, behind. Medium
-      this.loop("entry", 900, () => {
-        this.burst(dest, 0.55, "bandpass", 500, 0.35, 6, 1500);
-      });
+      this.burst(g, 0.03, "highpass", 3500, 0.06, 2);
+      this.tone(g, 2600 + Math.random() * 600, 0.08, "sine", 0.03);
     }
   }
 
-  retreat(entry: Entry): void {
+  // The player's light (Shift): a small switch click. A forced cut (CHUD): a soft electrical tick and fizzle.
+  lightClick(on: boolean): void {
     if (!this.ctx) return;
-    this.stop("entry");
-    const dest = this.out(WHERE[entry]);
-    // a shout through the entry, then footsteps fade
-    this.tone(dest, 140, 0.7, "sawtooth", 0.12, 0, 90);
-    this.burst(dest, 0.7, "bandpass", 700, 0.2, 3, 400);
-    for (let i = 0; i < 5; i++) this.tone(dest, 80, 0.1, "sine", 0.3 * (1 - i / 5), 0.9 + i * 0.35);
+    this.burst(this.master, 0.025, "highpass", on ? 2600 : 1800, 0.12, 1.5);
+    if (on) this.tone(this.master, 120, 0.3, "sawtooth", 0.012); // faint lamp hum
+  }
+
+  lightTick(): void {
+    if (!this.ctx) return;
+    this.burst(this.master, 0.02, "highpass", 3800, 0.18, 2);
+    this.tone(this.master, 60, 0.18, "square", 0.04, 0.01, 40);
+    this.burst(this.master, 0.12, "bandpass", 5000, 0.03, 4, undefined, 0.03);
+  }
+
+  paper(): void {
+    if (!this.ctx) return;
+    this.burst(this.master, 0.25, "bandpass", 3000, 0.08, 0.7, 5000);
+    this.burst(this.master, 0.18, "highpass", 4000, 0.05, 1, undefined, 0.12);
+  }
+
+  // The jumpscare (GAME_LOGIC 5.4): jumpscare.wav, or the synth burst until it has loaded.
+  jumpscare(): void {
+    if (!this.ctx) return;
+    this.stopCues();
+    if (!this.jumpBuf) {
+      this.breach();
+      return;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.jumpBuf;
+    const g = this.ctx.createGain();
+    g.gain.value = 1;
+    src.connect(g).connect(this.master);
+    src.start();
+  }
+
+  // A faint sting under the creepy flash before the scare (not Ram's voice: a sound of the picture).
+  flashSting(): void {
+    if (!this.ctx) return;
+    this.tone(this.master, 1800, 0.35, "sine", 0.05, 0, 1700);
+    this.burst(this.master, 0.3, "highpass", 6000, 0.05);
   }
 
   breach(): void {
@@ -314,34 +345,6 @@ export class Sound {
     this.stop("brace");
     this.burst(this.master, armsGaveOut ? 0.7 : 0.45, "bandpass", 900, armsGaveOut ? 0.07 : 0.04, 1, 500);
     if (armsGaveOut) this.voice(this.master, 140, 90, 0.35, 0.05, 700);
-  }
-
-  // Ram shoves the entry you are bracing: a creak of the wood or metal and a dull knock. Not positional: it is
-  // right under your hands.
-  bracePush(entry: Entry): void {
-    if (!this.ctx) return;
-    const ctx = this.ctx;
-    const t = ctx.currentTime;
-    const metal = entry === "HATCH";
-    this.tone(this.master, metal ? 85 : 70, 0.16, "sine", 0.22); // the knock
-    this.burst(this.master, 0.1, "lowpass", metal ? 700 : 450, 0.12);
-    // creak: slow saw ticks through a narrow band (as the chair creak), metal is higher and rings
-    const dur = 0.5;
-    const o = ctx.createOscillator();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(metal ? 60 : 28, t + 0.04);
-    o.frequency.linearRampToValueAtTime(metal ? 44 : 20, t + 0.04 + dur);
-    const f = ctx.createBiquadFilter();
-    f.type = "bandpass";
-    f.frequency.value = (metal ? 1900 : 900) + Math.random() * 200;
-    f.Q.value = metal ? 14 : 6;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t + 0.04);
-    g.gain.exponentialRampToValueAtTime(0.12, t + 0.1);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04 + dur);
-    o.connect(f).connect(g).connect(this.master);
-    o.start(t + 0.04);
-    o.stop(t + dur + 0.1);
   }
 
   footsteps(seconds: number): void {

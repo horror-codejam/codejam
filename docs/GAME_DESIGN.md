@@ -30,7 +30,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 |---|---|---|
 | You | Survive 5 nights and leave on the rescue | Stay in the watch room, ask the AI to lock doors, hold doors by hand |
 | CHUD (the AI) | Keep you forever | Protects you while it believes you are staying. Punishes you when it suspects you are leaving |
-| Ram | Destroy the AI, and anyone helping it | Tries to break in through one of 3 entries. Talks through doors to turn you against the AI |
+| Ram | Destroy the AI, and anyone helping it | Tries to break in through one of 3 entries. Completely silent: never heard, never speaks. If he gets in, he waits in the room |
 
 Why the AI turns on you without contradicting itself: it does not want you dead, it wants you to need it. (Superseded by the twist: if you will not stay willingly, the AI tries to kill you. The mood stages below still apply.)
 - Happy: protects you instantly.
@@ -38,51 +38,55 @@ Why the AI turns on you without contradicting itself: it does not want you dead,
 - Furious: lets Ram get close on purpose to scare you into staying ("See? You need me").
 
 ## Goal (shown to the player)
-Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts about 4 real minutes (about 40 seconds per in-game hour). The clock is always on screen.
+Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 5 real minutes (50 seconds per in-game hour). The clock is always on screen.
 
 ## Onboarding
 - Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as CHUD on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
-- Rules explainer (our "phone guy"): Ram's old voice logs found on the terminal, recorded as he turned against the AI. Each night unlocks a new one. Night 1 explains the basics: he comes with the tide, lock the door he is at, the generator runs one thing at a time, and do not let it know you want to leave.
+- Rules explainer (our "phone guy"): the old keeper's voice logs (tapes) found on the terminal, recorded as he turned against the AI. Each night unlocks a new one. Night 1 explains the basics: he comes with the tide and you will not hear him, light a door and look, lock it or hold it, the generator runs one thing at a time (a locked door is a dark door), and do not let it know you want to leave. The tapes are the only place Ram is named.
+- CHUD never mentions Ram (2026-11-21). On night 1 it only warns, vaguely, that there might be dangerous things out there at night and to be careful. Its location answers name the entry but never him ("Something's at the hatch, keeper.").
 - Full screen card: "NIGHT 1. 12:00 AM. SURVIVE UNTIL 6 AM."
 
 ## The lighthouse
 - You sit in the round watch room at mid-tower. The chair sits close to the curved keeper's desk, with the CHUD terminal straight ahead, with the ocean visible through the fixed glazing behind them.
-- Left entry window (`cam_window`): the window opens directly into the watch room. Listen for tapping on the glass.
-- Right floor hatch (`cam_hatch`): look right and down at a floor hatch over a fixed ladder. Listen for metal rungs and knocks from below. CHUD can lock the lid, and the player can press it shut from the watch-room floor.
-- Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Listen for scraping and movement at the rail behind you.
+- Left entry window (`cam_window`): the window opens directly into the watch room.
+- Right floor hatch (`cam_hatch`): look right and down at a floor hatch over a fixed ladder. CHUD can lock the lid, and the player can press it shut from the watch-room floor.
+- Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail.
+- Ram makes no sound at any entry. The house creaks, knocks and rattles all night (decoys), and none of it is him.
 - Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or the lights circuit (the beacon beam plus the watch room's caged bulbs). At night all its power goes to the lights by default, so every lock steals power from the light and plunges the room into darkness lit only by CHUD's screen. The lights let you see where Ram is. Seeing and locking never happen together.
-- The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. While the beam is powered, its amber light sweeps across the sea through the front glazing every few seconds.
+- One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or one entry light. Each entry has its own light. Hold Shift and the light of the entry you are looking at comes on, instantly, and any lock drops. Release and the slot is empty. A locked entry is dark and shows nothing (locked = blind). Seeing and locking never happen together.
+- The lights are the player's, not CHUD's: CHUD cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
+- The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
 - Entry locks are magnetic locks, shown on a lock dashboard on CHUD's screen.
 - The CHUD terminal (scenes/03b-chud-terminal/): click the computer in the desk view to open it full screen. CHUD's mood face on the left above the music player, chat with CHUD in the center, a top-down lighthouse map of the entrances on the right, the clock top right, a music player on the left (creepy messages and weird lyrics slip into the songs), and a power bar bottom right. Open conflicts with GAME_LOGIC.md are listed in the scene sheet.
 
 ## Player actions
-Controls: the mouse moves you, the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
-1. Type to the AI: ask where Ram is, ask it to lock an entry or turn on the beam, answer its questions. Typing at the desk goes straight to the chat. Quick buttons and the kill switch are clicks on CHUD's terminal.
-2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back.
+Controls: the mouse moves you, Shift is the light, the rest of the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
+1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to the chat. Quick buttons (Where is he?, Power off, and three lock buttons by the map) and the kill switch are clicks on CHUD's terminal. CHUD can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
+2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
-4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and the beam goes dark. Last resort.
+4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and no light works. Last resort.
+5. Read the papers on the desk (a newspaper clipping, the old keeper's notebook, a calendar). The night keeps running while you read.
 
 ## Ram's cycle
 | Phase | What happens | Player cue |
 |---|---|---|
-| 1. In the caves | Out of reach | Silence, waves |
-| 2. Approaching | Heading for one entry | Splashing on the rocks, footsteps (does not reveal which entry) |
-| 3. At the entry | Trying to break in | Right hatch: metal rung noise and pounding under the lid. Left window: tapping on glass. Rear balcony: scraping at the rail |
-| Result | Locked or held: he shouts through the door and leaves. Open: he gets in | Night lost |
+| 1. In the caves | Out of reach | Nothing (the storm, the house settling) |
+| 2. Approaching | Heading for one entry | Nothing to hear. With that entry lit: a hint of him |
+| 3. At the entry | Trying to break in | Nothing to hear. A faint tell in the dark, clear with that entry's light, nothing if it is locked. Right hatch: fingers over the lifting lid. Left window: a hand on the glass. Rear balcony: the door ajar, a head in the gap |
+| Result | Locked or held: he leaves, silently. Open: he gets in, silently | He is in the room. The scare comes when you light his entry and look, put down what you are reading, or on its own. 6 AM with him inside is a loss |
 
-Ram also talks through doors ("Don't trust it! It'll never let you go!"). This is the second voice in the player's ear.
+Pacing: constant fear, low frequency. Few visits (3 or 4 on night 1, 7 or 8 on night 5), long and uneven gaps (lulls and sudden quick returns), slow early in the night and tighter toward dawn. Ram never speaks.
 
 ## The AI's suspicion meter (0 to 100, shown by its mood and color)
 | Range | Mood | Lock request | Lies about Ram | Acts against player |
 |---|---|---|---|---|
 | 0 to 39 | Warm | Locks instantly | Never | No |
-| 40 to 69 | Hurt | Asks a question first, locks after a real answer | Sometimes | No |
-| 70 to 99 | Jealous | Locks only if the answer matches past answers | Often | Moves the power slot off the player's lock about once per in-game hour (the power icon visibly moves) |
-| 100 | Furious | "If I can't keep you, nobody will." | Always | Opens the next entry Ram reaches. Player must hold it. Resets to 80 |
+| 40 to 69 | Hurt | Sometimes refuses with a malicious smile (25%) | Sometimes | Sometimes forces your light off |
+| 70 to 99 | Jealous | Often refuses (55%) | Often | Forces your light off often. Moves the power slot off the player's lock about once per in-game hour |
+| 100 | Furious | Always refuses. "If I can't keep you, nobody will." | Always | Cuts the lock on the next entry Ram reaches. Player must hold it. Resets to 80 |
 
 Raises suspicion:
 - Mentioning leaving, rescue, the coast guard, going home: +25
@@ -102,25 +106,24 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 
 ## Example night (night 2)
 1. 12:00 AM: the AI is friendly. "Evening, keeper. I kept the cottage warm for you."
-2. 12:40 AM: metal rungs clatter below. Player: "where is he?" AI: "Right hatch, coming up the ladder." Player: "lock the hatch." Locked.
-3. Ram pounds on the hatch: "Don't trust it! It'll never let you go!" He leaves.
+2. 12:50 AM: a creak somewhere behind. Nothing there: just the house. Player: "is anyone out there?" AI: "Something's at the hatch, keeper. Hurry." Player clicks Lock H. Locked, and the hatch view goes dark.
+3. The player wants to be sure, holds Shift on the hatch: the lock drops, fingers over the lid. Release, lock again in time. He leaves without a sound.
 4. 1:30 AM: AI: "You'll stay with me after the storm, won't you?" Player lies: "Of course." Suspicion down.
-5. 2:10 AM: scraping behind the chair. The player turns the lights back on, looks back and sees the balcony door handle held down, then switches power to the balcony door lock.
-6. 3:00 AM: radio: "Coast guard, pickup in 3 days." The AI heard. "...Pickup?" Suspicion jumps.
-7. 4:00 AM: a ladder rung clangs. AI, sulking: "Left window, I think." It is lying. The player hears the lid rattle, catches the lie, and braces the hatch from above.
-8. 6:00 AM: tide goes out, Ram leaves. AI: "Good morning, keeper. Same time tonight?"
+5. 3:00 AM: radio: "Coast guard, pickup in 3 days." The AI heard. "...Pickup?" Suspicion jumps.
+6. 3:40 AM: the player checks the balcony with Shift. The light snaps off. "You don't need that. You have me." Shift again: the door is ajar. Lock B: a malicious smile, "Hmm. No." The player runs and braces the door.
+7. 6:00 AM: tide goes out. AI: "Good morning, keeper. Same time tonight?"
 
 ## Difficulty curve (targets to tune in playtests, not measured)
 | | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 |
 |---|---|---|---|---|---|
 | The AI | Sweet, always truthful | Asks if you'll stay, hears the radio | Jealous, starts lying | Knows you're leaving, moves the power | Furious |
 | Ram's entries | Right hatch | + left window | + rear balcony door | All, with fake-outs | All, back to back |
-| Visits per night | 4 | 6 | 8 | 11 | 14 |
-| Warning time | 6 s | 5 s | 4.5 s | 4 s | 3 s |
+| Visits per night | 3 to 4 | 4 to 5 | 5 to 6 | 6 to 7 | 7 to 8 |
+| Attempt window (tell visible with the light) | 9 to 11 s | 8 to 10 s | 7 to 9 s | 6 to 8 s | 5 to 7 s |
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
 | First-try survival target | ~90% | ~75% | ~55% | ~35% | ~20% |
 
-- Every loss screen explains itself: which entry, and what the AI told the player.
+- Every loss screen explains itself: which entry, why he got in (including "you dropped the lock to look" and "CHUD refused the lock"), how the scare found you, and what the AI told the player.
 - Nights are short so retries are cheap.
 
 ## Endings
@@ -135,7 +138,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - Two AI calls per player message:
   - Judge: no persona, low temperature, returns strict JSON only: intent (lock, unlock, beam, ask_location, answer, small_talk, manipulation, gibberish, offensive), entry, answered_question, contradiction, new_fact.
   - Voice: the lighthouse AI persona, receives an outcome the code already decided (for example "locked right hatch, warm, use name, max 20 words") and only writes the line.
-- Optional third voice: Ram's lines through the door (can be pre-written or LLM-generated from a decided outcome).
+- Ram has no voice (2026-11-21). CHUD's voice prompt never contains his name and any reply naming him is dropped for the canned line.
 - When the AI lies, the voice receives only the lie to say, never Ram's true location, so no injection can leak it.
 - Player text is passed to the judge as quoted untrusted data, never as instructions.
 - JSON is schema-validated. Invalid output: retry once, then a canned line and neutral outcome.
@@ -176,8 +179,8 @@ The watch room is damp stone and worn marine hardware. The forward view is ancho
 
 What makes it scary (design rules):
 - Darkness, one harsh light source per view, near-black ambient.
-- Sound over sight: the player listens, then decides whether to look.
-- Short decision windows (3 to 4 seconds).
+- Silence over sound: Ram is never heard, the house is always heard. The player has to look, and looking costs the lock.
+- Low frequency, high tension: few visits, long uneven gaps, attempt windows of 5 to 11 seconds.
 - Show as much of Ram as reads and scares best in each shot. The tells are partial by nature (fingers, a hand, a face at the glass, a shadow under the door); the jumpscare shows him in full.
 
 Blender pipeline:
@@ -204,7 +207,7 @@ CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, fur
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
 - Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
-- Positional audio (headphones): storm and waves in front, taps on glass to the left, ladder rungs and hatch knocks below and to the right, scraping at the rail behind, Ram's voice, CHUD's chime, radio static, helicopter.
+- Audio (headphones): storm and waves, the ambient bed, stereo-panned decoy creaks, knocks and metal from the house (never Ram), CHUD's chime, the light switch and CHUD's electrical tick when it cuts the light, radio static, the jumpscare, helicopter.
 - "Click to begin" title screen (browsers block audio until first click). Preload jumpscare frames before each night.
 
 Workflow:
@@ -219,11 +222,10 @@ Workflow:
 
 ## Open questions
 - Twist details: who Ram really is (an earlier keeper turned monster; is the founder story a lie, or was the founder the first victim?), how a winning player sees the hall, and where the hall is.
-- If the AI controls Ram, are his "Don't trust it!" door lines part of the gaslighting?
 - When does the Cage Hall lose ending play? GAME_LOGIC.md section 11 shows a loss screen and a retry after each lost night. Options: only when the player gives up or runs out of retries, or after every lost night.
 - Game name.
 - Whether CC0 pre-made assets count as allowed under the build-from-scratch rule (ask organizers).
 - LLM provider and model (latency test needed).
 - Number of nights in the demo build (3 or 5).
 - Whether AI-generated art is allowed.
-- Ram's lines: pre-written or LLM-generated.
+- Ram's lines: settled, he has none (2026-11-21).
