@@ -88,10 +88,18 @@
 }
 
 #screen .title-copy h1 {
-  margin: 0 0 clamp(27px, 6vh, 58px);
+  margin: 0 0 clamp(8px, 1.4vh, 14px);
   color: var(--screen-ink);
   font: normal clamp(42px, 7vw, 112px)/1 "Special Elite", monospace;
   letter-spacing: -0.055em;
+}
+
+#screen .title-copy .title-sub {
+  margin: 0 0 clamp(27px, 6vh, 58px);
+  color: var(--screen-ink);
+  opacity: 0.5;
+  font: normal clamp(13px, 1.5vw, 22px)/1 "Special Elite", monospace;
+  letter-spacing: 0.22em;
 }
 
 .title-copy nav { display: grid; justify-items: start; gap: 10px; }

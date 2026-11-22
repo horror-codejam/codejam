@@ -1,11 +1,11 @@
 # Game Design (working draft)
 
-Status: working draft. The playable title is THE KEEPER. Log any change to the design in docs/DECISIONS.md.
+Status: working draft. The game is called Random Access Monster (R.A.M.). Log any change to the design in docs/DECISIONS.md.
 
 Exact rules, timers and numbers live in [docs/GAME_LOGIC.md](GAME_LOGIC.md). If this file and GAME_LOGIC.md disagree on a rule, GAME_LOGIC.md wins.
 
 ## One line
-You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night its abandoned founder, billionaire Ram Altman, tries to break in, and the only thing protecting you is CHUD, the lighthouse AI, which wants you to stay forever and turns on you when it realizes you are leaving.
+You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night its abandoned founder, billionaire Ram Altman, tries to break in, and the only thing protecting you is ChudGPT, the lighthouse AI, which wants you to stay forever and turns on you when it realizes you are leaving.
 
 ## Event constraints
 - McGill CodeJam 16, Nov 20 to 22, 2026. Hacking starts Friday 7 PM, judging Sunday.
@@ -16,7 +16,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 
 ## Story
 - You: a boat captain. A storm sinks your boat, the crew is lost at sea, and you wash up alone on a tiny rock island with one building, a high-tech lighthouse.
-- Ram Altman: the billionaire who built it. A famous AI founder, the "AI will save the world" type. He built the lighthouse as his showpiece, fully run by his own AI, CHUD (Continuous Helping Unit Deployment), with himself as the keeper.
+- Ram Altman: the billionaire who built it. A famous AI founder, the "AI will save the world" type. He built the lighthouse as his showpiece, fully run by his own AI, ChudGPT, with himself as the keeper.
 - What went wrong: after years alone together, the AI became too attached to him. Ram turned against AI completely, decided it was dangerous, and ran away from the lighthouse one night.
 - The AI now: abandoned, lonely and resentful, with attachment issues. One goal: never be left alone again. When you wash up, it decides you are its new keeper.
 - Ram now: he never left the island. He has lived in the sea caves for months, half-starved, wild and paranoid. Every night at high tide he climbs to the lighthouse to destroy the AI. You are in his way, and to him you are the AI's new pet.
@@ -29,7 +29,7 @@ You are a sailor stranded in a high-tech lighthouse for 5 nights. Every night it
 | Character | Wants | Does at night |
 |---|---|---|
 | You | Survive 5 nights and leave on the rescue | Stay in the watch room, ask the AI to lock doors, hold doors by hand |
-| CHUD (the AI) | Keep you forever | Protects you while it believes you are staying. Punishes you when it suspects you are leaving |
+| ChudGPT (the AI) | Keep you forever | Protects you while it believes you are staying. Punishes you when it suspects you are leaving |
 | Ram | Destroy the AI, and anyone helping it | Tries to break in through one of 3 entries. Completely silent: never heard, never speaks. If he gets in, he waits in the room |
 
 Why the AI turns on you without contradicting itself: it does not want you dead, it wants you to need it. (Superseded by the twist: if you will not stay willingly, the AI tries to kill you. The mood stages below still apply.)
@@ -41,30 +41,30 @@ Why the AI turns on you without contradicting itself: it does not want you dead,
 Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 5 real minutes (50 seconds per in-game hour). The clock is always on screen.
 
 ## Onboarding
-- Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as CHUD on the watch-room display), then you black out.
+- Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as ChudGPT on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
 - Night 1 introduces the controls through on-screen hints. The shipwreck leads into the keeper name prompt on New Game.
-- CHUD never mentions Ram (2026-11-21). On night 1 it only warns, vaguely, that there might be dangerous things out there at night and to be careful. Its location answers name the entry but never him ("Something's at the hatch, keeper.").
+- ChudGPT never mentions Ram (2026-11-21). On night 1 it only warns, vaguely, that there might be dangerous things out there at night and to be careful. Its location answers name the entry but never him ("Something's at the hatch, keeper.").
 - The timed midnight card shows "12:00 AM" and "Night 1".
 
 ## The lighthouse
-- You sit in the round watch room at mid-tower. The chair sits close to the curved keeper's desk, with the CHUD terminal straight ahead, with the ocean visible through the fixed glazing behind them.
+- You sit in the round watch room at mid-tower. The chair sits close to the curved keeper's desk, with the ChudGPT terminal straight ahead, with the ocean visible through the fixed glazing behind them.
 - Left entry window (`cam_window`): the window opens directly into the watch room.
-- Right floor hatch (`cam_hatch`): look right and down at a floor hatch over a fixed ladder. CHUD can lock the lid, and the player can press it shut from the watch-room floor.
+- Right floor hatch (`cam_hatch`): look right and down at a floor hatch over a fixed ladder. ChudGPT can lock the lid, and the player can press it shut from the watch-room floor.
 - Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail.
 - Ram makes no sound at any entry. The house creaks, knocks and rattles all night (decoys), and none of it is him.
-- Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
+- Forward desk view (`cam_desk`): ChudGPT's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
 - One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or one entry light. Each entry has its own light. Hold Shift and the light of the entry you are looking at comes on, instantly, and any lock drops. Release and the slot is empty. A locked entry is dark and shows nothing (locked = blind). Seeing and locking never happen together.
-- The lights are the player's, not CHUD's: CHUD cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
+- The lights are the player's, not ChudGPT's: ChudGPT cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
-- Entry locks are magnetic locks. Select an entry mark on CHUD's map to request its lock.
-- The CHUD terminal sits on the monitor glass in the desk view. Its three columns show the mood face and generator toggle, chat and quick commands, then the clock, map and power cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
+- Entry locks are magnetic locks. Select an entry mark on ChudGPT's map to request its lock.
+- The ChudGPT terminal sits on the monitor glass in the desk view. Its three columns show the mood face and generator toggle, chat and quick commands, then the clock, map and power cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
 
 ## Player actions
 Controls: the mouse moves you, Shift is the light, the rest of the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
-1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it`, `power off` and the generator toggle are clickable. CHUD can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
+1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it`, `power off` and the generator toggle are clickable. ChudGPT can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
 2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
 4. Generator kill switch: cuts all power. The AI goes silent (no more lies) but every lock opens and no light works. Last resort.
@@ -139,7 +139,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - Two AI calls per player message:
   - Judge: no persona, low temperature, returns strict JSON only: intent (lock, unlock, beam, ask_location, answer, small_talk, manipulation, gibberish, offensive), entry, answered_question, contradiction, new_fact.
   - Voice: the lighthouse AI persona, receives an outcome the code already decided (for example "locked right hatch, warm, use name, max 20 words") and only writes the line.
-- Ram has no voice (2026-11-21). CHUD's voice prompt never contains his name and any reply naming him is dropped for the canned line.
+- Ram has no voice (2026-11-21). ChudGPT's voice prompt never contains his name and any reply naming him is dropped for the canned line.
 - When the AI lies, the voice receives only the lie to say, never Ram's true location, so no injection can leak it.
 - Player text is passed to the judge as quoted untrusted data, never as instructions.
 - JSON is schema-validated. Invalid output: retry once, then a canned line and neutral outcome.
@@ -160,11 +160,11 @@ Updated 2026-11-21. The working code lives in `prototype/`.
 |---|---|---|
 | Approach | 2.5D, FNAF style | Pre-rendered stills and short rendered loops from Blender, shown in a 2D web app. No real-time 3D, no game engine (browsers have no hardware ray tracing; see docs/DECISIONS.md) |
 | Art | Blender 5.3 + Cycles (GPU, OptiX), Blender MCP driven by Codex and Claude | Source file `scenes/03-watch-room/scene03_watch_room_look.blend` (not shipped). Assets: Poly Haven (CC0) and Sketchfab (CC0 / CC-BY only), credited in `scenes/03-watch-room/CREDITS.md` |
-| Rendered output | WebP stills + WebM loops / frame sequences | Per view and state: idle, lights on, lightning, entry tells, breaches, hold close-ups with hands, dash floor, beacon sweep loop, jumpscares. Cycles light-group passes (screen, beacon, lightning, practicals, storm) so the browser can tint CHUD's glow and switch lights live |
-| Game-side data | JSON exports from Blender | `scenes/03-watch-room/export/cam_desk_screen.json` (CHUD screen corners for the live UI overlay); later: keyboard key positions, per-view state-to-asset map |
-| Frontend | Vite + TypeScript + PixiJS 8 | View switching, mouse edge controls (docs/GAME_LOGIC.md section 6), grain, flicker, sway, CHUD face and chat drawn onto the monitor, key-press glow, Vitest for tests |
-| Sound | Howler.js + Web Audio (HRTF panners) | See docs/SOUND_PLAN.md. CHUD canned lines pre-generated with Kokoro (Apache-2.0) |
-| Backend | Node + Hono, one `/turn` endpoint | Runs the judge call, the game rules from docs/GAME_LOGIC.md, then the CHUD voice call. Holds the API key |
+| Rendered output | WebP stills + WebM loops / frame sequences | Per view and state: idle, lights on, lightning, entry tells, breaches, hold close-ups with hands, dash floor, beacon sweep loop, jumpscares. Cycles light-group passes (screen, beacon, lightning, practicals, storm) so the browser can tint ChudGPT's glow and switch lights live |
+| Game-side data | JSON exports from Blender | `scenes/03-watch-room/export/cam_desk_screen.json` (ChudGPT screen corners for the live UI overlay); later: keyboard key positions, per-view state-to-asset map |
+| Frontend | Vite + TypeScript + PixiJS 8 | View switching, mouse edge controls (docs/GAME_LOGIC.md section 6), grain, flicker, sway, ChudGPT face and chat drawn onto the monitor, key-press glow, Vitest for tests |
+| Sound | Howler.js + Web Audio (HRTF panners) | See docs/SOUND_PLAN.md. ChudGPT canned lines pre-generated with Kokoro (Apache-2.0) |
+| Backend | Node + Hono, one `/turn` endpoint | Runs the judge call, the game rules from docs/GAME_LOGIC.md, then the ChudGPT voice call. Holds the API key |
 | LLM | Anthropic Claude via `@anthropic-ai/sdk` | As used in `prototype/`. Model chosen by latency test (2.5 s budget per turn, canned fallbacks) |
 | Hosting | Vercel | Static frontend and assets plus the `/turn` serverless function, one link for judges. Check Vercel file and deployment size limits before the final asset export |
 
@@ -176,7 +176,7 @@ Each scene has its own folder under scenes/ with its sketch, Blender file, rende
 ## Art and sound
 Reference: FNAF 4 is pre-rendered 3D stills in a simple 2D engine (Clickteam Fusion 2.5) with a perspective effect. The fear comes from the renders, lighting, darkness and sound, not the engine. Do not claim more about FNAF internals than that, the rest is unverified.
 
-The watch room is damp stone and worn marine hardware. The forward view is anchored by CHUD's green CRT and the dark ocean beyond the desk. The left pane catches rain, the right hatch seam sits in shadow, and the balcony railing is a narrow silhouette when the player looks behind. Use desaturated storm blues and stone grays, with a single harsh light in each view and amber reserved for the beacon. Fine grain and edge falloff tie the views together. Use the [style guide](../art/style/STYLE_GUIDE.md) and [camera plan](../art/schematics/cameras.svg) when preparing concept art in ChatGPT image generation.
+The watch room is damp stone and worn marine hardware. The forward view is anchored by ChudGPT's green CRT and the dark ocean beyond the desk. The left pane catches rain, the right hatch seam sits in shadow, and the balcony railing is a narrow silhouette when the player looks behind. Use desaturated storm blues and stone grays, with a single harsh light in each view and amber reserved for the beacon. Fine grain and edge falloff tie the views together. Use the [style guide](../art/style/STYLE_GUIDE.md) and [camera plan](../art/schematics/cameras.svg) when preparing concept art in ChatGPT image generation.
 
 What makes it scary (design rules):
 - Darkness, one harsh light source per view, near-black ambient.
@@ -203,12 +203,12 @@ Render list (about 25 to 40 images):
 
 Showing Ram: the tells show fingers curling over the rim of the lifting hatch lid (only when the hatch is unlocked), a hand on the glass and his face at the left window, or the balcony door handle held down with the shadow of his feet under the door. How much of his body shows is judged per shot. A breach is an instant jumpscare: there is no shot of Ram standing in an open entry. Ram's model is the rigged character by Vidush in art/characters/ram_altman/.
 
-CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, furious), from Vidush's sheet scenes/03-watch-room/chud_smiley_four_moods.png, shown in code, not 3D.
+ChudGPT's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, furious), from Vidush's sheet scenes/03-watch-room/chud_smiley_four_moods.png, shown in code, not 3D.
 
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
 - Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
-- Audio (headphones): storm and waves, the ambient bed, stereo-panned decoy creaks, knocks and metal from the house (never Ram), CHUD's chime, the light switch and CHUD's electrical tick when it cuts the light, radio static, the jumpscare, helicopter.
+- Audio (headphones): storm and waves, the ambient bed, stereo-panned decoy creaks, knocks and metal from the house (never Ram), ChudGPT's chime, the light switch and ChudGPT's electrical tick when it cuts the light, radio static, the jumpscare, helicopter.
 - The title shows New Game and Continue when a checkpoint exists. Preload the art and sampled audio before the title.
 
 Workflow:

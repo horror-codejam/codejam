@@ -1,6 +1,7 @@
 import { artUrl, artVideoUrl, isFinal } from "../art";
 
-export const GAME_TITLE = "THE KEEPER";
+export const GAME_TITLE = "R.A.M.";
+export const GAME_SUBTITLE = "RANDOM ACCESS MONSTER";
 
 const TITLE_PLATES = ["title_bg", "view_desk_off"];
 type TitleActions = {
@@ -18,11 +19,13 @@ export function renderTitle(screen: HTMLElement, actions: TitleActions): void {
     <div class="title-grain" aria-hidden="true"></div>
     <div class="title-copy">
       <h1></h1>
+      <p class="title-sub"></p>
       <nav aria-label="Title">
         <button type="button" class="text-option" data-new-game>New Game</button>
       </nav>
     </div>`;
   screen.querySelector("h1")!.textContent = GAME_TITLE;
+  screen.querySelector(".title-sub")!.textContent = GAME_SUBTITLE;
   const slot = TITLE_PLATES.find(isFinal);
   const plate = slot ? artUrl(slot) : null;
   const background = screen.querySelector<HTMLElement>(".title-plate")!;

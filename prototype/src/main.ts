@@ -91,7 +91,7 @@ const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTM
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
 let dialogueToken = 0; // drops LLM replies from before a reset, power cut or interruption
-let convo: string[] = []; // recent "Keeper: ..." / "CHUD: ..." lines, context for the voice
+let convo: string[] = []; // recent "Keeper: ..." / "ChudGPT: ..." lines, context for the voice
 let edges: EdgeTurner;
 let lastTypedAt = -Infinity;
 const TYPING_TAIL = 0.45; // keep the hands moving between keystrokes
@@ -353,7 +353,7 @@ function stopChudSpeech(): void {
 function showChud(text: string, band: Band, t: number): void {
   chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
   terminal.addLine("chud", text, t);
-  convo.push(`CHUD: ${text}`);
+  convo.push(`ChudGPT: ${text}`);
   sound.chime();
   if (engine.state.power.chudOnline) sound.speak(text, band);
 }

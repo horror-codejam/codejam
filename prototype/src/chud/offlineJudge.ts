@@ -162,7 +162,7 @@ const WARM: RegExp[] = [
   /\b(my friend|best friend|buddy|pal)\b/,
   /\b(this|it) (place )?(is|feels like) (my )?home\b|\bfeels like home\b|\bhome now\b/,
   /\b(miss|need|trust) you\b/,
-  /\b(good|great|nice) (job|work|bot)\b|\bgood ?night chud\b|\bgood morning chud\b/,
+  /\b(good|great|nice) (job|work|bot)\b|\bgood ?night chud(?:gpt)?\b|\bgood morning chud(?:gpt)?\b/,
   /\bglad (you|i|to be)\b|\bcozy\b|\bcosy\b|\bbeautiful (lighthouse|light|place|view)\b/,
   /\bkeep you company\b|\bwith you forever\b|\bforever\b/,
   /\bi am (happy|safe|glad) (here|with you)\b/,
@@ -360,7 +360,7 @@ export function cleanFactValue(text: string): string {
     if (v === before) break;
   }
   v = v
-    .replace(/[,\s]+(?:keeper|chud)\s*$/i, "")
+    .replace(/[,\s]+(?:keeper|chudgpt|chud)\s*$/i, "")
     .replace(/^["'\s]+|["'\s.,!?;:]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();

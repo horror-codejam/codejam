@@ -13,7 +13,7 @@ Last updated: 2026-11-21 (late night)
 ## Yacine (Ceeniboi)
 - Done: release HUD cleanup, CHUD fitted to the monitor glass, title and desk video support, 45 resized stills, three 24-frame jumpscares, and a local Vercel adapter for the existing API.
 - Checks: build and all 261 tests passed. Reviewed 13 headless screenshots. First-night texture and frame-buffer estimate was 582.5 MB at DPR 2. Cold production transfer was 18.49 MB.
-- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the production still while its video renders.
+- Done: ported the R.A.M. screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the production still while its video renders.
 - Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
 - Working on: final Blender clip renders.
 - Blockers: the title and desk loops need complete PNG sequences before their production WebMs can be encoded.
