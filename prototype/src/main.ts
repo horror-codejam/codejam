@@ -767,10 +767,9 @@ function onKey(e: KeyboardEvent): void {
     return;
   }
   if (e.target === terminal.chat) {
-    if (e.key === "Escape") terminal.chat.blur();
-    return;
-  }
-  if (e.target instanceof HTMLInputElement) return;
+    if (e.key !== "Escape") return;
+    terminal.chat.blur();
+  } else if (e.target instanceof HTMLInputElement) return;
   if ((e.key === "Enter" || e.key === " ") && e.target instanceof Element && e.target.closest("#tutorial button")) return;
   const s = engine.state;
   if (s.phase !== "PLAYING") return;
