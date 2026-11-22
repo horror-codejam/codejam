@@ -178,7 +178,7 @@ What makes it scary (design rules):
 - Darkness, one harsh light source per view, near-black ambient.
 - Sound over sight: the player listens, then decides whether to look.
 - Short decision windows (3 to 4 seconds).
-- Only ever see part of the threat.
+- Show as much of Ram as reads and scares best in each shot. The tells are partial by nature (fingers, a hand, a face at the glass, a shadow under the door); the jumpscare shows him in full.
 
 Blender pipeline:
 1. Build (about 3 h): one round watch-room shell with a front console and ocean-facing glazing, left entry window, right floor hatch over a ladder, and rear balcony door and rail. Real CC0 textures and props from Poly Haven via Blender MCP. 3 to 5 AI-generated hero props (radio, keeper's chair, lantern, crates), kept in shadow and away from camera, scale fixed by hand. AI images are for concept art and mood references only, not final assets.
@@ -193,10 +193,11 @@ Render list (about 25 to 40 images):
 | Right floor hatch | Dark, lit, lid jolting (locked), lid lifted a crack with Ram's fingers over the rim (unlocked) |
 | Left entry window | Dark, lit, Ram's hand on the glass, Ram's face at the glass |
 | Rear balcony | Dark, lit, handle held down with a shadow of feet under the door |
-| Jumpscare | 6 to 15 frames per entry |
+| Breach | Opening burst per entry: a few frames of the entry flying open, no Ram, ends on the cut frame |
+| Jumpscare | One lunge clip per entry (hatch, window, balcony), Ram rushing from the entry into the player's face |
 | Endings | Helicopter shot, Ram on the rocks |
 
-Showing Ram: never fully. Show fingers curling over the rim of the lifting hatch lid (only when the hatch is unlocked), a hand on the glass or part of a face at the left window, or the balcony door handle held down with the shadow of his feet under the door. If a body is needed, a free rigged figure (Mixamo or MakeHuman, check license) posed and backlit.
+Showing Ram: the tells show fingers curling over the rim of the lifting hatch lid (only when the hatch is unlocked), a hand on the glass and his face at the left window, or the balcony door handle held down with the shadow of his feet under the door. How much of his body shows is judged per shot. A breach is an instant jumpscare: there is no shot of Ram standing in an open entry. Ram's model is the rigged character by Vidush in art/characters/ram_altman/.
 
 CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, furious), from Vidush's sheet scenes/03-watch-room/chud_smiley_four_moods.png, shown in code, not 3D.
 
