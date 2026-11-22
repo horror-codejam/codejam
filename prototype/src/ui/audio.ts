@@ -15,7 +15,7 @@ const sampleUrls = new Map(Object.entries(import.meta.glob<string>([
 })).map(([path, url]) => [path.slice(path.lastIndexOf("/") + 1, -4), url]));
 
 const essentialClips = new Set([
-  "music_title", "ui_click",
+  "ui_click", // music_title starts on demand once loaded (syncBeds)
   "night_start", // bed_storm and bed_room load in the background and start on demand (syncBeds, unlock)
   "breach_balcony", "breach_hatch", "breach_window",
 ]);
