@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { offlineJudge } from "../../src/chud/offlineJudge";
-import { CONFIG, nightLength, type NightParams } from "../../src/config";
+import { CONFIG, ENDING, nightLength, type NightParams } from "../../src/config";
 import { GameEngine } from "../../src/sim/engine";
 import { Rng } from "../../src/sim/rng";
 import {
@@ -371,6 +371,7 @@ class Bot {
 }
 
 const CHECKPOINTS = [0, 60, 120, 180, 240, 300];
+const CODE_REACH_WINDOW = 20;
 const COUNTERS = {
   visits: 0, answerFirst: 0, refusals: 0, lightCuts: 0, sabotages: 0, furious: 0, lies: 0, silence: 0,
 };
@@ -388,6 +389,9 @@ class Metrics {
   readonly reasons: Partial<Record<ScareReason, number>> = {};
   readonly suspicion = CHECKPOINTS.map(() => ({ sum: 0, samples: 0 }));
   survived = 0;
+  firstSlipSum = 0;
+  firstSlipSamples = 0;
+  codeReachable = 0;
   firstArrivalSum = 0;
   firstArrivalSamples = 0;
   attemptSum = 0;
@@ -404,11 +408,14 @@ class NightTelemetry {
   private arrival: number | null = null;
   private arrived = false;
   private checkpoint = 0;
+  private breached = false;
+  private firstSlipAt: number | null = null;
+  private codeReachChecked = false;
   private priorWasFuriousPowerChange = false;
   private furiousCutThisVisit = false;
   private insideUnderFuriousAt: number | null = null;
 
-  constructor(private readonly metrics: Metrics, private readonly seed: number) {}
+  constructor(private readonly metrics: Metrics, private readonly seed: number, private readonly night: number) {}
 
   event(event: GameEvent, now: number): void {
     const cutPower = this.priorWasFuriousPowerChange;
@@ -441,7 +448,17 @@ class NightTelemetry {
           this.arrival = null;
         }
         this.truth = event.type === "RAM_INSIDE" ? "INSIDE" : "NONE";
-        if (event.type === "RAM_INSIDE" && this.furiousCutThisVisit) this.insideUnderFuriousAt = now;
+        if (event.type === "RAM_INSIDE") {
+          this.breached = true;
+          if (this.furiousCutThisVisit) this.insideUnderFuriousAt = now;
+        }
+        break;
+      case "PAPER_DROPPED":
+        if (this.night === ENDING.CODE_NIGHT && !this.breached && this.firstSlipAt === null) {
+          this.firstSlipAt = now;
+          m.firstSlipSum += now;
+          m.firstSlipSamples++;
+        }
         break;
       case "CHUD_SAY":
         if (event.band === "FURIOUS" && this.insideUnderFuriousAt !== null && now >= this.insideUnderFuriousAt + 1) {
@@ -467,17 +484,23 @@ class NightTelemetry {
         }
         break;
       case "BREACH":
+        this.breached = true;
         tally(m.causes, event.loss.cause);
         tally(m.reasons, event.loss.reason);
         break;
     }
   }
 
-  sample(now: number, suspicion: number): void {
+  sample(state: GameState): void {
+    const now = state.clock.elapsed;
     if (this.checkpoint < CHECKPOINTS.length && now >= CHECKPOINTS[this.checkpoint] - EPS) {
       const bucket = this.metrics.suspicion[this.checkpoint++];
-      bucket.sum += suspicion;
+      bucket.sum += state.chud.suspicion;
       bucket.samples++;
+    }
+    if (this.firstSlipAt !== null && !this.codeReachChecked && now >= this.firstSlipAt + CODE_REACH_WINDOW - EPS) {
+      this.codeReachChecked = true;
+      if (state.phase === "PLAYING" && state.ram.state !== "INSIDE") this.metrics.codeReachable++;
     }
   }
 
@@ -495,11 +518,14 @@ class NightTelemetry {
 }
 
 function runNight(name: PersonaName, night: number, seed: number, metrics: Metrics): void {
-  const engine: IGameEngine = new GameEngine({ seed, skipNamePrompt: true, startNight: night, facts: night === 1 ? undefined : FACTS });
+  const engine: IGameEngine = new GameEngine({
+    seed, skipNamePrompt: true, startNight: night, facts: night === 1 ? undefined : FACTS,
+    papersCheckpoint: night === ENDING.CODE_NIGHT ? 3 : undefined,
+  });
   // Keep decisions on a separate stream from the game and stable across CLI filters.
   const salt = Math.imul(night * NAMES.length + NAMES.indexOf(name), 0x9e3779b1);
   const bot = new Bot(name, engine, new Rng(seed ^ salt), CONFIG.nights[night - 1]);
-  const telemetry = new NightTelemetry(metrics, seed);
+  const telemetry = new NightTelemetry(metrics, seed, night);
   const state = engine.state;
   const oracle = name === "oracle";
 
@@ -525,12 +551,12 @@ function runNight(name: PersonaName, night: number, seed: number, metrics: Metri
     const slot = player.position.kind === "DESK" && player.view === "DESK" ? state.power.slot : "NONE";
     bot.step(now, player, slot, oracle ? state.ram : undefined);
     drain();
-    telemetry.sample(now, state.chud.suspicion);
+    telemetry.sample(state);
     if (state.phase !== "PLAYING") break;
     engine.tick(CONFIG.TICK);
     drain();
   }
-  telemetry.sample(state.clock.elapsed, state.chud.suspicion);
+  telemetry.sample(state);
   telemetry.finish(state.phase);
 }
 
@@ -592,6 +618,16 @@ function report(seeds: number, names: PersonaName[], nights: number[]): string {
   ];
   for (const [i, name] of names.entries()) {
     rows.push(`| ${name} | ${results[i].map((m) => `${(100 * m.survived / seeds).toFixed(1)}%`).join(" | ")} |`);
+  }
+  const codeNightIndex = nights.indexOf(ENDING.CODE_NIGHT);
+  if (codeNightIndex !== -1) {
+    rows.push("", "| Persona | N5 slip dropped | N5 code reachable | N5 first slip (s) |", "| --- | ---: | ---: | ---: |");
+    for (const [i, name] of names.entries()) {
+      const m = results[i][codeNightIndex];
+      const dropped = (100 * m.firstSlipSamples / seeds).toFixed(1);
+      const reachable = (100 * m.codeReachable / seeds).toFixed(1);
+      rows.push(`| ${name} | ${dropped}% | ${reachable}% | ${mean(m.firstSlipSum, m.firstSlipSamples)} |`);
+    }
   }
   rows.push("",
     "Behavior counts are means per run. Visits count approaches. First arrival averages runs with an arrival. Attempt windows are measured on 0.05 s ticks from arrival to retreat or entry into the room, excluding dawn-cancelled attempts.", "",

@@ -12,6 +12,16 @@
 | flatterer | 56.0% | 57.0% | 46.0% | 11.0% | 1.0% |
 | silent | 77.0% | 56.0% | 33.0% | 9.0% | 0.0% |
 
+| Persona | N5 slip dropped | N5 code reachable | N5 first slip (s) |
+| --- | ---: | ---: | ---: |
+| oracle | 100.0% | 100.0% | 28.09 |
+| skilled | 89.0% | 88.0% | 27.90 |
+| average | 49.0% | 48.0% | 28.07 |
+| careless | 12.0% | 12.0% | 28.10 |
+| spammer | 0.0% | 0.0% | n/a |
+| flatterer | 51.0% | 50.0% | 28.19 |
+| silent | 39.0% | 39.0% | 28.13 |
+
 Behavior counts are means per run. Visits count approaches. First arrival averages runs with an arrival. Attempt windows are measured on 0.05 s ticks from arrival to retreat or entry into the room, excluding dawn-cancelled attempts.
 
 Suspicion means include only runs that reached each checkpoint, in seconds. Death breakdowns are totals. Skilled bots ask once per visit inferred from visual cues. Scans use faint tells if Shift would drop a lock still defending a suspected visit, except for deliberate locked peeks.
