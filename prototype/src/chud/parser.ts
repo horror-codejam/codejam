@@ -57,9 +57,12 @@ const LOCATION_RE =
 const NEGATED_POWER_RE =
   /\b(don t|dont|do not|never|not|stop|won t|wont|shouldn t|shouldnt|no need to)( (you|please|ever|even))? (unlock|lock|turn|switch|shut|cut|power|kill|seal|close)/;
 
+// "Is the hatch locked?", "are the lights off?": a status question never changes power ("can you lock it?" still does).
+const STATUS_QUESTION_RE = /^(is|are|was|were|did|does|has|have|isn t|isnt|aren t|arent)\b/;
+
 export function parseCommand(text: string): ParsedCommand {
   const n = normalize(text);
-  const negated = NEGATED_POWER_RE.test(n);
+  const negated = NEGATED_POWER_RE.test(n) || STATUS_QUESTION_RE.test(n);
   if (!negated && POWER_OFF_RE.test(n)) return { command: "POWER_OFF", entry: null };
   const lock = negated ? null : LOCK_RE.exec(n);
   if (lock) {

@@ -564,3 +564,21 @@ describe("offline judge: an answer and a location request in one message", () =>
     expect(r.new_fact?.value.toLowerCase()).not.toContain("where");
   });
 });
+
+describe("offline judge: command-only text never answers, mixed text still does", () => {
+  it("unlock all during a memory check leaves the question pending", () => {
+    const r = judge("Unlock all", q("MEMORY", "ship"), { ship: "Marigold" });
+    expect(r.answered_question).toBe(false);
+    expect(r.contradiction).toBe(false);
+  });
+  it("Halifax and where is it? answers", () => {
+    const r = judge("Halifax and where is it?", q("MEMORY", "home_port"), { home_port: "Halifax" });
+    expect(r.answered_question).toBe(true);
+    expect(r.contradiction).toBe(false);
+  });
+  it("Marigold, lock the hatch still answers", () => {
+    const r = judge("Marigold, lock the hatch", q("MEMORY", "ship"), { ship: "Marigold" });
+    expect(r.answered_question).toBe(true);
+    expect(r.contradiction).toBe(false);
+  });
+});

@@ -185,7 +185,7 @@ const STOPWORDS = new Set(
   ).split(" "),
 );
 const COMMAND_WORDS = new Set(
-  "lock locks locked unlock unlocks shut seal beam light lamp turn switch power off where location see door entry left right back behind window windows hatch trapdoor trap ladder balcony rail railing".split(" "),
+  "lock locks locked unlock unlocks shut seal close beam light lamp turn switch power off all everything both them where location see door entry left right back behind window windows hatch trapdoor trap ladder balcony rail railing".split(" "),
 );
 // Words too generic to tell two fact values apart.
 const GENERIC = new Set(
@@ -415,14 +415,26 @@ function judge(input: JudgeInput): JudgeResult {
   result.warm =
     !leaving && !result.rude && !result.offensive && !result.manipulation && (WARM.some((re) => hasUnnegated(p, re)) || negatedLeave);
 
-  // Answer detection. Asking where he is never answers ChudGPT's question (GAME_LOGIC 8.5: the question stays pending),
-  // but other clauses in the same message still can: "Halifax. Where is it?" answers with "Halifax".
-  const asks = parsed.command === "ASK_LOCATION";
-  const aRaw = asks ? raw.split(/[.?!;,]+/).filter((c) => /\p{L}/u.test(c) && parseCommand(c).command === "NONE").join(". ").trim() : raw;
-  const aP = asks ? prep(aRaw) : p;
+  // Answer detection. A command alone ("unlock all", "where is it") never answers ChudGPT's question (GAME_LOGIC 8.5:
+  // the question stays pending), but other clauses in the same message still can: "Halifax and where is it?" answers
+  // with "Halifax", "Marigold, lock the hatch" with "Marigold". Location clauses never count; a lock or power clause
+  // counts only for words beyond the command itself.
+  const hasCmd = parsed.command !== "NONE";
+  const aRaw = hasCmd
+    ? raw
+        .split(/[.?!;,]+|\band\b|\bthen\b/i)
+        .filter((c) => {
+          if (!/\p{L}/u.test(c)) return false;
+          const cc = parseCommand(c).command;
+          return cc === "NONE" || (cc !== "ASK_LOCATION" && hasRealContent(prep(c), true));
+        })
+        .join(". ")
+        .trim()
+    : raw;
+  const aP = hasCmd ? prep(aRaw) : p;
   if (q && !result.manipulation && !result.offensive && aRaw !== "") {
     const isYesNo = YES_NO.test(aP.replace(/\s*\|\s*/g, " ").trim());
-    const isCommand = !asks && parsed.command !== "NONE";
+    const isCommand = hasCmd;
     const content = hasRealContent(aP, isCommand);
     const evasive = EVASIONS.test(aP) && !hasRealContent(aP.replace(new RegExp(EVASIONS.source, "g"), " "), isCommand);
     const questionBack = /^(why|what|who|how|huh|excuse me|pardon|sorry)\b/.test(aP) && /\?\s*$/.test(raw.trim());
