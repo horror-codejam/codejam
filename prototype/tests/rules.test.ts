@@ -218,6 +218,20 @@ describe("a pending question blocks ChudGPT commands", () => {
     expect(e.state.chud.pendingQuestion).not.toBeNull(); // only the in-time message could have answered it
   });
 
+  it("during the judge grace a typed command is blocked like a map button", () => {
+    const e = playing();
+    pend(e);
+    wait(e, CONFIG.QUESTION_TIMEOUT - 0.5);
+    expect(e.submitMessage("something about the weather").ok).toBe(true); // keeps the question waiting on the judge
+    wait(e, 2);
+    const typed = e.submitMessage("lock the hatch");
+    if (!typed.ok) throw new Error(typed.reason);
+    expect(typed.ticket.commandRanImmediately).toBe(false);
+    e.applyJudge(typed.ticket.id, judge());
+    expect(e.state.power.pending).toBeNull();
+    expect(e.state.power.slot).toBe("NONE");
+  });
+
   it("the generator switch is a player action and is not blocked", () => {
     const e = playing();
     pend(e);

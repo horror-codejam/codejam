@@ -1561,7 +1561,8 @@ export class GameEngine implements IGameEngine {
 
     // Command timing: run now if the parser found one and no question is pending.
     let ranImmediately = false;
-    if (parsed.command !== "NONE" && !pq) {
+    // The live question decides blocking (as for the map buttons), even during the judge grace when it can no longer be answered.
+    if (parsed.command !== "NONE" && !open) {
       this.say(this.resolveCommand(parsed));
       ranImmediately = true;
     }
