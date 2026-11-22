@@ -3,6 +3,11 @@ import { RADIO_LINES } from "../chud/lines";
 import type { Band, Entry, View } from "../sim/types";
 import { CHUD_SPEECH } from "../uiConfig";
 
+// Baseline for every sound but the jumpscare (was 0.8). Kept low so players turn their volume up for the room.
+export const MASTER_LEVEL = 0.4;
+// The jumpscare bus gain into its limiter (master is skipped), so the scare peaks at full scale.
+const SCARE_BOOST = 2.5;
+
 const sampleUrls = new Map(Object.entries(import.meta.glob<string>([
   "../../assets/audio/*.ogg", "!../../assets/audio/chud_*.ogg", "!../../assets/audio/log_*.ogg",
 ], {
@@ -31,6 +36,7 @@ type Playback = {
 export class Sound {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
+  private scareBus!: GainNode; // the jumpscare only: skips master, boosted into a limiter so it lands far above the baseline
   private stormGain!: GainNode;
   private stormLevel = 0;
   private noise!: AudioBuffer;
@@ -95,8 +101,18 @@ export class Sound {
     this.ctx = ctx;
     if (this.suspended) void ctx.suspend();
     this.master = ctx.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = MASTER_LEVEL;
     this.master.connect(ctx.destination);
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -1;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.25;
+    limiter.connect(ctx.destination);
+    this.scareBus = ctx.createGain();
+    this.scareBus.gain.value = SCARE_BOOST;
+    this.scareBus.connect(limiter);
     this.speechGain = ctx.createGain();
     this.speechPan = ctx.createStereoPanner();
     this.speechDuck = ctx.createGain();
@@ -456,9 +472,9 @@ export class Sound {
   jumpscare(entry: Entry): void {
     if (!this.ctx) return;
     this.stopCues();
-    if (this.jumpBuf) this.playBuffer(this.ctx, this.jumpBuf);
+    if (this.jumpBuf) this.playBuffer(this.ctx, this.jumpBuf, { dest: this.scareBus });
     else this.scareFallback();
-    this.play(`breach_${entry.toLowerCase()}`, { level: 0.24 });
+    this.play(`breach_${entry.toLowerCase()}`, { level: 0.24, dest: this.scareBus });
   }
 
   // A faint sting under the creepy flash before the scare (not Ram's voice: a sound of the picture).
@@ -469,9 +485,9 @@ export class Sound {
   }
 
   private scareFallback(): void {
-    this.burst(this.master, 1.4, "lowpass", 3000, 0.9, 0.5, 200);
-    this.tone(this.master, 60, 1.2, "sawtooth", 0.5, 0, 35);
-    this.tone(this.master, 1100, 0.6, "square", 0.15, 0, 700);
+    this.burst(this.scareBus, 1.4, "lowpass", 3000, 0.9, 0.5, 200);
+    this.tone(this.scareBus, 60, 1.2, "sawtooth", 0.5, 0, 35);
+    this.tone(this.scareBus, 1100, 0.6, "square", 0.15, 0, 700);
   }
 
   // --- room -------------------------------------------------------------------

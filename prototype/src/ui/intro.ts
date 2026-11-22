@@ -76,7 +76,7 @@ class Synth {
     } catch { this.ctx = null; return; }
     const c = this.ctx;
     this.master = c.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = 0.4; // matches the game's MASTER_LEVEL
     this.master.connect(c.destination);
     this.bed = c.createGain();
     this.bed.gain.value = 0;
