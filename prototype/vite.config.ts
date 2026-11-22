@@ -25,7 +25,17 @@ function chudApi(apiKey: string | undefined): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, "");
   return {
-    plugins: [chudApi(env.ANTHROPIC_API_KEY || undefined)],
+    plugins: [
+      chudApi(env.ANTHROPIC_API_KEY || undefined),
+      // The final renders live outside the Vite root, which is not watched by default: watch them so newly converted
+      // WebP files reach the art glob (src/ui/art.ts) without restarting the dev server.
+      {
+        name: "watch-final-renders",
+        configureServer(server) {
+          server.watcher.add(fileURLToPath(new URL("../scenes/03-watch-room/final/webp", import.meta.url)));
+        },
+      },
+    ],
     // The game reads the team's renders straight from ../scenes, outside the Vite root.
     server: { port: 5173, fs: { allow: [fileURLToPath(new URL("..", import.meta.url))] } },
     test: {

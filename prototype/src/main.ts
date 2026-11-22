@@ -522,7 +522,7 @@ function renderTerminal(t: number): void {
   const p = s.power;
 
   const r = scene.deskScreenRect();
-  ui.desk.style.transform = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px)`;
+  ui.desk.style.transform = `translate(${r.x.toFixed(1)}px, ${r.y.toFixed(1)}px) scale(${r.scale.toFixed(4)})`;
   ui.desk.style.opacity = String(1 - scene.fadeAlpha);
 
   // face by band; blank while offline, a reboot readout while rebooting

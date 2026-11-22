@@ -59,13 +59,13 @@ export const BRACE = {
   ARMS_TREMOR: 0.6, // the arms shake this many times the camera tremor on top (in plate px), so they work against the door
 };
 
-// Desk artifacts (GAME_LOGIC 6.6): clickable papers on the sill between the glazing and CHUD's screen, in plate px
-// (960 x 480), drawn as small dim thumbnails of their art. The terminal covers almost the whole desk width, so they sit
-// above it (DESK_GLAZING ends at y 216, DESK_SCREEN starts at y 266) and inside the centre view at any pan.
+// Desk artifacts (GAME_LOGIC 6.6): clickable papers on the desk, in plate px (960 x 480), drawn as small dim thumbnails
+// of their art. Placed for the final desk plate (final/webp/view_desk_off.webp): on the monitor's base slab either side
+// of the keyboard (slab y 372 to 428, keyboard from x 356), below the monitor, inside the centre view at any pan.
 export const ARTIFACTS: { id: string; slot: string; label: string; rect: { x: number; y: number; w: number; h: number }; tilt: number }[] = [
-  { id: "clipping", slot: "artifact_clipping", label: "Newspaper clipping", rect: { x: 196, y: 222, w: 52, h: 38 }, tilt: -4 },
-  { id: "notebook", slot: "artifact_notebook", label: "Notebook", rect: { x: 262, y: 226, w: 50, h: 36 }, tilt: 3 },
-  { id: "calendar", slot: "artifact_calendar", label: "Calendar", rect: { x: 712, y: 220, w: 44, h: 42 }, tilt: 2 },
+  { id: "clipping", slot: "artifact_clipping", label: "Newspaper clipping", rect: { x: 205, y: 380, w: 52, h: 38 }, tilt: -4 },
+  { id: "notebook", slot: "artifact_notebook", label: "Notebook", rect: { x: 272, y: 382, w: 50, h: 36 }, tilt: 3 },
+  { id: "calendar", slot: "artifact_calendar", label: "Calendar", rect: { x: 690, y: 376, w: 44, h: 42 }, tilt: 2 },
 ];
 
 // The silent breach scare (GAME_LOGIC 7.7 and 5.4), real seconds.
