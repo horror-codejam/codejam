@@ -82,6 +82,7 @@ type Caption = { text: string; until: number };
 let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
 let hintCaption: Caption | undefined;
+let lastHudT = 0; // HUD time of the previous frame, to pause a covered hint's countdown
 let powerAlarmUntil = 0;
 let powerAlarmEntry: Entry | null = null;
 let lockDroppedByLight: Entry | null = null; // flashes its cell again when the monitor is back in view, if still unlocked
@@ -447,6 +448,10 @@ function renderHud(t: number): void {
   const caption = playing
     ? [radioCaption, deskView ? undefined : chudCaption, hintCaption].find((line) => line && line.until > t)
     : undefined;
+  // A hint's clock stops while a paper is open or another caption covers it, so it always gets its full time on screen.
+  const hudDt = Math.max(0, t - lastHudT);
+  lastHudT = t;
+  if (hintCaption && hintCaption.until > t && (s.player.reading !== null || caption !== hintCaption)) hintCaption.until += hudDt;
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
   ui.subtitle.classList.toggle("desk", deskView); // sits on the bare desk above the keyboard, not over it
