@@ -11,6 +11,8 @@ Format: views are 2:1 plates fitted to 960 x 480 (the Blender cameras render 960
 
 | Slot | Loads from scenes/ | What it is |
 |---|---|---|
+| `title_bg` | `03-watch-room/final/png/title_bg/title_bg.png` | Title still. Falls back to `view_desk_off`, then `view_desk` |
+| `title_loop` | `03-watch-room/final/title_loop.webm` | Optional muted video over the title still |
 | `view_desk` | `03-watch-room/render_blockout_cam_desk.png` | Desk view. CHUD's terminal is DOM drawn over the green screen (`DESK_SCREEN` in `src/ui/layout.ts`) |
 | `view_window` | `03-watch-room/render_blockout_cam_window.png` | Left window |
 | `view_hatch` | `03-watch-room/render_blockout_cam_hatch.png` | Right floor hatch |
@@ -25,8 +27,8 @@ Format: views are 2:1 plates fitted to 960 x 480 (the Blender cameras render 960
 | `artifact_calendar` | `03-watch-room/leaving_calendar_aged_pen.png` | Desk paper: the leaving calendar (DOM only) |
 | `ram_inside_window` / `ram_inside_hatch` / `ram_inside_balcony` | `04-ram/ram_inside_<entry>.png` | Ram standing in the room just inside that entry, 960 x 480 from the entry camera. Shown over the lit entry view while he is inside, and as the creepy flash (about 0.4 s) before the jumpscare. Coded stand-in: `ramInside` |
 | `ram_jumpscare_1` .. `ram_jumpscare_4` | `04-ram/ram_jumpscare_<n>.png` | The jumpscare, four frames each closer, 1280 x 720 (stage size, cover-fitted). Played with `public/audio/sfx/jumpscare.wav`. Coded stand-in: `ramJumpscare` |
-| `ending_lose` | `99-final-cage-hall/render_lose_in_cage.png` | Behind the loss screen |
-| `ending_win` | `99-final-cage-hall/render_win_outside.png` | Behind the win screen |
+| `ending_lose` | `99-final-cage-hall/render_lose_in_cage.png` | Legacy cage-hall loss render |
+| `ending_win` | `99-final-cage-hall/render_win_outside.png` | Legacy cage-hall win render |
 | `intro` | `01-shipwreck/render_blockout.png` | Behind the name prompt |
 | `tell_window` / `tell_hatch` / `tell_balcony` | none yet (coded overlay) | Ram at the entry: hand print, fingers at the lid seam, figure in the door gap |
 | `approach_window` / `approach_hatch` / `approach_balcony` | none yet (coded overlay) | Ram on his way, only visible with that entry's light on |
