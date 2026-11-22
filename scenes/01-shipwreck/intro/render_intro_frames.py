@@ -203,6 +203,30 @@ def rain(a, n=1400, seed=1, angle=12.0, strength=0.10, length=(18, 70)):
     return a + (buf * lit * strength)[:, :, None] * np.array([0.85, 0.9, 1.0], dtype=np.float32)
 
 
+def spray(a, seed=5, n=70):
+    """Sheets of white water breaking over the lens from one corner."""
+    rng = np.random.default_rng(seed)
+    h, w, _ = a.shape
+    buf = np.zeros((h, w), dtype=np.float32)
+    y, x = np.mgrid[0:h, 0:w].astype(np.float32)
+    for _ in range(n):
+        cx = rng.uniform(-0.1, 0.6) * w
+        cy = rng.uniform(-0.1, 0.45) * h
+        r = rng.uniform(20, 110)
+        x0, x1 = int(max(0, cx - r)), int(min(w, cx + r + 1))
+        y0, y1 = int(max(0, cy - r)), int(min(h, cy + r + 1))
+        if x1 <= x0 or y1 <= y0:
+            continue
+        d = ((x[y0:y1, x0:x1] - cx) ** 2 + (y[y0:y1, x0:x1] - cy) ** 2) / (r * r)
+        buf[y0:y1, x0:x1] += np.clip(1 - d, 0, 1) * rng.uniform(0.2, 0.8)
+    buf = gblur(buf, 14)
+    # smear into sheets
+    buf = box_blur(box_blur(buf, 60, 1), 6, 0)
+    buf = np.clip(buf * 1.5, 0, 1) * 0.5
+    col = np.array([0.62, 0.68, 0.72], dtype=np.float32)
+    return a * (1 - buf[:, :, None]) + col * buf[:, :, None]
+
+
 def vignette(a, amount=0.55, power=2.2):
     h, w, _ = a.shape
     y, x = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -320,6 +344,42 @@ def frame_lightning():
            lambda a: vignette(grade(rain(a, seed=12, strength=0.16), desat=0.6, tint=(0.95, 1.0, 1.08)), 0.35))
 
 
+def wave_material():
+    """Dark glossy storm water with a foaming crest (foam by object height plus noise)."""
+    m = bpy.data.materials.new("Rogue_Wave_Water")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    noise = nt.nodes.new("ShaderNodeTexNoise"); noise.inputs["Scale"].default_value = 9.0; noise.inputs["Detail"].default_value = 8.0
+    add = nt.nodes.new("ShaderNodeMath"); add.operation = "MULTIPLY_ADD"
+    add.inputs[1].default_value = 0.6
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.82
+    ramp.color_ramp.elements[1].position = 1.02
+    water = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    water.inputs["Base Color"].default_value = (0.01, 0.03, 0.035, 1)
+    water.inputs["Roughness"].default_value = 0.18
+    foam = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    foam.inputs["Base Color"].default_value = (0.75, 0.8, 0.82, 1)
+    foam.inputs["Roughness"].default_value = 0.9
+    foam.inputs["Emission Color"].default_value = (0.55, 0.62, 0.68, 1)
+    foam.inputs["Emission Strength"].default_value = 0.12
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(tc.outputs["Object"], sep.inputs[0])
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
+    nt.links.new(noise.outputs["Fac"], add.inputs[0])
+    nt.links.new(sep.outputs["Z"], add.inputs[2])
+    nt.links.new(add.outputs[0], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], mix.inputs["Fac"])
+    nt.links.new(water.outputs[0], mix.inputs[1])
+    nt.links.new(foam.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    return m
+
+
 def setup_wave(loc, scale, tilt_deg, yaw_deg=0.0):
     wv = ob("Rogue_Wave")
     wv.location = loc
@@ -330,7 +390,15 @@ def setup_wave(loc, scale, tilt_deg, yaw_deg=0.0):
     fm.location = top
     fm.scale = (scale[0] * 0.8, scale[1] * 0.7, 1.6)
     fm.rotation_euler = (math.radians(tilt_deg), 0, math.radians(yaw_deg))
-    show(["Rogue_Wave", "Rogue_Wave_Foam"], True)
+    show(["Rogue_Wave"], True)
+    show(["Rogue_Wave_Foam"], False)
+    wv.modifiers[0].strength = 0.25
+    sub = wv.modifiers.new("Smooth", "SUBSURF")
+    sub.levels = sub.render_levels = 2
+    for poly in wv.data.polygons:
+        poly.use_smooth = True
+    wv.data.materials.clear()
+    wv.data.materials.append(wave_material())
     # foam slightly brighter so the crest reads against the sky
     b = [n for n in bpy.data.materials["Foam"].node_tree.nodes if n.type == "BSDF_PRINCIPLED"][0]
     b.inputs["Base Color"].default_value = (0.55, 0.6, 0.62, 1)
@@ -341,10 +409,12 @@ def setup_wave(loc, scale, tilt_deg, yaw_deg=0.0):
 def frame_wave():
     sc = reopen()
     base_storm(sc)
-    setup_wave((20.0, 26.0, -4.0), (24.0, 7.0, 28.0), 14.0, -8.0)
+    setup_wave((20.0, 26.0, -6.0), (24.0, 7.0, 32.0), 24.0, -8.0)
     cam = ob("FP_Camera")
     cam.rotation_euler = (math.radians(86), math.radians(-6), math.radians(-4))  # bow pitching up the face
-    add_sun("Wave_Rim", (70, 0, 200), 0.25, (0.6, 0.7, 0.85))  # faint storm skylight on the wave face
+    add_sun("Wave_Rim", (-60, 0, 10), 0.6, (0.6, 0.7, 0.85))  # storm skylight from beyond the wave, rims the crest
+    add_sun("Wave_Face", (60, 0, 10), 0.35, (0.6, 0.7, 0.85))  # dim storm light on the face of the wave
+    ob("Lighthouse_Beam").data.energy = 250000
     finish("wave", "intro_03_wave.png",
            lambda a: vignette(grade(rain(a, seed=13, strength=0.12)), 0.5))
 
@@ -352,20 +422,21 @@ def frame_wave():
 def frame_capsize():
     sc = reopen()
     base_storm(sc)
-    setup_wave((6.0, 12.0, -6.0), (26.0, 7.0, 22.0), 24.0, -10.0)
+    setup_wave((6.0, 15.0, -6.0), (26.0, 7.0, 26.0), 30.0, -10.0)
     cam = ob("FP_Camera")
-    add_sun("Wave_Rim", (70, 0, 200), 0.3, (0.6, 0.7, 0.85))
+    add_sun("Wave_Rim", (-60, 0, 10), 0.6, (0.6, 0.7, 0.85))
+    add_sun("Wave_Face", (60, 0, 10), 0.35, (0.6, 0.7, 0.85))
     # Motion blur: camera rolls through the frame.
     sc.render.use_motion_blur = True
-    sc.render.motion_blur_shutter = 1.0
+    sc.render.motion_blur_shutter = 0.6
     sc.eevee.motion_blur_steps = 8
     cam.rotation_mode = "XYZ"
-    cam.location = (0.3, -0.9, 1.4)
-    cam.rotation_euler = (math.radians(92), math.radians(-52), math.radians(-6))
+    cam.location = (0.0, -0.9, 1.8)
+    cam.rotation_euler = (math.radians(100), math.radians(-60), math.radians(-4))
     cam.keyframe_insert("rotation_euler", frame=1)
     cam.keyframe_insert("location", frame=1)
-    cam.location = (0.6, -0.9, 0.9)
-    cam.rotation_euler = (math.radians(98), math.radians(-78), math.radians(-10))
+    cam.location = (0.2, -0.9, 1.5)
+    cam.rotation_euler = (math.radians(104), math.radians(-76), math.radians(-8))
     cam.keyframe_insert("rotation_euler", frame=2)
     cam.keyframe_insert("location", frame=2)
     sc.frame_set(2)
@@ -374,7 +445,8 @@ def frame_capsize():
     ob("Sea").location.z += 1.2
 
     def post(a):
-        a = rain(a, n=2200, seed=14, angle=60, strength=0.2, length=(40, 140))
+        a = rain(a, n=2000, seed=14, angle=60, strength=0.14, length=(40, 140))
+        a = spray(a, seed=15)
         a = grade(a, desat=0.5)
         return vignette(a, 0.6)
 
@@ -410,7 +482,7 @@ def add_face(cam_loc):
     bpy.ops.mesh.primitive_plane_add(size=1.0)
     p = bpy.context.active_object
     p.name = "CHUD_Lighthouse_Face"
-    p.scale = (3.9, 3.9, 1)
+    p.scale = (4.6, 4.6, 1)
     p.location = c + to_cam * 2.3 + Vector((0, 0, -0.1))
     yaw = math.atan2(to_cam.y, to_cam.x)
     p.rotation_euler = (math.radians(90), 0, yaw + math.radians(90))
@@ -419,7 +491,7 @@ def add_face(cam_loc):
     nt = m.node_tree
     nt.nodes.clear()
     tex = nt.nodes.new("ShaderNodeTexImage"); tex.image = img; tex.interpolation = "Closest"
-    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Strength"].default_value = 2.2
+    em = nt.nodes.new("ShaderNodeEmission"); em.inputs["Strength"].default_value = 1.6
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     mix = nt.nodes.new("ShaderNodeMixShader")
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -430,16 +502,18 @@ def add_face(cam_loc):
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
     p.data.materials.append(m)
     # Lamp glass behind the face dimmed so the face is the light, not a white blob.
-    set_emission("Lighthouse_Lamp", strength=1.5)
+    set_emission("Lighthouse_Lamp", strength=0.8)
     ob("Lighthouse_Glow").data.color = (0.75, 0.95, 0.75)
+    ob("Lighthouse_Glow").data.energy = 15000
     return p
 
 
 BLINKS = {
     # name: roll, blur sigma (px), lid opening, droplet seed
-    "blink_1": dict(roll=24.0, blur=16.0, lids=0.42, seed=21, dist=95.0),
-    "blink_2": dict(roll=15.0, blur=9.0, lids=0.62, seed=22, dist=88.0),
-    "blink_3": dict(roll=9.0, blur=4.5, lids=0.80, seed=23, dist=82.0),
+    # The eye "focuses" between blinks: same spot in the water, longer lens, less blur, lids more open.
+    "blink_1": dict(roll=24.0, blur=14.0, lids=0.66, seed=21, lens=20.0, aim_z=20.0),
+    "blink_2": dict(roll=15.0, blur=7.0, lids=0.64, seed=22, lens=38.0, aim_z=36.0),
+    "blink_3": dict(roll=9.0, blur=3.2, lids=0.80, seed=23, lens=52.0, aim_z=36.0),
 }
 
 
@@ -452,17 +526,18 @@ def frame_blink(name):
     show(coll_objects("Boat") + coll_objects("Player_Hands") + ["Helm_Lantern", "Helm_Lantern_Bulb"], False)
     lh = Vector((-128.0, 330.0, 0.0))
     ang = math.radians(-112)  # approach from the open sea, south-east of the island
-    cx, cy = lh.x + math.cos(ang) * cfg["dist"], lh.y + math.sin(ang) * cfg["dist"]
+    dist = 70.0
+    cx, cy = lh.x + math.cos(ang) * dist, lh.y + math.sin(ang) * dist
     cam = ob("FP_Camera")
-    cam.data.lens = 30
+    cam.data.lens = cfg["lens"]
     z = sea_height(cx, cy) + 0.35
     cam.location = (cx, cy, z)
     add_face(cam.location)
-    look_at(cam, (lh.x + 4, lh.y, 24.0), roll_deg=cfg["roll"])
+    look_at(cam, (lh.x + 1.5, lh.y, cfg["aim_z"]), roll_deg=cfg["roll"])
 
     def post(a):
         a = gblur(a, cfg["blur"])
-        a = grade(a, desat=0.35, tint=(0.95, 1.0, 1.02))
+        a = grade(a, desat=0.15, tint=(0.95, 1.0, 1.02))
         a = droplets(a, seed=cfg["seed"])
         a = gblur(a, 1.2)
         a = vignette(a, 0.6)
@@ -485,4 +560,6 @@ t0 = time.time()
 for f in (req or list(FRAMES)):
     print("FRAME", f)
     FRAMES[f]()
+import shutil
+shutil.rmtree(TMP, ignore_errors=True)
 print(f"ALL DONE in {time.time() - t0:.1f}s")
