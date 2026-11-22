@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/tts.py": {
+      "includeFiles": "tools/chud-tts/chud_tts.py",
+      "excludeFiles": "{assets/**,public/**,src/**,tests/**,dist/**,node_modules/**,tools/chud-tts/models/**,tools/chud-tts/.venv/**}",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/turn", "destination": "/api/turn" },
+    { "source": "/api/:route(health|judge|voice)", "destination": "/api/turn?route=:route" }
+  ]
+}

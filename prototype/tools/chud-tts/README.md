@@ -52,10 +52,27 @@ Keep Piper running on port `5100` and start the game with `npm run dev` from `pr
 
 The game sends the displayed line and its original mood to the same-origin `POST /api/tts` route. Hono forwards the request to Piper, and Web Audio plays the WAV from the desk. Speech plays one line at a time. The game displays subtitles and plays the chime immediately, including when Piper is offline. Pausing freezes voice playback. A power cutoff, restart, breach, dawn or return to the title clears pending and playing speech.
 
-Piper runs with or without an Anthropic key. Claude can rewrite certain conversational lines, while Piper speaks the final text. The local speech proxy expects Piper on the same machine. A static-only deployment does not serve the speech route.
+Piper runs with or without an Anthropic key. Claude can rewrite certain conversational lines, while Piper speaks the final text. The local Vite speech proxy expects Piper on the same machine.
 
 ```json
 {"text":"I'm still here, keeper.","band":"WARM"}
 ```
 
 `POST /tts` accepts 1–300 characters of final dialogue and one of the four bands above. A successful response is `200 audio/wav`.
+
+## Vercel deployment
+
+Use `prototype` as the Vercel Root Directory and include the repository's shared `scenes/` files in the build. Vercel serves the Vite build and runs `api/tts.py` at `POST /api/tts`. On a cold instance, Piper downloads and verifies the pinned model into temporary storage. It reuses the initialized model on warm requests.
+
+Set `ANTHROPIC_API_KEY` as a server-side Vercel environment variable if you want the Claude judge and generated dialogue. The Python speech function works with the game's canned dialogue without a key.
+
+Verify that `GET /api/health` on the deployment returns JSON. Then request a WAV from the same deployment, substituting its URL below.
+
+```sh
+curl --fail --show-error --max-time 35 https://YOUR_DEPLOYMENT/api/tts \
+  -H 'Content-Type: application/json' \
+  --data '{"text":"Welcome, keeper.","band":"WARM"}' \
+  -o /tmp/chud-vercel.wav
+```
+
+The first request may take longer while the model downloads. The game shows the subtitle and chime immediately. A `404` indicates a missing Vercel route. A `503` indicates Piper could not initialize. Check the Python function logs for download, checksum or dependency errors.

@@ -5,19 +5,50 @@ import hashlib
 import io
 import json
 import math
+import re
 import sys
 import wave
 from array import array
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.request import urlopen
 
 
 VOICE = "en_US-ryan-medium"
+VOICE_REVISION = "b145f2ac26522d6a2ccde0164b7b0e48b1e3199c"
+VOICE_URL = f"https://huggingface.co/rhasspy/piper-voices/resolve/{VOICE_REVISION}/en/en_US/ryan/medium"
 VOICE_HASHES = {
     f"{VOICE}.onnx": "abf4c274862564ed647ba0d2c47f8ee7c9b717d27bdad9219100eb310db4047a",
     f"{VOICE}.onnx.json": "44034c056cb15681b2ad494307c7f3f2e4499d1253c700c711fa0a4607ffe78d",
 }
+FORBIDDEN_NAME = re.compile(r"\b(?:ram|altman)\b", re.IGNORECASE | re.ASCII)
+
+
+def download_voice(model_dir):
+    """Fill a cold function's cache with verified model files."""
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for filename, expected in VOICE_HASHES.items():
+        path = model_dir / filename
+        if path.is_file():
+            continue
+
+        # Download to a temporary file so an interrupted request cannot leave a partial model.
+        with TemporaryDirectory(dir=model_dir) as staging:
+            partial = Path(staging) / filename
+            digest = hashlib.sha256()
+            received = 0
+            with urlopen(f"{VOICE_URL}/{filename}?download=true", timeout=10) as source, partial.open("wb") as dest:
+                for block in iter(lambda: source.read(1024 * 1024), b""):
+                    received += len(block)
+                    if received > 64 * 1024 * 1024:
+                        raise ValueError(f"Ryan voice file is too large: {filename}.")
+                    digest.update(block)
+                    dest.write(block)
+            if digest.hexdigest() != expected:
+                raise ValueError(f"Wrong Ryan revision: {filename}.")
+            partial.replace(path)
 
 
 @dataclass(frozen=True)
@@ -105,9 +136,44 @@ def parse_request(raw):
     band = payload.get("band")
     if not isinstance(text, str) or not 1 <= len(text.strip()) <= 300:
         raise ValueError("text must contain 1 to 300 characters.")
+    if FORBIDDEN_NAME.search(text):
+        raise ValueError("The speech contains a forbidden name.")
     if not isinstance(band, str) or band not in DELIVERIES:
         raise ValueError("band must be WARM, HURT, JEALOUS, or FURIOUS.")
     return text.strip(), band
+
+
+def serve_speech(request, get_voice):
+    if request.headers.get_content_type() != "application/json":
+        request.send_error(415, "Expected application/json")
+        return
+    try:
+        size = int(request.headers.get("Content-Length", "0"))
+        if not 1 <= size <= 4096:
+            raise ValueError("Invalid request size.")
+        text, band = parse_request(request.rfile.read(size))
+    except (ValueError, TimeoutError) as error:
+        request.send_error(400, str(error))
+        return
+
+    try:
+        voice = get_voice()
+    except Exception as error:
+        request.log_error("Piper model unavailable: %s", error)
+        request.send_error(503, "Piper model unavailable")
+        return
+
+    try:
+        wav = synthesize(voice, text, band)
+    except ValueError as error:
+        request.send_error(422, str(error))
+        return
+    request.send_response(200)
+    request.send_header("Content-Type", "audio/wav")
+    request.send_header("Cache-Control", "no-store")
+    request.send_header("Content-Length", str(len(wav)))
+    request.end_headers()
+    request.wfile.write(wav)
 
 
 class SpeechHandler(BaseHTTPRequestHandler):
@@ -117,28 +183,7 @@ class SpeechHandler(BaseHTTPRequestHandler):
         if self.path != "/tts":
             self.send_error(404)
             return
-        if self.headers.get_content_type() != "application/json":
-            self.send_error(415, "Expected application/json")
-            return
-        try:
-            size = int(self.headers.get("Content-Length", "0"))
-            if not 1 <= size <= 4096:
-                raise ValueError("Invalid request size.")
-            text, band = parse_request(self.rfile.read(size))
-        except (ValueError, TimeoutError) as error:
-            self.send_error(400, str(error))
-            return
-
-        try:
-            wav = synthesize(self.server.voice, text, band)
-        except ValueError as error:
-            self.send_error(422, str(error))
-            return
-        self.send_response(200)
-        self.send_header("Content-Type", "audio/wav")
-        self.send_header("Content-Length", str(len(wav)))
-        self.end_headers()
-        self.wfile.write(wav)
+        serve_speech(self, lambda: self.server.voice)
 
 
 def main():
