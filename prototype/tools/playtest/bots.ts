@@ -258,8 +258,9 @@ class Bot {
       return;
     }
     if (this.intent || this.answer) return;
+    if (now < this.relayReady - EPS) return;
     if (this.scan) this.continueScan(now, player.view, true);
-    else if (now >= Math.max(this.nextScan, this.relayReady) - EPS) this.beginScan(now, slot);
+    else if (now >= this.nextScan - EPS) this.beginScan(now, slot);
   }
 
   private face(goal: View, view: View, now: number): boolean {
@@ -285,10 +286,12 @@ class Bot {
     const peekLocked = locked !== null && this.rng.chance(this.heardLockDrop && this.persona.learnedPeek !== undefined ? this.persona.learnedPeek : this.persona.peekLocked ?? 0);
     // Check the other entries for faint tells without dropping a lock that may still be defending.
     const light = peekLocked || locked === null || locked !== this.threat?.entry || now >= this.threat.until;
-    const entries = this.night.activeEntries.filter((entry) => entry !== locked || peekLocked || (light && this.name === "skilled"));
+    const entries = this.night.activeEntries.filter((entry) => entry !== locked || (light && this.name === "skilled"));
     const first = Math.floor(this.rng.next() * entries.length);
+    const orderedEntries = [...entries.slice(first), ...entries.slice(0, first)];
+    if (peekLocked) orderedEntries.unshift(locked);
     this.scan = {
-      entries: [...entries.slice(first), ...entries.slice(0, first)], light, restore: light ? locked : null,
+      entries: orderedEntries, light, restore: light ? locked : null,
       peekUntil: null, returning: false, sighting: null,
     };
   }
@@ -298,11 +301,15 @@ class Bot {
     if (scan.returning) {
       if (!this.face("DESK", view, now)) return true;
       scan.returning = false;
-      if (scan.sighting || this.intent || scan.entries.length === 0) {
-        if (scan.sighting) this.remember(scan.sighting, now);
-        else if (!this.intent && scan.restore) this.intent = { entry: scan.restore, ready: now, until: now + 5, kind: "restore" };
-        this.scan = null;
+      const done = scan.sighting !== null || this.intent !== null || scan.entries.length === 0;
+      if (scan.sighting) this.remember(scan.sighting, now);
+      else if (!this.intent && scan.restore && (done || this.persona.peekLocked !== undefined)) {
+        this.intent = { entry: scan.restore, ready: now, until: now + 5, kind: "restore" };
+        // Restore the lock at the desk, then check any remaining entries without Shift.
+        scan.restore = null;
+        scan.light = false;
       }
+      if (done) this.scan = null;
       return false;
     }
     if (view === "DESK" && scan.peekUntil === null && !allowNext && !this.edge) return false;
@@ -643,7 +650,7 @@ function report(seeds: number, names: PersonaName[], nights: number[]): string {
   }
   rows.push("",
     "Behavior counts are means per run. Visits count approaches. First arrival averages runs with an arrival. Attempt windows are measured on 0.05 s ticks from arrival to retreat or entry into the room, excluding dawn-cancelled attempts.", "",
-    "Suspicion means include only runs that reached each checkpoint, in seconds. Death breakdowns are totals. Skilled bots ask once per visit inferred from visual cues. Scans use faint tells if Shift would drop a lock still defending a suspected visit, except for deliberate locked peeks.",
+    "Suspicion means include only runs that reached each checkpoint, in seconds. Death breakdowns are totals. Skilled bots ask once per visit inferred from visual cues. Deliberate peeks check the locked entry first. Average, learner, flatterer and silent try to restore a lock after an empty lit check and finish scanning without Shift.",
   );
   const counters: Counter[] = ["answerFirst", "refusals", "lightCuts", "sabotages", "furious", "lies", "silence"];
   let unscoredClaims = 0;
