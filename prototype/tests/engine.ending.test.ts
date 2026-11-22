@@ -140,6 +140,30 @@ describe("paper drops", () => {
   });
 });
 
+describe("night 5 last slip", () => {
+  // A defended visit by a lock set directly (no refusal roll), so the test does not depend on CHUD's band.
+  const defended = (e: GameEngine, entry: Entry): GameEvent[] => {
+    expect(e.devSendRam(entry)).toBe(true);
+    const first = runUntil(e, (ev) => ev.type === "RAM_AT_ENTRY");
+    e.state.power.slot = LOCK[entry];
+    return [...first, ...runUntil(e, (ev) => ev.type === "RAM_RETREAT" || ev.type === "BREACH")];
+  };
+
+  it("waits for LAST_PAPER_AFTER, then drops after a defended attempt", () => {
+    const e = playing(5, 7, { papersCheckpoint: 3 });
+    e.devSetSuspicion(0); // WARM: no sabotage of the test locks
+    const early = defended(e, "HATCH");
+    expect(e.state.clock.elapsed).toBeLessThan(ENDING.LAST_PAPER_AFTER);
+    expect(early.some((ev) => ev.type === "PAPER_DROPPED")).toBe(false);
+    e.state.ram.state = "AWAY";
+    e.state.ram.stateEndsAt = ENDING.LAST_PAPER_AFTER;
+    runUntil(e, (ev) => ev.type === "RAM_APPROACH");
+    e.devRamAway();
+    const late = defended(e, "WINDOW");
+    expect(late).toContainEqual({ type: "PAPER_DROPPED", entry: "WINDOW", index: 3 });
+  });
+});
+
 describe("pickUpFloorPaper", () => {
   it("is rejected at the desk and at the wrong entry, accepted standing at the entry", () => {
     const e = playing(2);

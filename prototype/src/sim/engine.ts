@@ -1059,6 +1059,8 @@ export class GameEngine implements IGameEngine {
     if (night < ENDING.FIRST_PAPER_NIGHT || pp.floor !== null) return;
     const total = ENDING.CODE_LETTERS + ENDING.CODE_DIGITS;
     if (pp.collected >= total || pp.collected >= night - ENDING.FIRST_PAPER_NIGHT + 1) return;
+    // The code night's last slip waits for LAST_PAPER_AFTER, so the final night is more than one visit long.
+    if (night === ENDING.CODE_NIGHT && pp.collected === total - 1 && this.now < ENDING.LAST_PAPER_AFTER) return;
     pp.floor = { entry, index: pp.collected, droppedAt: this.now };
     this.emit({ type: "PAPER_DROPPED", entry, index: pp.collected });
     if (!s.log.paperHintShown && pp.collected === 0 && s.run.papersCheckpoint === 0) {

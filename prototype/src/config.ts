@@ -237,4 +237,5 @@ export const ENDING = {
   DIGITS: "2345679",
   FIRST_PAPER_NIGHT: 2,
   CODE_NIGHT: 5,
+  LAST_PAPER_AFTER: 60, // seconds into the code night before the last slip can drop (1:12 AM)
 };
