@@ -14,7 +14,7 @@ body { font-family: "Courier New", ui-monospace, monospace; color: var(--ink); }
 #frame { position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; transform-origin: 0 0; }
 #stage, #stage canvas { position: absolute; inset: 0; width: 1280px; height: 720px; display: block; }
 #ui { position: absolute; inset: 0; pointer-events: none; }
-#ui button, #ui input, #screen, #dev { pointer-events: auto; }
+#ui button, #ui input, #screen, #dev, #dev-badge { pointer-events: auto; }
 .hidden { display: none !important; }
 
 button {
@@ -175,8 +175,19 @@ button:disabled { opacity: 0.35; cursor: default; }
 #screen .lost h1 { color: #ff5a4a; }
 
 #dev {
-  position: absolute; top: 40px; right: 10px; width: 330px; margin: 0; padding: 10px; font-size: 11px; line-height: 1.4;
+  position: absolute; top: 80px; right: 10px; width: 330px; /* below the HUD and the DEV / Pause row */ margin: 0; padding: 10px; font-size: 11px; line-height: 1.4;
   background: rgba(0, 0, 0, 0.85); border: 1px solid #333; color: #9fe0b0; white-space: pre-wrap;
 }
 #dev button { font-size: 11px; padding: 3px 6px; margin: 2px; }
 #dev pre { margin: 6px 0 0; font: inherit; white-space: pre-wrap; }
+
+#dev-badge {
+  /* on the pause button's row, just left of it, so it never covers the HUD status line */
+  position: absolute; top: 44px; right: 110px; z-index: 5; font-size: 12px; padding: 5px 10px; letter-spacing: 0.12em;
+  color: #9fe0b0; background: rgba(0, 0, 0, 0.7); border-color: #2f5a3b;
+}
+#dev-badge.open { background: #1b3a25; }
+#dev { width: 340px; max-height: 620px; overflow-y: auto; }
+#dev .dev-grp { display: flex; flex-wrap: wrap; align-items: center; margin: 0 0 3px; }
+#dev .dev-title { width: 64px; color: #6b8f76; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+#dev button.on { background: #1b3a25; border-color: #4dff88; color: #fff; }
