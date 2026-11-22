@@ -407,6 +407,7 @@ Question mix per night:
      - balcony: balcony, back, behind, rail
    - `unlock` / `off` → `POWER_OFF`
    - otherwise → `NONE`. There is no light command: "turn on the light" parses to `NONE`.
+   - A lock or power verb right after a negation ("don't", "do not", "never", "not", "stop", "won't", "shouldn't", "no need to", optionally with "you" or "please" between) parses to `NONE`: "please don't unlock the window" is never an unlock. The judge can still read the intent.
 4. **Judge call (LLM, strict JSON, low temperature):**
    - Input: the player text as quoted untrusted data, the pending question (if any), the stored facts, the current band.
    - Output schema:

@@ -51,10 +51,16 @@ const LOCK_RE = /\block(s|ed)?\b|\bshut\b|\bseal\b|\bclose\b/;
 const LOCATION_RE =
   /\bwhere (is|s|are|was|d)\b|\bwhere he\b|\bwhere ram\b|\blocation\b|\bsee him\b|\bwhich (door|entry|one|way|side)\b|\bis he (here|there|close|coming|in|inside|gone|still)\b|^where\b|\b(he|hes|he s|ram|ram s|is it|someone|anyone) (still )?(gone|still there|still here|still out there)\b|\b(has|did) (he|ram) (gone|left|go|leave)\b|^(still there|gone|is he gone|he gone)\b|\banyone (there|out there)\b/;
 
+// "please don't unlock the window", "do not lock the hatch": a negated lock or power verb is not a command.
+// Same bias as above: the judge can still read the intent, the parser must never invent the opposite one.
+const NEGATED_POWER_RE =
+  /\b(don t|dont|do not|never|not|stop|won t|wont|shouldn t|shouldnt|no need to)( (you|please|ever|even))? (unlock|lock|turn|switch|shut|cut|power|kill|seal|close)/;
+
 export function parseCommand(text: string): ParsedCommand {
   const n = normalize(text);
-  if (POWER_OFF_RE.test(n)) return { command: "POWER_OFF", entry: null };
-  if (LOCK_RE.test(n)) {
+  const negated = NEGATED_POWER_RE.test(n);
+  if (!negated && POWER_OFF_RE.test(n)) return { command: "POWER_OFF", entry: null };
+  if (!negated && LOCK_RE.test(n)) {
     const entry = parseEntry(n);
     if (entry) return { command: "LOCK", entry };
   }
