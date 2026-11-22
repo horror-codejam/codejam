@@ -61,7 +61,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | First visit delay | 60 s | 40 s | 30 s | 20 s | 15 s |
 | AWAY gap base (random, before the hour ramp) | 50 to 70 s | 36 to 52 s | 32 to 46 s | 28 to 42 s | 25 to 37 s |
 | APPROACH time | 12 s | 9 s | 5 s | 4.5 s | 4 s |
-| AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 14 to 17 s | 12 to 15 s | 10 to 12 s | 8 to 10 s |
+| AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 16 to 19 s | 13 to 16 s | 10 to 12 s | 8 to 10 s |
 | Lull chance per gap | 0% | 15% | 15% | 15% | 15% |
 | Quick return chance per gap | 0% | 0% | 15% | 20% | 25% |
 | Decoy interval (random) | 15 to 30 s | 12 to 25 s | 10 to 20 s | 8 to 16 s | 6 to 14 s |
