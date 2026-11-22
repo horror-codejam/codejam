@@ -8,17 +8,18 @@
 //         > foreground rain (parallax, moves more than the plate) > scare flash > jumpscare frames > fade > grain > vignette
 // The DOM terminal uses the desk's camera transform and the calibrated monitor corners.
 
-import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite, VideoSource } from "pixi.js";
+import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
 import { BRACE, CONTROLS, SCARE } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
-import { artFrames, artVideoUrl, coverSprite, hasArt, isFinal, slot, stageSlot } from "./art";
+import { artFrames, artVideoUrl, hasArt, isFinal, slot, stageSlot } from "./art";
 import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./layout";
 import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
+import { VideoPlate } from "./videoPlate";
 import { entryPlate, holdPlate, JUMPSCARE_FPS, jumpscareJob, sequenceFrame } from "./plates";
 
 // Final renders are full plates per state (src/ui/plates.ts): when the plate for the current state exists it is shown
@@ -86,7 +87,7 @@ export class Scene {
   private curvedGeometry: PlaneGeometry;
   private warpPrev: Mesh;
   private turnBlur = new BlurFilter({ strengthX: 0, strengthY: 0, quality: 2 });
-  private turnSlide = false; // the current turn slides (edge turn) rather than fades (arriving from a dash)
+  private turnSlide = false; // the current edge turn can use a clip or the still-plate slide
   private turnDir = 1; // +1: the picture moves right (turning left), -1: moves left
   private turnDur = CONTROLS.TURN_TIME;
   private lastDashing = false;
@@ -99,11 +100,12 @@ export class Scene {
   private desk = new Container();
   private deskRender: boolean;
   private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
-  private deskVideoUrl = artVideoUrl("ambient_desk");
-  private deskVideo?: HTMLVideoElement;
-  private deskVideoPlate?: Sprite;
-  private deskVideoActive = false;
-  private deskVideoFrame = -1;
+  private deskMedia = new Container(); // above the desk still and below the calibrated glass mask
+  private transitions = new Container();
+  private clips = new Map<string, VideoPlate>();
+  private activeTransition?: VideoPlate;
+  private clipsPrepared = false;
+  private turnJob = "";
   private reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private sweep = new Container();
   private sweepBand: Sprite;
@@ -136,6 +138,7 @@ export class Scene {
   lightFlickerUntil = 0; // real seconds: the stage flickers as CHUD forces the light off
   onThunder: (() => void) | null = null;
   paused = false; // UI pause: the brace effects freeze
+  transitionVisible = false;
   fadeAlpha = 0; // how black the stage is right now (the DOM terminal follows it)
 
   constructor(app: Application) {
@@ -149,7 +152,7 @@ export class Scene {
     // desk: render (or placeholder), blacked-out screen, beacon sweep, lightning
     this.deskRender = hasArt("view_desk");
     this.deskFinal = isFinal("view_desk");
-    this.desk.addChild(slot("view_desk", P.deskView, "stage"));
+    this.desk.addChild(slot("view_desk", P.deskView, "stage"), this.deskMedia);
     if (this.deskFinal) {
       const glass = MONITOR_CORNERS.flat();
       this.desk.addChild(new Graphics().poly(glass).fill(0x07130d));
@@ -266,7 +269,7 @@ export class Scene {
     this.rain = new TilingSprite({ texture: makeRainTexture(), width: W + 2 * PAN_X * 1.6, height: H });
     this.rain.alpha = 0.16;
     this.rain.blendMode = "add";
-    app.stage.addChild(this.rain);
+    app.stage.addChild(this.rain, this.transitions);
 
     this.flashLayer.rect(0, 0, W, H).fill(0xffffff);
     this.flashLayer.alpha = 0;
@@ -308,53 +311,56 @@ export class Scene {
     return `translate(${plate.x}px, ${plate.y}px) scale(${this.cam.scale.x}) ${projection}`;
   }
 
-  pauseDeskVideo(): void {
-    if (!this.deskVideoActive) return;
-    this.deskVideoActive = false;
-    this.deskVideo?.pause();
+  pauseMedia(): void {
+    for (const clip of this.clips.values()) clip.pause();
   }
 
-  private syncDeskVideo(wanted: boolean): boolean {
-    if (!wanted || !this.deskFinal || !this.deskVideoUrl || this.reducedMotion.matches) {
-      this.pauseDeskVideo();
-      if (this.deskVideoPlate) this.deskVideoPlate.visible = false;
+  private prepareClips(): void {
+    if (this.clipsPrepared || this.reducedMotion.matches) return;
+    this.clipsPrepared = true;
+    const add = (job: string, desk = false): void => {
+      const url = artVideoUrl(job);
+      if (url) this.clips.set(job, new VideoPlate(
+        job, url, desk ? this.deskMedia : this.transitions, desk ? PLATE_W : W, desk ? PLATE_H : H, desk,
+      ));
+    };
+    if (this.deskFinal) {
+      add("ambient_desk", true);
+      add("desk_typing_off", true); // Shift lights entries only; the desk stays dark.
+    }
+    for (const entry of ENTRIES) {
+      const key = entry.toLowerCase();
+      add(`dash_${key}_go`);
+      add(`dash_${key}_back`);
+      add(`turn_desk_${key}`);
+      add(`turn_${key}_desk`);
+    }
+  }
+
+  private showTransition(job: string, progress: number, duration: number): boolean {
+    const clip = this.reducedMotion.matches ? undefined : this.clips.get(job);
+    if (clip !== this.activeTransition) this.activeTransition?.pause(true);
+    this.activeTransition = clip;
+    this.transitionVisible = clip?.play(progress, duration) ?? false;
+    return this.transitionVisible;
+  }
+
+  private syncDeskVideos(ambient: boolean, typing: boolean): boolean {
+    const play = (job: string, wanted: boolean): boolean => {
+      const clip = this.clips.get(job);
+      if (wanted && !this.reducedMotion.matches) return clip?.play() ?? false;
+      clip?.pause();
       return false;
+    };
+    const ambientVisible = play("ambient_desk", ambient);
+    const typingVisible = play("desk_typing_off", typing);
+    // The hands clip is layered under the monitor mask. Keep the ambient plate under the hands.
+    const hands = this.deskMedia.children.at(-1);
+    if (typingVisible && hands?.label !== "desk_typing_off") {
+      const typingPlate = this.deskMedia.getChildByLabel("desk_typing_off");
+      if (typingPlate) this.deskMedia.setChildIndex(typingPlate, this.deskMedia.children.length - 1);
     }
-    if (!this.deskVideo) {
-      const video = document.createElement("video");
-      video.muted = true;
-      video.loop = true;
-      video.playsInline = true;
-      video.preload = "auto";
-      this.deskVideo = video;
-      video.addEventListener("loadeddata", () => {
-        const source = new VideoSource({ resource: video, autoLoad: false, width: video.videoWidth, height: video.videoHeight });
-        const clip = coverSprite(new Texture({ source }), PLATE_W, PLATE_H);
-        clip.visible = false;
-        this.deskVideoPlate = clip;
-        this.desk.addChildAt(clip, 1); // above the still and below the calibrated glass mask
-        source.update();
-      }, { once: true });
-      video.addEventListener("error", () => {
-        this.pauseDeskVideo();
-        this.deskVideoUrl = null;
-      }, { once: true });
-      video.src = this.deskVideoUrl;
-    }
-    if (!this.deskVideoPlate) return false;
-    if (!this.deskVideoActive) {
-      this.deskVideoActive = true;
-      void this.deskVideo.play().catch(() => {}); // keep the still and coded sweep if playback is blocked
-    }
-    this.deskVideoPlate.visible = !this.deskVideo.paused && this.deskVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
-    if (this.deskVideoPlate.visible) {
-      const frame = Math.floor(this.deskVideo.currentTime * 24);
-      if (frame !== this.deskVideoFrame) {
-        this.deskVideoFrame = frame;
-        this.deskVideoPlate.texture.source.update();
-      }
-    }
-    return this.deskVideoPlate.visible;
+    return ambientVisible || typingVisible;
   }
 
   // Any plate-px rect of the current view in stage px at the current pan and zoom (DOM hotspots on the desk).
@@ -392,8 +398,9 @@ export class Scene {
     this.jumpActive = false;
   }
 
-  update(engine: GameEngine, t: number): void {
+  update(engine: GameEngine, t: number, typing: boolean): void {
     const s = engine.state;
+    if (s.phase === "PLAYING") this.prepareClips();
     const pos = s.player.position;
     // The player's light (Shift) lights only the entry it is on (GAME_LOGIC 6.1).
     const litEntry: Entry | null = this.scareEntry ?? (s.power.slot.startsWith("LIGHT_") ? (s.power.slot.slice(6) as Entry) : null);
@@ -415,9 +422,10 @@ export class Scene {
     if (view !== this.lastView) {
       if (this.lastView !== null) {
         this.turnStartedAt = this.scareEntry || dashing || this.lastDashing ? -10 : t;
-        // a turn at the desk slides; the snap back to DESK at the end of a dash keeps the fade from black
+        // Only regular turns use turn footage or the slide. Dashes and scares have their own transitions.
         this.turnSlide = s.phase === "PLAYING" && !this.lastDashing && !dashing;
         this.turnDir = turnDirection(this.lastView, view);
+        this.turnJob = `turn_${this.lastView.toLowerCase()}_${view.toLowerCase()}`;
         this.turnDur = this.lastView === "BALCONY" || view === "BALCONY" ? CONTROLS.TURN_TIME_BALCONY : CONTROLS.TURN_TIME;
         if (this.turnSlide) {
           // rt still holds the last frame of the old view: keep it as the outgoing picture
@@ -432,6 +440,15 @@ export class Scene {
       this.lastView = view;
     }
     this.lastDashing = dashing;
+    const turnK = (t - this.turnStartedAt) / (this.turnSlide ? this.turnDur : CONTROLS.TURN_TIME);
+    const turning = !dashing && this.turnSlide && turnK < 1;
+    const dashJob = pos.kind === "TRAVELING" ? `dash_${pos.entry.toLowerCase()}_go`
+      : pos.kind === "RETURNING" ? `dash_${pos.from.toLowerCase()}_back` : "";
+    const transition = this.showTransition(
+      dashing ? dashJob : turning ? this.turnJob : "",
+      dashing ? dashProgress : turnK,
+      dashing ? CONFIG.TRAVEL_TIME : this.turnDur,
+    );
 
     let grade: Rgb = GRADE_NONE;
     const onDesk = !holding && view === "DESK";
@@ -520,8 +537,9 @@ export class Scene {
     }
     // the lighthouse beacon sweeping outside the glazing: exterior ambience only, it never lights the room
     // and has nothing to do with the power slot or Ram (GAME_LOGIC 6.1)
-    const deskPowered = s.phase === "PLAYING" && onDesk && !dashing && s.power.generatorOn;
-    const playingDeskClip = this.syncDeskVideo(deskPowered);
+    const liveDesk = s.phase === "PLAYING" && onDesk && !dashing && !transition;
+    const deskPowered = liveDesk && s.power.generatorOn;
+    const playingDeskClip = this.syncDeskVideos(deskPowered, liveDesk && s.power.chudOnline && typing);
     const sweepOn = deskPowered && !playingDeskClip;
     this.sweep.visible = sweepOn;
     if (sweepOn) {
@@ -566,7 +584,7 @@ export class Scene {
     let oy = -this.pan.y;
     this.cam.rotation = 0;
     let black = 0;
-    if (dashing) {
+    if (dashing && !transition) {
       // Use the existing views and hide the change of angle at the bottom of the dip.
       black = Math.max(0, 1 - Math.abs(dashProgress - 0.5) * CONFIG.TRAVEL_TIME / 0.2);
       ox += Math.sin(t * 31) * 14;
@@ -603,9 +621,8 @@ export class Scene {
     this.light.rotation = this.cam.rotation;
     this.light.visible = onDesk; // desk-only effects (sweep, lightning): nothing to draw anywhere else
 
-    // turn: a fast slide with motion blur (edge controls), or the old fade from black after a dash
-    const turnK = (t - this.turnStartedAt) / (this.turnSlide ? this.turnDur : 0.25);
-    const sliding = this.turnSlide && turnK < 1;
+    // Missing turn footage uses the fast slide with motion blur.
+    const sliding = turning && !transition;
     if (sliding) {
       const e = turnK < 0.5 ? 2 * turnK * turnK : 1 - 2 * (1 - turnK) * (1 - turnK); // ease in-out
       const bump = Math.sin(Math.PI * turnK);
@@ -615,9 +632,10 @@ export class Scene {
       black = Math.max(black, CONTROLS.TURN_DIM * bump);
     } else {
       this.warp.x = 0;
-      if (turnK < 1) black = Math.max(black, 1 - turnK);
+      if (!transition && turnK < 1) black = Math.max(black, 1 - turnK);
     }
     this.warpPrev.visible = sliding;
+    this.views.visible = !transition;
     this.views.filters = sliding ? [this.turnBlur] : null;
     if (t < this.snapUntil) black = Math.max(black, (this.snapUntil - t) / SCARE.SNAP_TIME);
     if (!this.jumpActive && t < this.lightFlickerUntil) black = Math.max(black, Math.random() < 0.5 ? 0.55 : 0.15);
@@ -625,7 +643,7 @@ export class Scene {
     this.fade.alpha = Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
     // foreground rain: desk (through the glazing) and window views, moves 1.6x the plate
-    this.rain.visible = !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
+    this.rain.visible = !transition && !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
     this.rain.x = -PAN_X * 1.6 - this.pan.x * 1.6;
     this.rain.tilePosition.y = (t * 900) % 512;
     this.rain.tilePosition.x = (t * 60) % 512;

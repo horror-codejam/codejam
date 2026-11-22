@@ -141,11 +141,6 @@ export function holdTell(entry: Entry): (g: Graphics) => void {
   };
 }
 
-export function dashFloor(g: Graphics): void {
-  g.rect(0, 0, W, H).fill(0x0a0908);
-  for (let i = 0; i < 12; i++) g.rect(0, i * 64, W, 3).fill({ color: 0x2a231b, alpha: 0.8 });
-}
-
 export function jumpscare(entry: Entry): (g: Graphics) => void {
   return (g) => {
     g.rect(0, 0, W, H).fill(0x1a0000);

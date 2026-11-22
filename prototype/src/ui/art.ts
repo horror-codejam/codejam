@@ -191,7 +191,12 @@ function warnPrototypeFallbacks(): void {
   for (const entry of ENTRIES) {
     const job = jumpscareJob(entry);
     if (!frameTextures.has(job)) fallback.push(job);
+    const key = entry.toLowerCase();
+    for (const turn of [`turn_desk_${key}`, `turn_${key}_desk`]) {
+      if (!artVideoUrl(turn)) fallback.push(turn);
+    }
   }
+  if (!artVideoUrl("ambient_desk")) fallback.push("ambient_desk");
   if (!hasArt("chud_faces")) {
     fallback.push("chud_faces");
     if (!hasArt("chud_face_malicious")) fallback.push("chud_face_malicious");

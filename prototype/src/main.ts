@@ -93,6 +93,8 @@ let skipDt = false; // first frame after a resume gets dt 0
 let dialogueToken = 0; // drops LLM replies from before a reset, power cut or interruption
 let convo: string[] = []; // recent "Keeper: ..." / "CHUD: ..." lines, context for the voice
 let edges: EdgeTurner;
+let lastTypedAt = -Infinity;
+const TYPING_TAIL = 0.45; // keep the hands moving between keystrokes
 let braceDown = false; // left mouse button held down (edge controls: holding it braces)
 let pressSpent = false; // this press's brace already ended by HOLD_MAX: a new press is needed to brace again
 let wasBracing = false; // position was a brace (HOLDING) at the last reconcile
@@ -167,7 +169,7 @@ function frame(dt: number): void {
     renderDev();
   }
   if (frontScreen || previewing) {
-    scene.pauseDeskVideo();
+    scene.pauseMedia();
     app.ticker.stop();
     return;
   }
@@ -200,8 +202,9 @@ function frame(dt: number): void {
   }
   edgeTurn(t);
   const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
-  if (!paused && animateStage) scene.update(engine, t);
-  else scene.pauseDeskVideo();
+  const typing = document.activeElement === terminal.chat && t - lastTypedAt < TYPING_TAIL;
+  if (!paused && animateStage) scene.update(engine, t, typing);
+  else scene.pauseMedia();
   renderHud(t);
   if (paused || !animateStage) app.ticker.stop();
 }
@@ -394,7 +397,7 @@ function renderHud(t: number): void {
   show(terminal.root, deskView);
   if (deskView) {
     terminal.root.style.transform = scene.deskScreenTransform();
-    terminal.root.style.opacity = String(1 - scene.fadeAlpha);
+    terminal.root.style.opacity = String(scene.transitionVisible ? 0 : 1 - scene.fadeAlpha);
     terminal.render(s, clockText(), t, {
       malicious: p.chudOnline && t < maliciousUntil,
       flicker: powerFlicker,
@@ -466,7 +469,7 @@ function resetScreen(): void {
 function showTitle(): void {
   resetScreen();
   frontScreen = "title";
-  scene.pauseDeskVideo();
+  scene.pauseMedia();
   app.ticker.stop();
   stopChudSpeech();
   sound.stopCues();
@@ -599,7 +602,7 @@ function setPaused(on: boolean): void {
   artifacts?.pause(on);
   if (on) {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    scene.pauseDeskVideo();
+    scene.pauseMedia();
     app.ticker.stop();
     sound.suspend();
     show(ui.ring, false);
@@ -624,6 +627,7 @@ function wireInput(): void {
     terminal.addLine("me", text, now());
     convo.push(`Keeper: ${text}`);
     terminal.chat.value = "";
+    lastTypedAt = -Infinity;
     const ticket = res.ticket;
     if (ticket.repeat) return;
     const run = engine;
@@ -632,6 +636,8 @@ function wireInput(): void {
       if (run === engine && frontScreen === null && !previewing) wake();
     });
   });
+  terminal.chat.addEventListener("input", () => { lastTypedAt = now(); });
+  terminal.chat.addEventListener("blur", () => { lastTypedAt = -Infinity; });
   terminal.chat.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" || e.isComposing) return;
     e.preventDefault();
@@ -708,7 +714,10 @@ function onKey(e: KeyboardEvent): void {
   } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault(); // also keeps Space or Enter from clicking a focused quick button
     terminal.chat.focus();
-    if (terminal.chat.value.length < terminal.chat.maxLength) terminal.chat.value += e.key;
+    if (terminal.chat.value.length < terminal.chat.maxLength) {
+      terminal.chat.value += e.key;
+      lastTypedAt = now();
+    }
     const end = terminal.chat.value.length;
     terminal.chat.setSelectionRange(end, end);
   }
