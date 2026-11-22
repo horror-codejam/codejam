@@ -250,6 +250,7 @@
 #screen[data-screen="exit-scene"] { background: #000; cursor: pointer; }
 .exit-frame { position: absolute; inset: 0; overflow: hidden; transition: opacity 1.4s ease; }
 .exit-frame.out { opacity: 0; }
+.trapped-shot { display: block; width: 100%; height: 100%; object-fit: cover; }
 .exit-shot {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
   animation: exit-fade 1.4s ease both, exit-push var(--shot-ms, 12000ms) linear both;

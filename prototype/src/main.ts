@@ -362,7 +362,8 @@ function onEvent(ev: GameEvent, t: number): void {
       artifacts?.read(null);
       stopChudSpeech();
       sound.stopCues();
-      sound.setAmbientPlaying(false);
+      // The trapped sequence stays in the watch room until the player returns to Title.
+      if (ev.type !== "TRAPPED") sound.setAmbientPlaying(false);
       break;
     }
     default:

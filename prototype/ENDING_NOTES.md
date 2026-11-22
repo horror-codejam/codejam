@@ -16,14 +16,17 @@ Branch: `proto/ending-logic` (cut from `release-integration` on 2026-11-22, `rel
 
 Each still fades in with a slow push-in (CSS in `src/ui/screens.css`, `.exit-*`), captions run 5.2 s each, a click skips to the next caption, and the last one fades to the credits. Captions and timing are in `EXIT_SHOTS` and `CAPTION_MS` in the same file. Only the webp stills are in this branch; the `.blend` files and the PNG masters stay on Vidush's branch. The Poly Haven assets from `art/end-cutscene/ASSET-CREDITS.md` are in the credits roll.
 
-## Trapped ending (planned, art in progress elsewhere)
-Decided 2026-11-22: surviving all 5 nights without the code is still a fail.
+## Trapped ending
+
+The current sequence plays the existing text beats, then shows `art/end-cutscene/03-coast-guard-approach.webp` for three seconds after its fade-in. A click starts its fade to black early. Title appears after the fade, and watch-room ambience continues through the shot. Continue retries night 5.
+
+The planned full sequence still ends in failure:
 1. The coast guard boat comes in, seen through the window. Relief.
 2. The keeper's eyes shut (fade to black).
 3. They open in the cage hall (`art/end-cutscene/01-cage-hall.webp` can be reused, or a caged point-of-view variant).
 4. The run is lost and starts over from night 1.
 
-Where it goes: replace `TRAPPED_BEATS` and `renderTrapped` in `src/ui/screens/killEnding.ts`. Logic change still to make when the art lands: TRAPPED should clear the save (or reset it to night 1) instead of letting Continue retry night 5. Today `retryNight` accepts TRAPPED and the save keeps night 5 (see the `TRAPPED` case in `onEvent` in `src/main.ts`).
+For the later cage reveal and restart, update `renderTrapped` in `src/ui/screens/killEnding.ts` and the checkpoint handling in the `TRAPPED` case in `src/main.ts`.
 
 ## Testing it
 - Dev panel (add `&dev` to the URL), Screens group: "Kill code end" plays the beats, the exit scene and the credits without playing the game.
