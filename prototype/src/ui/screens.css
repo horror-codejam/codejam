@@ -227,3 +227,12 @@
 @media (prefers-reduced-motion: reduce) {
   .credits-roll { position: relative; animation: screen-reveal 0.8s ease both; }
 }
+
+/* night 5 endings: text beats on black */
+.ending-beat {
+  position: relative; max-width: min(760px, 86vw); margin: 0; text-align: center;
+  font: clamp(20px, 2.9vw, 32px)/1.35 var(--screen-mono); animation: beat-fade var(--beat-ms, 4600ms) ease both;
+}
+.ending-beat.chud { color: #7cff9b; text-shadow: 0 0 6px rgba(124, 255, 155, 0.4); }
+@keyframes beat-fade { 0% { opacity: 0; } 18% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; } }
+#screen[data-screen="kill-ending"], #screen[data-screen="trapped"] { cursor: pointer; }

@@ -406,7 +406,7 @@ describe("dev methods", () => {
     expect(e.state.phase).toBe("NIGHT_WON");
   });
 
-  it("devWinNight wins now, and GAME_WON on the last night; no-op outside PLAYING", () => {
+  it("devWinNight wins now, and TRAPPED on the last night (no kill code); no-op outside PLAYING", () => {
     const e = playing();
     e.drainEvents();
     e.devWinNight();
@@ -416,7 +416,7 @@ describe("dev methods", () => {
     expect(e.state.phase).toBe("NIGHT_WON");
     const last = playing({ startNight: CONFIG.nights.length });
     last.devWinNight();
-    expect(last.state.phase).toBe("GAME_WON");
+    expect(last.state.phase).toBe("TRAPPED");
   });
 
   it("devSendRam starts an approach to the chosen entry, then Ram arrives and a lock holds", () => {

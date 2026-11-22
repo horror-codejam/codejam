@@ -31,39 +31,41 @@ const CREDITS_DURATION = 26_000;
 export function renderEnding(screen: HTMLElement, title: () => void, signal: AbortSignal): void {
   screen.dataset.screen = "ending";
   screen.innerHTML = '<p class="ending screen-reveal">You get out.<br>Behind you, the puppets move.<br>Your cage is empty.</p>';
-  after(5200, signal, () => {
-    screen.dataset.screen = "credits";
-    const roll = document.createElement("div");
-    roll.className = "credits-roll";
-    roll.style.setProperty("--credits-duration", `${CREDITS_DURATION}ms`);
+  after(5200, signal, () => renderCredits(screen, title, signal));
+}
 
-    const team = document.createElement("div");
-    team.className = "credit-group";
-    for (const name of TEAM) {
-      const row = document.createElement("p");
-      row.className = "credit-row";
-      row.textContent = name;
-      team.append(row);
-    }
-    const assets = document.createElement("div");
-    assets.className = "credit-group assets";
-    assets.append(...ASSETS.map(creditRow));
-    for (const { name, file, url } of FONTS) {
-      const row = document.createElement("p");
-      row.className = "credit-row";
-      const link = document.createElement("a");
-      link.className = "font-license";
-      link.href = url;
-      link.download = file;
-      link.textContent = file;
-      row.append(`${name} / `, link);
-      assets.append(row);
-    }
-    roll.append(team, assets);
-    screen.replaceChildren(roll);
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    after(reducedMotion ? 14_000 : CREDITS_DURATION, signal, title);
-  });
+export function renderCredits(screen: HTMLElement, title: () => void, signal: AbortSignal): void {
+  screen.dataset.screen = "credits";
+  const roll = document.createElement("div");
+  roll.className = "credits-roll";
+  roll.style.setProperty("--credits-duration", `${CREDITS_DURATION}ms`);
+
+  const team = document.createElement("div");
+  team.className = "credit-group";
+  for (const name of TEAM) {
+    const row = document.createElement("p");
+    row.className = "credit-row";
+    row.textContent = name;
+    team.append(row);
+  }
+  const assets = document.createElement("div");
+  assets.className = "credit-group assets";
+  assets.append(...ASSETS.map(creditRow));
+  for (const { name, file, url } of FONTS) {
+    const row = document.createElement("p");
+    row.className = "credit-row";
+    const link = document.createElement("a");
+    link.className = "font-license";
+    link.href = url;
+    link.download = file;
+    link.textContent = file;
+    row.append(`${name} / `, link);
+    assets.append(row);
+  }
+  roll.append(team, assets);
+  screen.replaceChildren(roll);
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  after(reducedMotion ? 14_000 : CREDITS_DURATION, signal, title);
 }
 
 function creditRow([asset, creator, source, license]: Credit): HTMLElement {

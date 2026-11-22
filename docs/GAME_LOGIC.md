@@ -3,7 +3,7 @@
 This file defines exactly how the game works: every state, timer, number and rule. Story lives in docs/GAME_DESIGN.md. If the two ever disagree on a rule or a number, this file wins. All numbers are starting values to tune in playtests (see Tuning knobs).
 
 ## 1. The game in 30 seconds
-- Each night runs from 12:00 AM to 6:00 AM (5 real minutes). Survive to 6:00 AM to win the night. Survive 5 nights to win the game.
+- Each night runs from 12:00 AM to 6:00 AM (5 real minutes). Survive to 6:00 AM to win nights 1 to 4. Night 5 is won only by typing the kill code into CHUD's chat before 6:00 AM (section 6.7).
 - Ram tries to get in through one of 3 entries: the left WINDOW, the right HATCH (a floor hatch over a fixed ladder), or the rear BALCONY.
 - **Ram is silent.** He makes no sound and never speaks. The house makes plenty of noise (creaks, knocks, metal), and none of it is him. You find him only by looking (with a light) or by asking CHUD.
 - **One power slot:** one magnetic lock or one entry light, never two things at once. The lights are yours: hold Shift and the entry you are looking at is lit. The locks go through CHUD, and CHUD can refuse.
@@ -37,10 +37,11 @@ The three decisions the player makes all night:
 
 ## 3. Game state (what code tracks)
 ```
-run:     night (1..5), facts_checkpoint (facts at the start of the current night)
+run:     night (1..5), facts_checkpoint (facts at the start of the current night), papers_checkpoint (slips collected at the last won night), kill_code (4 characters, random per run), ending (null or KILL_CODE; set when the code is accepted). Night 5 adds the phase TRAPPED (6:00 AM without the code)
+papers:  collected (0 to 4, lying on the desk), floor (entry and index of a slip on the floor, or null)
 clock:   elapsed_s (0..NIGHT_LENGTH), in-game time = 12:00 AM + elapsed_s / HOUR_LENGTH hours
 player:  view, position (DESK | TRAVELING(entry) | STANDING(entry) | HOLDING(entry) | RETURNING), hold_elapsed, brace_rest_until,
-         hold_cooldown_until, light_held (Shift), reading (artifact id or null)
+         hold_cooldown_until, light_held (Shift), reading (artifact id such as `paper2`, or null)
 power:   slot, pending_switch (target slot + time it lands), chud_online (bool), rebooting_until, light_cut_at (or null)
 ram:     state (AWAY | APPROACHING | AT_ENTRY | RETREATING | INSIDE), target_entry, state_ends_at, faked_this_visit (bool),
          attempt_length (rolled per visit), last_gap (length, kind first | normal | lull | quick),
@@ -95,6 +96,7 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
    - Reset everything to night-start values:
      - suspicion = starting suspicion
      - facts restored from `facts_checkpoint`
+     - slips collected restored from `papers_checkpoint`, no slip on the floor
      - power `NONE` (dark, nothing locked, no light), CHUD online, Ram `AWAY` with the first visit delay
      - player at `DESK` facing `DESK`, Shift not held, not reading, no pending question
      - the decoy stream reseeded for this night
@@ -102,9 +104,10 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 2. **During the night:** the clock runs. Ram, CHUD, the decoys and the player act by the rules below. Esc toggles the player pause: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10). Reading a desk artifact does **not** pause (6.6).
 3. **At 6:00 AM:**
    - If Ram is `INSIDE`: the scare fires (reason `DAWN`) and the night is lost. Surviving to dawn is not enough if he is already in the room.
-   - Otherwise the night ends immediately and is won, even if Ram is mid-attempt. The tide wins. Any visit in progress is cancelled with no breach. Then:
-     - Save `facts_checkpoint` = current facts.
-     - Go to the next night, or to the win ending after night 5.
+   - Night 5 and Ram is not inside: the code was not typed (a correct code ends the night at once, 6.7), so the phase becomes `TRAPPED` (section 11). The visit in progress is cancelled with no breach. `facts_checkpoint` and `papers_checkpoint` are not saved.
+   - Nights 1 to 4 and Ram is not inside: the night ends immediately and is won, even if Ram is mid-attempt. The tide wins. Any visit in progress is cancelled with no breach. Then:
+     - Save `facts_checkpoint` = current facts and `papers_checkpoint` = slips collected.
+     - Go to the next night.
 4. **On the scare (the loss):**
    - If the scare was set off by looking (reason `LOOK`, or `ARRIVED` with the entry's light on): a creepy full-frame flash of Ram standing inside the lit entry, about 0.4 s (0.3 to 0.5), then the jumpscare.
    - Otherwise straight to the jumpscare.
@@ -192,10 +195,34 @@ Positions: `DESK`, `TRAVELING(entry)`, `STANDING(entry)`, `HOLDING(entry)`, `RET
 ### 6.6 Desk artifacts
 - Three papers lie on the sill above CHUD's screen in the `DESK` view: the newspaper clipping on CHUD's launch, Daniel Vale's notebook, and the leaving calendar. Their clickable rects are in plate px in one UI config (`ARTIFACTS` in `prototype/src/uiConfig.ts`).
 - Click one (only at the `DESK` position and view) to read it full-screen.
+- In the release UI these three are disabled. The live desk papers are the kill code slips once collected (6.7).
 - **The night keeps running while you read.** While reading you cannot type, turn, press quick buttons, use the kill switch or light anything.
 - Put it down with a click, a right-click or Space.
 - If Ram is `INSIDE` when you put it down, the scare fires at once (reason `ARTIFACT`, no flash).
 - A scare that fires while reading (a timer, 6:00 AM) ends the read.
+
+### 6.7 Kill code slips and the code
+- **The code:** random per run. Four characters: 2 letters from `ACDEFHJKLMNPRTUVWXY` and 2 digits from `2345679`, in shuffled order. B, G, I, O, Q, S, Z, 0, 1 and 8 are left out so ordinary chat cannot match by accident.
+  - Made at New Game from the run seed, on its own random stream. Stored in the save as `kill_code`. A save without a valid code gets a fresh one.
+  - Config (`prototype/src/config.ts`, `ENDING`): `CODE_LETTERS` 2, `CODE_DIGITS` 2, `LETTERS`, `DIGITS`, `FIRST_PAPER_NIGHT` 2, `CODE_NIGHT` 5.
+- **Slips:** Ram's conscious half tries to help. When his attempt at an entry ends defended (locked or braced), he may leave a slip at that entry. All of these must hold:
+  - The night is at least `FIRST_PAPER_NIGHT` (2).
+  - No slip is already lying on the floor.
+  - Fewer than 4 slips are collected.
+  - Collected is less than the night minus 1. Collected slips never exceed night minus 1 (1 by night 2, 4 by night 5), and a missed night can be caught up later.
+- Slip `i` (counting from 0) carries character `i` of the code, so the first slip found is the first character.
+- **First slip of a run:** the on-screen hint "He left something at the {entry}." shows once.
+- **Where it shows:** the slip is visible in that entry's view. Faint in the dark, clearer with the entry's light.
+- **Picking it up:** stand at that entry, or brace it, and click the slip. Clicking does not start a brace. If you are braced there, the pickup ends the brace. The slip is collected and opens full-screen with the 6.6 rules: the night keeps running, inputs are blocked, you cannot brace or return while reading, and putting it down while Ram is `INSIDE` fires the scare (reason `ARTIFACT`, no flash).
+- **Uncollected:** a slip on the floor vanishes at night end.
+- **Collected:** slips lie on the desk and can be read again from the desk (6.6 rules).
+- **Checkpoints:** the collected count is saved at a won night (`papers_checkpoint`, section 5) and restored on a retried night.
+- **Typing the code (night 5 only):** type it into CHUD's chat.
+  - Case, spaces and punctuation are ignored, and the code may sit inside a longer message.
+  - It uses the normal chat gate: CHUD online, at the desk view, rate limit, 200 characters. With the generator off, typing does nothing.
+  - Code checks it before the parser and the judge. The text never reaches the judge or the voice model.
+  - **Correct code:** CHUD dies, Ram is freed and harmless, and the night ends at once as `GAME_WON` with ending `KILL_CODE` (section 11). This wins even if Ram is `INSIDE` at that moment. Ram's visit, any floor slip and any pending question are cleared.
+  - **Wrong code, or any code on nights 1 to 4:** an ordinary chat message. No penalty.
 
 ## 7. Ram
 
@@ -255,7 +282,7 @@ The first visit of the night uses the first visit delay instead (kind `first`). 
 - When an attempt ends undefended, Ram becomes `INSIDE(entry)`. There is no sound, no CHUD line and no event the player can perceive. The loss cause is decided now (section 11) and kept for the dev panel.
 - **The scare always fires when:**
   - the player looks at his entry with that entry's light on (at the `DESK` position, that view, its light on, not reading). It fires the moment both are true, whichever came last (turning to the view while Shift is held, or pressing Shift while looking). Reason `LOOK`, with the creepy flash.
-  - the player puts a desk artifact down. Reason `ARTIFACT`, no flash.
+  - the player puts a desk artifact or a kill code slip down. Reason `ARTIFACT`, no flash.
   - the player stands at or braces his entry (walking up to him). Reason `ARRIVED`, with the flash if that entry is lit.
   - 6:00 AM comes. Reason `DAWN`.
 - **Plus one extra trigger, rolled at the breach** with `INSIDE_TRIGGER_WEIGHTS` from the seeded RNG:
@@ -423,13 +450,22 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`). Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
 | 1 | 0:08, 0:24, 0:40 (real s) | Hints on screen, before the first visit: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it" |
+| 2 | First defended attempt of the run | On-screen hint: "He left something at the {entry}." (first kill code slip only). See 6.7 |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |
 | 5 | 5:00 AM | Radio: "Helicopter at first light." +20 (pushes toward Furious for the final hour) |
 
 ## 11. Win and loss screens
-- **Night won:** show the clock tick from 5:59 AM to 6:00 AM, then automatically show the next midnight card. After night 5, go to the ending and credits instead.
+- **Night won (nights 1 to 4):** show the clock tick from 5:59 AM to 6:00 AM, then automatically show the next midnight card.
+- **Kill code ending (night 5, `GAME_WON`, ending `KILL_CODE`):** reached by typing the code into CHUD's chat (6.7). Text beats on black. No morning or helicopter screen on night 5.
+  1. CHUD's screen dies.
+  2. The hatch opens by itself.
+  3. The exit scene (a teammate's work, hooked in at `renderExitScene` in `prototype/src/ui/screens/killEnding.ts`): down through the dungeon where every previous keeper died, Ram freed and harmless, rescue by the coast guard. Until it lands, the hook goes straight to the credits.
+  
+  Then credits.
+- **Trapped ending (night 5, phase `TRAPPED`):** 6:00 AM with no code entered and Ram not inside. Show "The AI won't let you leave". The boat is below, but the hatch and door stay shut. CHUD says "You don't need to leave, keeper. You never did." Then offer "Title". Continue retries night 5 from its checkpoint.
+- Night 5 with Ram `INSIDE` at 6:00 AM is a normal `DAWN` loss (section 5).
 - **Loss:** play the flash when applicable and the four-frame jumpscare with sound. Cut to black, then reveal the single option "Title" after about 1.5 seconds. Continue from the highest unlocked night and its facts checkpoint on the title screen.
 - **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
 
@@ -442,7 +478,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 6. The light never lies: with an entry's light on, its view shows Ram's true state at that entry. CHUD can turn it off but can never stop you turning it back on.
 7. Visits never overlap. Ram is in one place at a time.
 8. Win and loss are decided only by code (sections 7.5 and 7.7). No LLM output can change game state.
-9. 6:00 AM always wins unless Ram is already inside.
+9. Nights 1 to 4: 6:00 AM always wins unless Ram is already inside. Night 5: 6:00 AM never wins by itself, the kill code is required (6.7).
 10. Decoys never carry information about Ram (separate stream, tested).
 11. A silent breach always ends in the scare by code: there is no state in which he is inside and the night can be won.
 
@@ -475,6 +511,13 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 | Ram inside, player at the desk view with Shift held | Nothing: the desk is not his entry |
 | Ram inside, rolled `MOVE`, player turns to another entry | The scare fires on that turn |
 | Ram inside at 6:00 AM | Loss (`DAWN`) |
+| Night 5: correct code while Ram is inside | Win (`KILL_CODE`). The code frees him and ends the night at once |
+| Night 5: wrong code typed | An ordinary chat message. No penalty |
+| Night 5: code typed with CHUD offline | Nothing, as with any message while the generator is off |
+| Nights 1 to 4: the code typed | An ordinary chat message |
+| Slip on the floor when the night ends | Gone. Slips already collected stay on the desk |
+| Night 5: correct code during an attempt window | Win at once. The attempt is cancelled with no breach |
+| Night 5: 6:00 AM without the code, Ram not inside | `TRAPPED` (section 11), not a win |
 | Judge down or slow | Commands still work through the code parser. Social flags are neutral. The game stays playable without the LLM |
 | Voice down or slow | Canned lines by outcome. State is unaffected |
 | Player types "turn on the light" | Parses to `NONE`. CHUD cannot control lights |
@@ -484,6 +527,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 
 ## 14. Tuning knobs (one config file)
 - Per night (`prototype/src/config.ts`): first visit delay, AWAY gap base range, approach time, attempt window range, lull chance, quick return chance, decoy interval, fake-out chance, starting suspicion, question mix, lie chances, whether questions may land during an attempt.
+- Kill code (`prototype/src/config.ts`, `ENDING`): letter and digit counts and pools, first slip night, code night.
 - Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `NIGHT_ONE_HINT_TIMES`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
 - UI only (`prototype/src/uiConfig.ts`): `EDGE_DWELL`, the turn times, the artifact rects, the scare timings (flash 0.4 s, jumpscare frames), how long the malicious smile shows.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.

@@ -213,3 +213,16 @@ export const CONFIG: Config = {
 };
 
 export const nightLength = (c: Config): number => c.HOUR_LENGTH * c.NIGHT_HOURS;
+
+// The kill code ending. The code is random per run: CODE_LETTERS letters and CODE_DIGITS digits in shuffled order, with
+// ambiguous characters left out so normal chat never matches by accident. Ram drops one paper (one character) at an entry
+// he was blocked at, from FIRST_PAPER_NIGHT on. The code is typed to CHUD on CODE_NIGHT only. Reaching 6 AM on CODE_NIGHT
+// without it ends in the trapped bad ending.
+export const ENDING = {
+  CODE_LETTERS: 2,
+  CODE_DIGITS: 2,
+  LETTERS: "ACDEFHJKLMNPRTUVWXY",
+  DIGITS: "2345679",
+  FIRST_PAPER_NIGHT: 2,
+  CODE_NIGHT: 5,
+};

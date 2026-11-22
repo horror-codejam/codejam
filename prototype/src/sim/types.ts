@@ -44,7 +44,8 @@ export type Phase =
   | "SAFETY_PAUSE" // self-harm flag, clock stopped (resumeFromSafetyPause)
   | "BREACH" // night lost, loss screen (retryNight)
   | "NIGHT_WON" // 6 AM screen (nextNight)
-  | "GAME_WON"; // after night 5
+  | "GAME_WON" // the kill code was accepted on night 5 (the true ending)
+  | "TRAPPED"; // night 5 reached 6 AM without the kill code: bad ending, then Title. Retry restarts night 5
 
 // `stay` marks the edge-controls flow (docs/CONTROLS_PROPOSAL.md, goToEntry): the dash ends in STANDING, a brace
 // is a HOLDING that ends back in STANDING, and the player leaves with returnToDesk. Without it (startHold, the
@@ -75,7 +76,9 @@ export interface QuestionPlanItem {
 
 export interface GameState {
   phase: Phase;
-  run: { night: number; factsCheckpoint: Facts; seed: number };
+  run: { night: number; factsCheckpoint: Facts; seed: number; killCode: string; papersCheckpoint: number };
+  // Kill code papers: collected so far this night, and the one Ram left at an entry (null if none).
+  papers: { collected: number; floor: { entry: Entry; index: number; droppedAt: number } | null };
   clock: { elapsed: number; hour: number }; // hour 0..6, 0 = 12 AM
   player: {
     view: View;
@@ -142,9 +145,11 @@ export interface GameState {
     };
     scriptedFired: string[];
     nightOneHintsShown: number; // how many of the night 1 hints have been shown
+    paperHintShown: boolean; // the first paper drop of the run showed its on-screen hint
   };
   decoy: { nextAt: number; count: number }; // decoy noise schedule (own RNG stream, never reads Ram)
   loss: LossInfo | null;
+  ending: "KILL_CODE" | null; // set when the kill code is accepted
 }
 
 export type LossCause = "UNLOCKED" | "LIED" | "SABOTAGE" | "FURIOUS" | "WRONG_HOLD" | "PEEKED" | "REFUSED" | "ARMS_GAVE_OUT" | "POWER_OFF";
@@ -284,7 +289,11 @@ export type GameEvent =
   | { type: "SAFETY_PAUSE" }
   | { type: "BREACH"; loss: LossInfo }
   | { type: "NIGHT_WON"; night: number }
-  | { type: "GAME_WON" };
+  | { type: "GAME_WON" }
+  | { type: "PAPER_DROPPED"; entry: Entry; index: number }
+  | { type: "PAPER_COLLECTED"; index: number }
+  | { type: "KILL_CODE_ACCEPTED" }
+  | { type: "TRAPPED" };
 
 export type RejectReason =
   | "CHUD_OFFLINE"
@@ -323,6 +332,8 @@ export type RamVisual = "none" | "approach_silhouette" | "tell_faint" | "tell_cl
 export interface EngineOptions {
   seed?: number;
   config?: import("../config").Config;
+  killCode?: string; // from the save; a missing or invalid one gets a fresh code
+  papersCheckpoint?: number; // papers collected at the start of startNight, from the save (default 0)
   startNight?: number; // 1..5, default 1. If > 1 the name prompt is skipped and facts may be passed
   facts?: Facts;
   skipNamePrompt?: boolean; // tests and dev panel
@@ -337,8 +348,8 @@ export interface IGameEngine {
   // Flow
   setName(name: string): void; // NAME_PROMPT -> NIGHT_CARD (night 1). Stores fact "name", CHUD says name_ack
   beginNight(): void; // NIGHT_CARD -> PLAYING
-  retryNight(): void; // BREACH -> NIGHT_CARD, same night, facts from checkpoint
-  nextNight(): void; // NIGHT_WON -> NIGHT_CARD (next night) or GAME_WON
+  retryNight(): void; // BREACH or TRAPPED -> NIGHT_CARD, same night, facts from checkpoint
+  nextNight(): void; // NIGHT_WON -> NIGHT_CARD (next night). No-op on the last night (it ends by kill code, TRAPPED or a loss)
   jumpToNight(n: number): void; // dev panel: any phase -> NIGHT_CARD for night n, keeps current facts
   resumeFromSafetyPause(): void;
 
@@ -346,6 +357,10 @@ export interface IGameEngine {
   turn(view: View): void; // only when position is DESK
   setLight(on: boolean): void; // Shift held or released: the light of the viewed entry (the player's, not CHUD's)
   pickUpArtifact(id: string): void; // DESK position and view: read a desk artifact full-screen (the night keeps running)
+  papersOnDesk(): number[]; // [0 .. collected-1]: collected papers, re-readable from the desk
+  paperChar(i: number): string; // run.killCode[i]
+  floorPaper(): { entry: Entry; index: number } | null; // the paper Ram left at an entry, if any
+  pickUpFloorPaper(): boolean; // STANDING or braced at that entry: collects it and opens the reader
   putDownArtifact(): void; // put it down; if Ram is inside, the scare fires now
   startHold(entry: Entry): void; // GAME_LOGIC 6.4 flow: dash, then HOLDING, then RETURNING when the hold ends
   backToDesk(): void; // while HOLDING (either flow) or STANDING; in the edge flow same as returnToDesk
