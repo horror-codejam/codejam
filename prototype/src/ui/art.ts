@@ -1,14 +1,15 @@
 // Art slots. Each slot resolves, in order, to:
-//   1. prototype/assets/<slot>.(png|webp|jpg)   manual override, see prototype/assets/README.md
-//   2. a final render in scenes/03-watch-room/final/webp/, by job name (`tell_window_on`) or through FINAL_ALIASES
+//   1. a final render in scenes/03-watch-room/final/webp/, by job name (`tell_window_on`) or through FINAL_ALIASES
 //      for the older slot names (`view_window` -> `view_window_off`). Made by tools/convert_renders.mjs.
+//   2. prototype/assets/<slot>.(png|webp|jpg)   if the final is missing, see prototype/assets/README.md
 //   3. the team's earlier render in scenes/ listed in SCENE_ART below
 //   4. a coded placeholder
 // Plates are 2:1 stills. Only jumpscares are loaded as ordered frame textures. Other sequences are videos.
 
 import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+import { ENTRIES } from "../sim/types";
 import { H, PLATE_H, PLATE_W, W } from "./layout";
-import { FINAL_ALIASES, JUMPSCARE_MIN_FRAMES } from "./plates";
+import { entryPlate, FINAL_ALIASES, holdPlate, JUMPSCARE_MIN_FRAMES, jumpscareJob } from "./plates";
 
 const overrides = import.meta.glob("../../assets/*.{png,webp,jpg,jpeg}", { eager: true, import: "default" }) as Record<string, string>;
 
@@ -16,12 +17,9 @@ const sceneFiles = import.meta.glob(
   [
     "../../../scenes/03-watch-room/render_blockout_cam_*.png",
     "../../../scenes/03-watch-room/render_hold_*.png",
-    "../../../scenes/03-watch-room/render_dash_floor.png",
     "../../../scenes/03-watch-room/final/png/title_bg/title_bg.png",
     "../../../scenes/03-watch-room/chud_smiley_four_moods.png",
     "../../../scenes/04-ram/*.png",
-    "../../../scenes/99-final-cage-hall/render_*.png",
-    "../../../scenes/01-shipwreck/render_blockout.png",
   ],
   { eager: true, import: "default" },
 ) as Record<string, string>;
@@ -43,7 +41,6 @@ const SCENE_ART: Record<string, string> = {
   hold_window: "03-watch-room/render_hold_window.png",
   hold_hatch: "03-watch-room/render_hold_hatch.png",
   hold_balcony: "03-watch-room/render_hold_balcony.png",
-  dash_floor: "03-watch-room/render_dash_floor.png",
   title_bg: "03-watch-room/final/png/title_bg/title_bg.png",
   chud_faces: "03-watch-room/chud_smiley_four_moods.png",
   // Ram after a silent breach: the creepy flash (960 x 480 plates from the entry cameras) and the jumpscare (1280 x 720)
@@ -54,9 +51,6 @@ const SCENE_ART: Record<string, string> = {
   ram_jumpscare_2: "04-ram/ram_jumpscare_2.png",
   ram_jumpscare_3: "04-ram/ram_jumpscare_3.png",
   ram_jumpscare_4: "04-ram/ram_jumpscare_4.png",
-  ending_lose: "99-final-cage-hall/render_lose_in_cage.png",
-  ending_win: "99-final-cage-hall/render_win_outside.png",
-  intro: "01-shipwreck/render_blockout.png",
 };
 
 // Final renders (WebP, committed). Stills: final/webp/<job>.webp. Sequences: final/webp/<job>/<job>_0001.webp ...
@@ -88,8 +82,6 @@ const finalSeqs = new Map<string, string[]>(); // job -> frame urls in order (on
     list.sort((a, b) => a.n - b.n);
     if (list.length >= JUMPSCARE_MIN_FRAMES && list.every((fr, i) => fr.n === i + 1)) {
       finalSeqs.set(job, list.map((fr) => fr.url));
-    } else {
-      console.warn(`final sequence ${job} is incomplete, using the fallback`);
     }
   }
 }
@@ -100,20 +92,19 @@ for (const [slotName, suffix] of Object.entries(SCENE_ART)) {
   const hit = Object.entries(sceneFiles).find(([p]) => p.endsWith(suffix));
   if (hit) urlBySlot.set(slotName, hit[1]);
 }
+for (const [path, url] of Object.entries(overrides)) {
+  const slotName = path.split("/").pop()!.replace(/\.(png|webp|jpe?g)$/i, "");
+  urlBySlot.set(slotName, url);
+}
 for (const [job, url] of finalStills) {
   urlBySlot.set(job, url);
   finalSlots.add(job);
 }
 for (const [slotName, job] of Object.entries(FINAL_ALIASES)) {
-  const url = finalStills.get(job);
+  const url = finalStills.get(job) ?? urlBySlot.get(job);
   if (!url) continue;
   urlBySlot.set(slotName, url);
-  finalSlots.add(slotName);
-}
-for (const [path, url] of Object.entries(overrides)) {
-  const slotName = path.split("/").pop()!.replace(/\.(png|webp|jpe?g)$/i, "");
-  urlBySlot.set(slotName, url);
-  finalSlots.delete(slotName);
+  if (finalStills.has(job)) finalSlots.add(slotName);
 }
 const videos = new Map(Object.entries(videoFiles).map(([path, url]) => [
   path.split("/").pop()!.slice(0, -".webm".length), url,
@@ -121,10 +112,10 @@ const videos = new Map(Object.entries(videoFiles).map(([path, url]) => [
 
 const textures = new Map<string, Texture>();
 const frameTextures = new Map<string, Texture[]>();
-const DOM_ONLY = /^(artifact_|ending_)/;
+const DOM_ONLY = /^artifact_/;
 const LEGACY_SCARE = /^ram_jumpscare_[1-4]$/;
 
-// URL of a slot for DOM use (faces, ending backgrounds, title_bg). Null if the slot has no art yet.
+// URL of a slot for DOM use. Null if the slot has no art yet.
 export function artUrl(slotName: string): string | null {
   return urlBySlot.get(slotName) ?? null;
 }
@@ -186,7 +177,26 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
     onProgress?.(artProgress.done, artProgress.total);
     await Promise.all(legacyScares.map(loadStill));
   }
+  if (import.meta.env.DEV) warnPrototypeFallbacks();
   return loaded.sort();
+}
+
+function warnPrototypeFallbacks(): void {
+  const fallback = ["view_desk_off", ...ENTRIES.flatMap((entry) => [
+    entryPlate(entry, false, "none"), entryPlate(entry, true, "none"),
+    entryPlate(entry, false, "tell_faint"), entryPlate(entry, true, "tell_clear"),
+    entryPlate(entry, true, "approach_silhouette"), entryPlate(entry, true, "inside"),
+    ...[false, true].flatMap((brace) => [false, true].flatMap((tell) => [false, true].map((lit) => holdPlate(entry, brace, tell, lit)))),
+  ])].filter((name) => !isFinal(name));
+  for (const entry of ENTRIES) {
+    const job = jumpscareJob(entry);
+    if (!frameTextures.has(job)) fallback.push(job);
+  }
+  if (!hasArt("chud_faces")) {
+    fallback.push("chud_faces");
+    if (!hasArt("chud_face_malicious")) fallback.push("chud_face_malicious");
+  }
+  if (fallback.length) console.warn("Visual slots using prototype fallbacks:", fallback.join(", "));
 }
 
 export function hasArt(slotName: string): boolean {

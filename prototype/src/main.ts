@@ -558,36 +558,30 @@ function startScare(l: LossInfo): void {
   const after = (secs: number, fn: () => void): void => {
     scareTimers.push(window.setTimeout(fn, secs * 1000));
   };
-  let at = 0;
+  const snap = scene.prepareScare(l.entry, l.flash, now());
   if (l.flash) {
-    scene.flashEntry = l.entry;
-    scene.flashStartedAt = now();
-    sound.flashSting();
-    at = SCARE.FLASH_TIME;
+    if (snap) after(snap, () => sound.flashSting());
+    else sound.flashSting();
   }
-  after(at, () => {
-    scene.flashEntry = null;
+  after(snap + (l.flash ? SCARE.FLASH_TIME : 0), () => {
+    const duration = scene.playScare(l.entry, now());
     sound.jumpscare();
-    for (let n = 1; n <= 4; n++) after((n - 1) * SCARE.FRAME_TIME, () => (scene.jumpscare = n));
-  });
-  after(at + 3 * SCARE.FRAME_TIME + SCARE.HOLD_TIME, () => {
-    scene.jumpscare = null;
-    if (engine.state.phase === "BREACH" && !breachShown) {
-      breachShown = true;
-      sound.setAmbientPlaying(false);
-      sound.fadeStorm(0, 0.65);
-      showScreen("BREACH");
-    }
+    after(duration, () => {
+      scene.clearScare();
+      if (engine.state.phase === "BREACH" && !breachShown) {
+        breachShown = true;
+        sound.setAmbientPlaying(false);
+        sound.fadeStorm(0, 0.65);
+        showScreen("BREACH");
+      }
+    });
   });
 }
 
 function endScare(): void {
   for (const id of scareTimers) window.clearTimeout(id);
   scareTimers = [];
-  if (scene) {
-    scene.flashEntry = null;
-    scene.jumpscare = null;
-  }
+  scene?.clearScare();
 }
 
 // ---------------------------------------------------------------------------

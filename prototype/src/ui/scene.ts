@@ -11,7 +11,7 @@
 import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite, VideoSource } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
-import { BRACE, CONTROLS } from "../uiConfig";
+import { BRACE, CONTROLS, SCARE } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
@@ -19,7 +19,7 @@ import { artFrames, artVideoUrl, coverSprite, hasArt, isFinal, slot, stageSlot }
 import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./layout";
 import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
-import { entryPlate, holdPlate, JUMPSCARE_FPS, JUMPSCARE_MIN_FRAMES, jumpscareJob, sequenceFrame } from "./plates";
+import { entryPlate, holdPlate, JUMPSCARE_FPS, jumpscareJob, sequenceFrame } from "./plates";
 
 // Final renders are full plates per state (src/ui/plates.ts): when the plate for the current state exists it is shown
 // alone, with no overlay and no night grade. The layers below (view + coded overlays) are the fallback for a state whose
@@ -112,14 +112,14 @@ export class Scene {
   private rain: TilingSprite;
   private entries = new Map<Entry, EntryLayers>();
   private holds = new Map<Entry, HoldLayers>();
-  private dash: Container;
-  private dashRender: boolean;
   private jumps: Container[] = []; // ram_jumpscare_1..4 (fallback)
   private jumpSeq = new Container(); // the final 24 fps jumpscare_<entry> sequence, when rendered
   private jumpSeqSprite = new Sprite(Texture.EMPTY);
   private jumpSeqFrames: Texture[] = [];
   private jumpStartedAt = 0;
-  private lastJump: number | null = null;
+  private jumpActive = false;
+  private scareEntry: Entry | null = null;
+  private snapUntil = 0;
   private flashLayer = new Graphics(); // the white pop at the start of the creepy flash
   private fade = new Graphics();
   private grain: Sprite;
@@ -132,9 +132,7 @@ export class Scene {
   private overDeskControl = false;
   private pan = { x: 0, y: 0 }; // stage px, lerped toward the mouse
 
-  jumpscare: number | null = null; // frame 1..4 of the jumpscare, set by the UI's scare sequence
-  flashEntry: Entry | null = null; // the creepy full-frame flash: this entry, lit, with Ram inside
-  flashStartedAt = 0;
+  private flashStartedAt = Infinity;
   lightFlickerUntil = 0; // real seconds: the stage flickers as CHUD forces the light off
   onThunder: (() => void) | null = null;
   paused = false; // UI pause: the brace effects freeze
@@ -246,11 +244,6 @@ export class Scene {
       this.cam.addChild(hold);
       this.holds.set(e, { root: hold, k, base, tell: holdTell, arms, strain, plates: holdPlates, plate: null, render: holdRender });
     }
-
-    this.dashRender = hasArt("dash_floor");
-    this.dash = slot("dash_floor", P.dashFloor, "stage");
-    this.dash.visible = false;
-    this.cam.addChild(this.dash);
 
     // world -> RenderTexture -> warped mesh on the stage
     this.rt = RenderTexture.create({ width: W, height: H, resolution: app.renderer.resolution });
@@ -375,11 +368,35 @@ export class Scene {
     };
   }
 
+  prepareScare(entry: Entry, flash: boolean, t: number): number {
+    const snap = this.lastView !== entry || this.lastDashing ? SCARE.SNAP_TIME : 0;
+    this.scareEntry = flash || snap ? entry : null;
+    this.snapUntil = t + snap;
+    this.flashStartedAt = flash ? this.snapUntil : Infinity;
+    this.turnStartedAt = -10;
+    return snap;
+  }
+
+  playScare(entry: Entry, t: number): number {
+    this.jumpSeqFrames = artFrames(jumpscareJob(entry));
+    this.jumpStartedAt = t;
+    this.jumpActive = true;
+    const count = this.jumpSeqFrames.length;
+    return count ? count / JUMPSCARE_FPS + SCARE.HOLD_TIME : 3 * SCARE.FRAME_TIME + SCARE.HOLD_TIME;
+  }
+
+  clearScare(): void {
+    this.scareEntry = null;
+    this.snapUntil = 0;
+    this.flashStartedAt = Infinity;
+    this.jumpActive = false;
+  }
+
   update(engine: GameEngine, t: number): void {
     const s = engine.state;
     const pos = s.player.position;
     // The player's light (Shift) lights only the entry it is on (GAME_LOGIC 6.1).
-    const litEntry: Entry | null = this.flashEntry ?? (s.power.slot.startsWith("LIGHT_") ? (s.power.slot.slice(6) as Entry) : null);
+    const litEntry: Entry | null = this.scareEntry ?? (s.power.slot.startsWith("LIGHT_") ? (s.power.slot.slice(6) as Entry) : null);
     const dt = Math.min(0.1, Math.max(0, t - this.lastT));
     this.lastT = t;
     const fdt = this.paused ? 0 : dt;
@@ -388,13 +405,16 @@ export class Scene {
 
     // which picture is up
     // the hold view shows while bracing (HOLDING) and while standing at the entry (edge controls, STANDING)
-    const holding = !this.flashEntry && (pos.kind === "HOLDING" || pos.kind === "STANDING") ? pos.entry : null;
+    const dashing = s.phase === "PLAYING" && (pos.kind === "TRAVELING" || pos.kind === "RETURNING");
+    const dashProgress = dashing ? clamp(1 - (pos.until - s.clock.elapsed) / CONFIG.TRAVEL_TIME, 0, 1) : 0;
+    const holding = this.scareEntry ? null
+      : pos.kind === "HOLDING" || pos.kind === "STANDING" || (pos.kind === "TRAVELING" && dashProgress >= 0.5) ? pos.entry
+      : pos.kind === "RETURNING" && dashProgress < 0.5 ? pos.from : null;
     const bracing = pos.kind === "HOLDING";
-    const dashing = !this.flashEntry && (pos.kind === "TRAVELING" || pos.kind === "RETURNING");
-    const view: View = this.flashEntry ?? s.player.view;
+    const view: View = this.scareEntry ?? (pos.kind === "RETURNING" && dashProgress >= 0.5 ? "DESK" : s.player.view);
     if (view !== this.lastView) {
       if (this.lastView !== null) {
-        this.turnStartedAt = t;
+        this.turnStartedAt = this.scareEntry || dashing || this.lastDashing ? -10 : t;
         // a turn at the desk slides; the snap back to DESK at the end of a dash keeps the fade from black
         this.turnSlide = s.phase === "PLAYING" && !this.lastDashing && !dashing;
         this.turnDir = turnDirection(this.lastView, view);
@@ -414,16 +434,16 @@ export class Scene {
     this.lastDashing = dashing;
 
     let grade: Rgb = GRADE_NONE;
-    const onDesk = !holding && !dashing && view === "DESK";
+    const onDesk = !holding && view === "DESK";
     this.desk.visible = onDesk;
     if (onDesk && this.deskRender && !this.deskFinal) grade = GRADE_DESK_DARK;
 
     for (const [e, L] of this.entries) {
-      const on = !holding && !dashing && view === e;
+      const on = !holding && view === e;
       L.root.visible = on;
       if (!on) continue;
       const lit = litEntry === e;
-      const vis = this.flashEntry === e ? "inside" : engine.ramVisual(e);
+      const vis = this.scareEntry === e ? "inside" : engine.ramVisual(e);
       const tellUp = vis === "tell_faint" || vis === "tell_clear";
       // the final full plate for this state, else the view with a coded overlay
       const want = entryPlate(e, lit, vis);
@@ -498,12 +518,9 @@ export class Scene {
       );
       if (L.strain) L.strain.alpha = Math.min(1, Math.max(0, (fatigue - 0.25) / 0.75) + 0.4 * push);
     }
-    this.dash.visible = dashing;
-    if (dashing && this.dashRender) grade = GRADE_DARK;
-
     // the lighthouse beacon sweeping outside the glazing: exterior ambience only, it never lights the room
     // and has nothing to do with the power slot or Ram (GAME_LOGIC 6.1)
-    const deskPowered = s.phase === "PLAYING" && onDesk && s.power.generatorOn;
+    const deskPowered = s.phase === "PLAYING" && onDesk && !dashing && s.power.generatorOn;
     const playingDeskClip = this.syncDeskVideo(deskPowered);
     const sweepOn = deskPowered && !playingDeskClip;
     this.sweep.visible = sweepOn;
@@ -530,6 +547,7 @@ export class Scene {
     // night grade, eased so turning or switching power reads as light changing
     const ease = 1 - Math.exp(-dt * 6);
     for (let i = 0; i < 3; i++) this.gradeNow[i] += (grade[i] - this.gradeNow[i]) * ease;
+    this.cam.filters = grade === GRADE_NONE ? null : [this.grade];
     const boost = flash && onDesk ? 0.35 : 0;
     const [r, g, b] = this.gradeNow;
     this.grade.matrix = [r + boost, 0, 0, 0, 0, 0, g + boost, 0, 0, 0, 0, 0, b + boost, 0, 0, 0, 0, 0, 1, 0] as ColorMatrix;
@@ -549,11 +567,8 @@ export class Scene {
     this.cam.rotation = 0;
     let black = 0;
     if (dashing) {
-      const left = pos.until - s.clock.elapsed;
-      const k = 1 - Math.max(0, Math.min(1, left / CONFIG.TRAVEL_TIME)); // 0..1 through the dash
-      const tip = 0.2 / CONFIG.TRAVEL_TIME;
-      if (k < tip) black = 1 - k / tip;
-      else if (k > 1 - tip) black = (k - (1 - tip)) / tip;
+      // Use the existing views and hide the change of angle at the bottom of the dip.
+      black = Math.max(0, 1 - Math.abs(dashProgress - 0.5) * CONFIG.TRAVEL_TIME / 0.2);
       ox += Math.sin(t * 31) * 14;
       oy += Math.abs(Math.sin(t * 13)) * 22;
       this.cam.rotation = Math.sin(t * 7) * 0.02;
@@ -604,12 +619,13 @@ export class Scene {
     }
     this.warpPrev.visible = sliding;
     this.views.filters = sliding ? [this.turnBlur] : null;
-    if (t < this.lightFlickerUntil) black = Math.max(black, Math.random() < 0.5 ? 0.55 : 0.15);
-    this.fadeAlpha = black * 0.95;
+    if (t < this.snapUntil) black = Math.max(black, (this.snapUntil - t) / SCARE.SNAP_TIME);
+    if (!this.jumpActive && t < this.lightFlickerUntil) black = Math.max(black, Math.random() < 0.5 ? 0.55 : 0.15);
+    this.fadeAlpha = black;
     this.fade.alpha = Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
     // foreground rain: desk (through the glazing) and window views, moves 1.6x the plate
-    this.rain.visible = !dashing && !holding && (view === "DESK" || view === "WINDOW");
+    this.rain.visible = !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
     this.rain.x = -PAN_X * 1.6 - this.pan.x * 1.6;
     this.rain.tilePosition.y = (t * 900) % 512;
     this.rain.tilePosition.x = (t * 60) % 512;
@@ -617,7 +633,7 @@ export class Scene {
     this.app.renderer.render({ container: this.world, target: this.rt, clear: true });
 
     // the creepy flash: a white pop, then the lit entry with him inside, flickering and twitching
-    if (this.flashEntry) {
+    if (t >= this.flashStartedAt && !this.jumpActive) {
       const k = t - this.flashStartedAt;
       this.flashLayer.alpha = k < 0.06 ? 0.85 : Math.random() < 0.18 ? 0.25 : 0;
       this.views.x = (Math.random() - 0.5) * 10;
@@ -625,20 +641,13 @@ export class Scene {
       this.flashLayer.alpha = 0;
       this.views.x = 0;
     }
-    // the jumpscare: the final 24 fps sequence of the breach entry when rendered (main's frame clock only starts and
-    // ends it: jumpscare.wav plays at its frame 1, the last frame holds until main clears it), else the 4 frames
-    if (this.jumpscare !== null && this.lastJump === null) {
-      this.jumpStartedAt = t;
-      const entry = engine.state.loss?.entry ?? null;
-      const frames = entry ? artFrames(jumpscareJob(entry)) : [];
-      this.jumpSeqFrames = frames.length >= JUMPSCARE_MIN_FRAMES ? frames : [];
-    }
-    this.lastJump = this.jumpscare;
-    const seq = this.jumpscare !== null && this.jumpSeqFrames.length > 0;
+    const jumpTime = t - this.jumpStartedAt;
+    const seq = this.jumpActive && this.jumpSeqFrames.length > 0;
+    const legacyFrame = this.jumpActive && !seq ? sequenceFrame(jumpTime, 1 / SCARE.FRAME_TIME, this.jumps.length) : -1;
     this.jumpSeq.visible = seq;
-    this.jumps.forEach((j, i) => (j.visible = !seq && this.jumpscare === i + 1));
+    this.jumps.forEach((j, i) => (j.visible = legacyFrame === i));
     if (seq) {
-      const tex = this.jumpSeqFrames[sequenceFrame(t - this.jumpStartedAt, JUMPSCARE_FPS, this.jumpSeqFrames.length)];
+      const tex = this.jumpSeqFrames[sequenceFrame(jumpTime, JUMPSCARE_FPS, this.jumpSeqFrames.length)];
       const sp = this.jumpSeqSprite;
       sp.texture = tex;
       const k = Math.max(W / tex.width, H / tex.height); // cover the stage (1280 x 640 frames crop a little at the sides)
@@ -647,8 +656,8 @@ export class Scene {
       // a lighter shake than the stills: the frames already move
       this.jumpSeq.scale.set(1.03 + Math.random() * 0.015);
       this.jumpSeq.position.set(W / 2 + (Math.random() - 0.5) * 12, H / 2 + (Math.random() - 0.5) * 12);
-    } else if (this.jumpscare) {
-      const j = this.jumps[this.jumpscare - 1];
+    } else if (legacyFrame >= 0) {
+      const j = this.jumps[legacyFrame];
       j.scale.set(1.02 + Math.random() * 0.04);
       j.position.set(W / 2 + (Math.random() - 0.5) * 30, H / 2 + (Math.random() - 0.5) * 30);
     }

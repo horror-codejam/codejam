@@ -1,6 +1,6 @@
 import type { Band, Entry, GameState } from "../sim/types";
 import { CONFIG } from "../config";
-import { artUrl } from "./art";
+import { artUrl, hasArt } from "./art";
 
 const MOODS: Record<Band, { left: number; eyes: string[] }> = {
   WARM: { left: 20, eyes: ["37%", "63%", "42%"] },
@@ -130,32 +130,32 @@ export class Terminal {
       f.replaceChildren();
       f.style.backgroundImage = "";
       f.classList.toggle("malicious", online && malicious);
-      f.classList.toggle("sprite", online && !malicious && !!FACE_URL);
+      const hasMoodSheet = hasArt("chud_faces") && !!FACE_URL;
+      const hasMaliciousFace = hasArt("chud_face_malicious") && !!MALICIOUS_URL;
+      f.classList.toggle("sprite", online && hasMoodSheet && !(malicious && hasMaliciousFace));
       if (!online) {
         f.textContent = key;
-      } else if (malicious) {
-        if (MALICIOUS_URL) {
-          f.style.backgroundImage = `url("${MALICIOUS_URL}")`;
-          f.style.backgroundSize = "contain";
-          f.style.backgroundPosition = "center";
-        } else {
-          f.innerHTML = MALICIOUS_SVG;
-        }
-      } else if (FACE_URL) {
+      } else if (malicious && hasMaliciousFace) {
+        f.style.backgroundImage = `url("${MALICIOUS_URL}")`;
+        f.style.backgroundSize = "contain";
+        f.style.backgroundPosition = "center";
+      } else if (hasMoodSheet) {
         const scale = FACE_SIZE / 540;
-        const { left, eyes: [leftEye, rightEye, eyeY] } = MOODS[band];
+        const { left, eyes: [leftEye, rightEye, eyeY] } = MOODS[malicious ? "WARM" : band];
         f.style.backgroundImage = `url("${FACE_URL}")`;
         f.style.backgroundSize = `${2172 * scale}px ${724 * scale}px`;
         f.style.backgroundPosition = `${-left * scale}px ${-90 * scale}px`;
         f.style.setProperty("--eye-left", leftEye);
         f.style.setProperty("--eye-right", rightEye);
         f.style.setProperty("--eye-y", eyeY);
+      } else if (malicious) {
+        f.innerHTML = MALICIOUS_SVG;
       } else {
         f.textContent = FACE_GLYPH[band];
       }
     }
     const blink = t % 4.7 < 0.13;
-    f.classList.toggle("blink", online && !malicious && !!FACE_URL && blink && !REDUCED.matches);
+    f.classList.toggle("blink", online && !malicious && hasArt("chud_faces") && blink && !REDUCED.matches);
     f.classList.toggle("glitch", online && t < this.glitchUntil && !REDUCED.matches);
   }
 }

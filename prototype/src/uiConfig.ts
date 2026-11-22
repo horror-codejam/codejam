@@ -72,6 +72,7 @@ export const ARTIFACTS: { id: string; slot: string; label: string; rect: { x: nu
 
 // The silent breach scare (GAME_LOGIC 7.7 and 5.4), real seconds.
 export const SCARE = {
+  SNAP_TIME: 0.15, // presentation only, turn to an off-camera breach
   FLASH_TIME: 0.4, // the creepy full-frame flash of Ram inside the lit entry, before the jumpscare (0.3 to 0.5)
   FRAME_TIME: 0.11, // each of the four jumpscare frames; the last one holds
   HOLD_TIME: 0.75, // the last frame stays up this long before the loss screen
