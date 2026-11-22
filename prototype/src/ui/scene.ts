@@ -64,9 +64,10 @@ const SWEEP_W = 300; // plate px
 const SCREEN_FRAME = { x: 152, y: 259, w: 659, h: 201 };
 
 // The final desk plate (final/webp/view_desk_off.webp, plate px): the monitor's glass is blacked out and the DOM
-// terminal (DESK_SCREEN size, scaled to fit) is centred on it. Its baked UI text would fight the live terminal.
+// terminal (DESK_SCREEN size, scaled to fit) sits on it, low enough to clear the hint line at the top of the stage.
+// The baked UI text on the rendered screen would fight the live terminal, hence the blackout.
 const FINAL_SCREEN_FRAME = { x: 176, y: 14, w: 608, h: 330 };
-const FINAL_DESK_SCREEN = { x: 186, y: 94, w: 588, h: Math.round((588 * DESK_SCREEN.h) / DESK_SCREEN.w) };
+const FINAL_DESK_SCREEN = { x: 186, y: 130, w: 588, h: Math.round((588 * DESK_SCREEN.h) / DESK_SCREEN.w) };
 // The two glazing panes either side of the monitor: lightning and the beacon glow light only these.
 const FINAL_DESK_PANES = [
   { x: 0, y: 0, w: 167, h: 197 },
@@ -348,7 +349,7 @@ export class Scene {
     let grade: Rgb = GRADE_NONE;
     const onDesk = !holding && !dashing && view === "DESK";
     this.desk.visible = onDesk;
-    if (onDesk && this.deskRender) grade = GRADE_DESK_DARK;
+    if (onDesk && this.deskRender && !this.deskFinal) grade = GRADE_DESK_DARK;
 
     for (const [e, L] of this.entries) {
       const on = !holding && !dashing && view === e;
