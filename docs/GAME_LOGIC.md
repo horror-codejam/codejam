@@ -485,7 +485,7 @@ No canned line repeats the previous line of the same kind back to back (when the
 1. Every attempt window is at least 5 s (20 to 25 s on night 1, down to 8 to 10 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.
 2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Reaching the entry and bracing it is always physically possible if you react when you see the tell (the brace starts on arrival if you keep the button held through the dash).
 3. CHUD never lies in WARM, never refuses a lock in WARM and never cuts the light in WARM.
-4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s, plus any `HOLD_COOLDOWN` still running. A lock refusal is instant and visible (the smile and the line), so the whole window is left to run.
+4. Sabotage and the Furious cut are always loud and visible, and always leave at least the player's fastest route to a brace at that entry + 1 s: the dash (`TRAVEL_TIME`) plus any `HOLD_COOLDOWN` still running, and from another entry the trip back and a full `HOLD_COOLDOWN`. A lock refusal is instant and visible (the smile and the line), so the whole window is left to run.
 5. Repeating the location question never reveals a lie (one decision per visit).
 6. The light never lies: with an entry's light on, its view shows Ram's true state at that entry. CHUD can turn it off but can never stop you turning it back on.
 7. Visits never overlap. Ram is in one place at a time.

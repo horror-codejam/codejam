@@ -508,3 +508,23 @@ describe("sabotage leaves time to brace (GAME_LOGIC 12.4)", () => {
   it("fires with no trip cooldown running", () => expect(sabotaged(0)).toBe(true));
   it("does not fire when the running cooldown would leave too little time", () => expect(sabotaged(4)).toBe(false));
 });
+
+describe("sabotage counts the trip back from another entry (GAME_LOGIC 12.4)", () => {
+  it("does not fire while the player stands at another entry with too little window left", () => {
+    const config = cfgWith(4, { fakeOutChance: 0, atEntryTime: [6, 6] }, { SABOTAGE_CHANCE: 1 });
+    const e = playing({ startNight: 4, config });
+    e.devSetSuspicion(80); // JEALOUS
+    e.devRamAway();
+    e.state.ram.stateEndsAt = Infinity;
+    e.devSendRam("HATCH");
+    let hit = false;
+    run(e, 20, (ev) => {
+      if (ev.type === "RAM_AT_ENTRY") {
+        e.state.power.slot = lockSlot("HATCH");
+        e.state.player.position = { kind: "STANDING", entry: "WINDOW", restUntil: 0 };
+      }
+      if (ev.type === "SABOTAGE") hit = true;
+    }, () => e.state.ram.state === "RETREATING" || e.state.ram.state === "INSIDE");
+    expect(hit).toBe(false);
+  });
+});

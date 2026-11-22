@@ -1213,8 +1213,28 @@ export class GameEngine implements IGameEngine {
   // Time a cut must leave in the window: the dash plus the margin, plus any trip cooldown still running (a player just
   // back from another entry cannot leave again until it ends), so bracing in time is always possible (GAME_LOGIC 12.4).
   private cutMargin(): number {
-    const cooldownLeft = Math.max(0, this.state.player.holdCooldownUntil - this.now);
-    return this.cfg.TRAVEL_TIME + this.cfg.SABOTAGE_MARGIN + cooldownLeft;
+    return this.fastestBrace(this.state.ram.target) + this.cfg.SABOTAGE_MARGIN;
+  }
+
+  // Fastest time from the player's actual position to a brace at `entry`: the dash, any trip cooldown still running,
+  // and from another entry the trip back (leaving starts HOLD_COOLDOWN, which covers the return dash).
+  private fastestBrace(entry: Entry | null): number {
+    const c = this.cfg;
+    const pos = this.state.player.position;
+    const left = (until: number): number => Math.max(0, until - this.now);
+    const cooldown = left(this.state.player.holdCooldownUntil);
+    switch (pos.kind) {
+      case "DESK":
+        return cooldown + c.TRAVEL_TIME;
+      case "RETURNING":
+        return Math.max(left(pos.until), cooldown) + c.TRAVEL_TIME;
+      case "TRAVELING":
+        return pos.entry === entry ? left(pos.until) : left(pos.until) + c.HOLD_COOLDOWN + c.TRAVEL_TIME;
+      case "STANDING":
+        return pos.entry === entry ? left(pos.restUntil) : c.HOLD_COOLDOWN + c.TRAVEL_TIME;
+      case "HOLDING":
+        return pos.entry === entry ? 0 : c.HOLD_COOLDOWN + c.TRAVEL_TIME;
+    }
   }
 
   // =========================================================================
