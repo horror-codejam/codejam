@@ -21,7 +21,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 | Window, hatch and balcony, dark/lit | Final `view_<entry>_off` and `view_<entry>_on` for each. Locked uses the dark plate, with no tell. |
 | Window, hatch and balcony, tell/approach/inside | Final `tell_<entry>_off`, `tell_<entry>_on`, `approach_<entry>_on` and `inside_<entry>_on` for each. |
 | All three holds, standing and bracing | All 24 final `hold_<entry>_<stand\|brace>_<empty\|tell>_<on\|off>` plates. Arms are rendered into the brace plates. |
-| Dash out and back | Final `dash_<entry>_go.webm` and `dash_<entry>_back.webm` when available. Current fallback uses final stills, a short dip to black and the existing shake. |
+| Dash out and back | Final `dash_floor` still (one floor image from the final room, shared by every entry and both directions): the camera tips down to it in 0.2 s, runs with shake and roll for 1.1 s, rises into the next view in 0.2 s (GAME_LOGIC 6.4). Per-entry run clips were dropped (owner decision: the design shows the same dash for every entry). `dash_<entry>_go/back.webm` are still played if they ever exist; without the floor still, a dip to black. |
 | Turns in both directions | Final `turn_<from>_<to>.webm` for each desk and entry pair when available. Current prototype fallback slides the final plates. |
 | Scare flash and off-entry snap | Final `inside_<entry>_on` for all three. Our presentation adds a 0.15 s snap when the displayed view is elsewhere, and uses the white pop only when the engine marks a flash. |
 | Jumpscare | All three final 24-frame sequences at 24 fps, with the last frame held. The four prototype stills are reserved for a missing or unreadable sequence. |

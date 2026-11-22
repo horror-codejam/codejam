@@ -102,6 +102,7 @@ export class Scene {
   private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
   private deskMedia = new Container(); // above the desk still and below the calibrated glass mask
   private transitions = new Container();
+  private dashFloor: Container | null = null; // final floor still for the dash (GAME_LOGIC 6.4), same for every entry
   private clips = new Map<string, VideoPlate>();
   private activeTransition?: VideoPlate;
   private clipsPrepared = false;
@@ -270,6 +271,12 @@ export class Scene {
     this.rain.alpha = 0.16;
     this.rain.blendMode = "add";
     app.stage.addChild(this.rain, this.transitions);
+    if (isFinal("dash_floor")) {
+      this.dashFloor = stageSlot("dash_floor", () => {});
+      this.dashFloor.pivot.set(W / 2, H / 2);
+      this.dashFloor.visible = false;
+      app.stage.addChild(this.dashFloor);
+    }
 
     this.flashLayer.rect(0, 0, W, H).fill(0xffffff);
     this.flashLayer.alpha = 0;
@@ -584,7 +591,19 @@ export class Scene {
     let oy = -this.pan.y;
     this.cam.rotation = 0;
     let black = 0;
-    if (dashing && !transition) {
+    if (this.dashFloor) this.dashFloor.visible = false;
+    if (dashing && !transition && this.dashFloor) {
+      // GAME_LOGIC 6.4: tip down to the floor (0.2 s), run with shake and roll (1.1 s), rise into the next view (0.2 s).
+      const edge = 0.2 / CONFIG.TRAVEL_TIME;
+      const k = dashProgress;
+      const slide = k < edge ? 1 - k / edge : k > 1 - edge ? -(k - (1 - edge)) / edge : 0;
+      const f = this.dashFloor;
+      f.visible = true;
+      f.scale.set(1.08);
+      f.position.set(W / 2 + Math.sin(t * 31) * 14, H / 2 + slide * H + Math.abs(Math.sin(t * 13)) * 22);
+      f.rotation = Math.sin(t * 7) * 0.02;
+      zoom = 1.05;
+    } else if (dashing && !transition) {
       // Use the existing views and hide the change of angle at the bottom of the dip.
       black = Math.max(0, 1 - Math.abs(dashProgress - 0.5) * CONFIG.TRAVEL_TIME / 0.2);
       ox += Math.sin(t * 31) * 14;
