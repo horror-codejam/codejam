@@ -85,7 +85,8 @@ interface Ticket {
   text: string;
   parsed: ParsedCommand;
   ranImmediately: boolean;
-  questionId: number | null; // pending question at submit time
+  questionId: number | null; // pending question at submit time (one this message may answer)
+  blockedBy: number | null; // question that blocked ChudGPT commands at submit time (live, even during the judge grace)
   prevLastReal: number; // lastRealMessageAt before this message (gibberish restore)
   seq: number; // message sequence number (gibberish restore only if no later message)
 }
@@ -1574,6 +1575,7 @@ export class GameEngine implements IGameEngine {
       parsed,
       ranImmediately,
       questionId: pq ? pq.id : null,
+      blockedBy: open ? open.id : null,
       prevLastReal,
       seq,
     });
@@ -1608,7 +1610,7 @@ export class GameEngine implements IGameEngine {
     // Gibberish: no social effects, not a real message. A code-parsed command still runs.
     if (r.gibberish) {
       if (t.seq === this.messageSeq) s.timers.lastRealMessageAt = t.prevLastReal;
-      if (!t.ranImmediately && t.parsed.command !== "NONE") this.say(s.chud.pendingQuestion ? { kind: "answer_first" } : this.resolveCommand(t.parsed));
+      if (!t.ranImmediately && t.parsed.command !== "NONE") this.say(s.chud.pendingQuestion || t.blockedBy !== null ? { kind: "answer_first" } : this.resolveCommand(t.parsed));
       return;
     }
 
@@ -1678,8 +1680,11 @@ export class GameEngine implements IGameEngine {
 
     // Step 8: resolve the command (answer first, then command).
     // A question still pending (the message did not answer it) blocks the command: answer me first, no suspicion.
+    // So does a question that blocked it when it was sent, even if that question cleared while the judge was out:
+    // a late verdict must never run a stale command over a lock the player set since.
     if (cmd.command !== "NONE" && s.power.chudOnline) {
-      commandOutcome = s.chud.pendingQuestion ? { kind: "answer_first" } : this.resolveCommand(cmd);
+      const blocked = s.chud.pendingQuestion !== null || (t.blockedBy !== null && answerOutcome === null);
+      commandOutcome = blocked ? { kind: "answer_first" } : this.resolveCommand(cmd);
     }
 
     // Step 9: exactly one line, picked by priority.

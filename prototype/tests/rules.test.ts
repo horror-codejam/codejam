@@ -232,6 +232,24 @@ describe("a pending question blocks ChudGPT commands", () => {
     expect(e.state.power.slot).toBe("NONE");
   });
 
+  it("a typed command blocked at send time never runs late over a newer map lock", () => {
+    const e = playing();
+    pend(e);
+    wait(e, CONFIG.QUESTION_TIMEOUT - 0.5);
+    expect(e.submitMessage("something about the weather").ok).toBe(true); // holds the question in the judge grace
+    wait(e, 2);
+    const typed = e.submitMessage("lock the hatch");
+    if (!typed.ok) throw new Error(typed.reason);
+    wait(e, CONFIG.QUESTION_JUDGE_GRACE); // the question times out while both verdicts are still out
+    expect(e.state.chud.pendingQuestion).toBeNull();
+    e.pressQuick("LOCK_WINDOW");
+    wait(e, CONFIG.RELAY_DELAY + 0.1);
+    expect(e.state.power.slot).toBe("LOCK_WINDOW");
+    e.applyJudge(typed.ticket.id, judge());
+    wait(e, CONFIG.RELAY_DELAY + 0.1);
+    expect(e.state.power.slot).toBe("LOCK_WINDOW");
+  });
+
   it("the generator switch is a player action and is not blocked", () => {
     const e = playing();
     pend(e);
