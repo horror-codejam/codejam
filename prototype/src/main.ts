@@ -316,7 +316,7 @@ function onEvent(ev: GameEvent, t: number): void {
       if (engine.isPracticing) tutorial.reply(o);
       const seq = ++chudLineSeq;
       if (engine.isPracticing || !llm.on || !VOICED.has(o.kind)) {
-        showChud(ev.text, ev.band, t, seq);
+        showChud(ev.text, ev.band, t, seq, URGENT_SPEECH.has(o.kind));
         break;
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
@@ -397,13 +397,16 @@ function stopChudSpeech(): void {
   sound.stopSpeech();
 }
 
-function showChud(text: string, band: Band, t: number, seq: number): void {
+// Lines the player must hear at once: they skip queued speech (audio.ts speak).
+const URGENT_SPEECH = new Set(["question", "answer_first", "location_claim", "location_refused", "lock_refused", "refuse_furious", "sabotage", "furious_cut"]);
+
+function showChud(text: string, band: Band, t: number, seq: number, urgent = false): void {
   shownChudSeq = Math.max(shownChudSeq, seq);
   chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
   terminal.addLine("chud", text, t);
   convo.push(`ChudGPT: ${text}`);
   sound.chime();
-  if (engine.state.power.chudOnline) sound.speak(text, band);
+  if (engine.state.power.chudOnline) sound.speak(text, band, urgent);
 }
 
 function clockText(): string {

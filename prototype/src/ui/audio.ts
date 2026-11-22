@@ -539,8 +539,16 @@ export class Sound {
     this.speechPan.pan.setTargetAtTime(pan, this.ctx.currentTime, 0.06);
   }
 
-  speak(text: string, band: Band): void {
-    if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift();
+  // Urgent lines (a question with a 10 s timer, a location answer, a refusal) skip the waiting lines, and cut short a
+  // line still being synthesized, so they are heard now. A line already playing finishes first.
+  speak(text: string, band: Band, urgent = false): void {
+    if (urgent) {
+      this.speechQueue.length = 0;
+      if (this.speechRun && !this.speechSource) {
+        this.speechRun.abort();
+        this.speechRun = null;
+      }
+    } else if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift();
     this.speechQueue.push({ text, band });
     this.startSpeech();
   }
