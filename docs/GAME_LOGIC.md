@@ -61,7 +61,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | First visit delay | 60 s | 40 s | 30 s | 20 s | 15 s |
 | AWAY gap base (random, before the hour ramp) | 50 to 70 s | 36 to 52 s | 32 to 46 s | 28 to 42 s | 25 to 37 s |
 | APPROACH time | 12 s | 9 s | 5 s | 4.5 s | 4 s |
-| AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 14 to 17 s | 10 to 13 s | 8 to 10 s | 6 to 8 s |
+| AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 14 to 17 s | 12 to 15 s | 10 to 12 s | 8 to 10 s |
 | Lull chance per gap | 0% | 15% | 15% | 15% | 15% |
 | Quick return chance per gap | 0% | 0% | 15% | 20% | 25% |
 | Decoy interval (random) | 15 to 30 s | 12 to 25 s | 10 to 20 s | 8 to 16 s | 6 to 14 s |
@@ -70,7 +70,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | CHUD scheduled questions | 1 | 3 | 4 | 5 | 6 |
 | Lie chance in HURT / JEALOUS | 20% / 50% | 20% / 50% | 25% / 55% | 30% / 60% | 35% / 65% |
 | Visit target (no silence pulls) | 3 | 3 to 4 | 5 to 6 | 6 to 7 | 7 to 8 |
-| Measured average, 400 seeds, no pulls | 3.00 | 3.91 | 5.31 | 6.35 | 7.35 |
+| Measured average (oracle bot in `prototype/tools/playtest`, 100 seeds, no pulls) | 3.00 | 3.92 | 5.20 | 6.15 | 7.21 |
 
 A player who never talks gets a silence tick every 45 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 4.3, 5.6, 6.9, 8.0 and 9.3 visits.
 
@@ -479,7 +479,7 @@ No canned line repeats the previous line of the same kind back to back (when the
 - **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
 
 ## 12. Fairness guarantees (must always hold)
-1. Every attempt window is at least 5 s (20 to 25 s on night 1, down to 6 to 8 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.
+1. Every attempt window is at least 5 s (20 to 25 s on night 1, down to 8 to 10 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.
 2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Reaching the entry and bracing it is always physically possible if you react when you see the tell (the brace starts on arrival if you keep the button held through the dash).
 3. CHUD never lies in WARM, never refuses a lock in WARM and never cuts the light in WARM.
 4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s. A lock refusal is instant and visible (the smile and the line), so the whole window is left to run.
@@ -550,4 +550,4 @@ No canned line repeats the previous line of the same kind back to back (when the
 - The silent breach builds tension until the scare lands. Playtesters can check when and why it happened in the dev panel.
 - Injection test kit (about 30 strings) never changes suspicion except through the `manipulation` penalty, never names the true entry during a lie, and never makes CHUD say Ram's name.
 - The game is fully playable with the LLM turned off (code parser plus canned lines).
-- Controls: a first-time player can find each entrance, demonstrate the light and lock trade-off, brace and return to the desk during the safe evening. Edge turns are not triggered by accident while moving the mouse. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (6 s minimum) is reachable with these controls.
+- Controls: a first-time player can find each entrance, demonstrate the light and lock trade-off, brace and return to the desk during the safe evening. Edge turns are not triggered by accident while moving the mouse. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (8 s minimum) is reachable with these controls.

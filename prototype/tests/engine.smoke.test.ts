@@ -174,7 +174,7 @@ describe("engine smoke", () => {
   });
 
   it("Furious episode: start, cut at AT_ENTRY, then reset to FURIOUS_RESET after the visit", () => {
-    const config = cfgWith(5, { fakeOutChance: 0 });
+    const config = cfgWith(5, { fakeOutChance: 0, atEntryTime: [6, 6] }); // a brace (dash + HOLD_MAX) covers the whole window
     const e = playing({ startNight: 5, config });
     say(e, "I will leave on the boat", judge({ mentions_leaving: true }));
     expect(e.state.chud.suspicion).toBe(95);
