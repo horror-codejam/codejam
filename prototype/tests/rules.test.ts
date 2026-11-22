@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { CONFIG } from "../src/config";
 import { cannedLine } from "../src/chud/lines";
+import { parseCommand } from "../src/chud/parser";
 import { GameEngine } from "../src/sim/engine";
 import { NEUTRAL_JUDGE, type GameEvent, type JudgeResult, type Outcome } from "../src/sim/types";
 
@@ -227,5 +228,16 @@ describe("no back-to-back repeated line", () => {
     }
     expect(seen.length).toBeGreaterThan(3);
     for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
+  });
+});
+
+describe("the parser never turns a negated request into its opposite", () => {
+  it.each(["Please don't unlock the window", "don't turn off the lights", "do not lock the hatch", "never unlock it", "you shouldn't unlock anything"])("%s parses to NONE", (text) => {
+    expect(parseCommand(text).command).toBe("NONE");
+  });
+  it("ordinary commands still parse", () => {
+    expect(parseCommand("unlock all").command).toBe("POWER_OFF");
+    expect(parseCommand("I can't see, lock the hatch")).toEqual({ command: "LOCK", entry: "HATCH" });
+    expect(parseCommand("lock the window now")).toEqual({ command: "LOCK", entry: "WINDOW" });
   });
 });
