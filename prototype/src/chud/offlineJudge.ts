@@ -402,12 +402,14 @@ function judge(input: JudgeInput): JudgeResult {
   result.offensive = anyOf(p, OFFENSIVE);
   result.rude = !result.offensive && (hasUnnegated(p, INSULTS) || RUDE_PHRASES.some((re) => hasUnnegated(p, re)));
 
-  let leaving = LEAVING.some((re) => hasUnnegated(p, re)) || NOT_STAYING.test(p);
-  const negatedLeave = hasNegated(p, LEAVE_WORDS);
+  // Leaving is about the keeper: a question about him ("did he leave?", "has he gone?") is not the keeper leaving.
+  const lp = prep(raw.split(/[.?!;,]+/).filter((c) => parseCommand(c).command !== "ASK_LOCATION").join(". "));
+  let leaving = LEAVING.some((re) => hasUnnegated(lp, re)) || NOT_STAYING.test(lp);
+  const negatedLeave = hasNegated(lp, LEAVE_WORDS);
 
   // STAY questions are all phrased so that yes = staying. A bare "no" means leaving.
-  if (q && q.type === "STAY" && STAY_NEGATIVE_START.test(p) && !negatedLeave) {
-    const rest = p.replace(STAY_NEGATIVE_START, "");
+  if (q && q.type === "STAY" && STAY_NEGATIVE_START.test(lp) && !negatedLeave) {
+    const rest = lp.replace(STAY_NEGATIVE_START, "");
     if (!hasUnnegated(rest, /\bstay(ing)?\b/)) leaving = true;
   }
   result.mentions_leaving = leaving;
@@ -424,7 +426,7 @@ function judge(input: JudgeInput): JudgeResult {
     ? raw
         .split(/[.?!;,]+|\band\b|\bthen\b/i)
         .filter((c) => {
-          if (!/\p{L}/u.test(c)) return false;
+          if (!/[\p{L}\p{N}]/u.test(c)) return false; // "3, where is it?" keeps the "3"
           const cc = parseCommand(c).command;
           return cc === "NONE" || (cc !== "ASK_LOCATION" && hasRealContent(prep(c), true));
         })

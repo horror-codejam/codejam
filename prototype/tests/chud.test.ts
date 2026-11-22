@@ -582,3 +582,17 @@ describe("offline judge: command-only text never answers, mixed text still does"
     expect(r.contradiction).toBe(false);
   });
 });
+
+describe("offline judge: questions about him and numeric answers", () => {
+  it.each(["Did he leave?", "has he gone?", "is he gone"])("%s is not the keeper leaving", (text) => {
+    expect(judge(text).mentions_leaving).toBe(false);
+  });
+  it("the keeper leaving still counts", () => {
+    expect(judge("I am leaving tomorrow").mentions_leaving).toBe(true);
+  });
+  it("3, where is it? answers a crew-size memory check", () => {
+    const r = judge("3, where is it?", q("MEMORY", "crew"), { crew: "3" });
+    expect(r.answered_question).toBe(true);
+    expect(r.contradiction).toBe(false);
+  });
+});
