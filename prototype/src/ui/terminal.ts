@@ -60,7 +60,8 @@ export class Terminal {
       line.classList.add("typing");
     }
     this.log.append(line);
-    while (this.log.children.length > 7) this.log.firstElementChild!.remove();
+    while (this.log.children.length > 12) this.log.firstElementChild!.remove();
+    this.log.scrollTop = this.log.scrollHeight;
   }
 
   private finishTyping(): void {

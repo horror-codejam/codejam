@@ -29,7 +29,7 @@ import { MALICE, RING, SCARE } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-// URL params: ?dev (dev mode on, ?dev=0 off) and ?night=N (start straight at that night's card as "Keeper").
+// URL params: ?dev=0 hides the DEV badge and ?night=N (start straight at that night's card as "Keeper").
 const params = new URLSearchParams(window.location.search);
 const deepNight = ((): number | null => {
   const raw = params.get("night");
@@ -84,8 +84,7 @@ let lightCutUntil = 0; // real seconds: the LIGHT cell flashes red after CHUD fo
 let shiftDown = false; // Shift held (the player's light)
 let scareTimers: number[] = []; // the running flash and jumpscare sequence
 let speed = 1;
-const DEV_KEY = "chud.dev";
-let devOn = false; // dev mode: badge visible, shortcuts live
+let devOn = false; // dev mode: badge visible, shortcuts live (default on)
 let devOpen = false; // panel open
 let devNextAt = 0;
 let devSkipCard = false; // N buttons go straight into PLAYING
@@ -732,7 +731,7 @@ function onKey(e: KeyboardEvent): void {
   // Dev mode shortcuts work everywhere, including in the chat and name inputs (Backquote is not typed there).
   if (e.code === "Backquote" || (e.code === "KeyD" && e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey)) {
     e.preventDefault();
-    setDev(!devOn);
+    setDevOpen(!devOpen);
     return;
   }
   if (frontScreen) return;
@@ -854,33 +853,18 @@ function reconcileBrace(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Dev mode. Backquote, Ctrl+Shift+D or ?dev toggles it
-// (state kept in localStorage). Every action goes through the engine object (dev* methods or the normal flow methods).
-const DEV_DEFAULT = false;
-
+// Dev mode. The DEV badge shows on every load (production too); ?dev=0 hides it. Backquote, Ctrl+Shift+D or a badge click
+// opens and closes the panel, which always starts closed. Nothing is persisted. Every action goes through the engine object.
 function initDev(): void {
-  let on = DEV_DEFAULT;
-  try {
-    const saved = window.localStorage.getItem(DEV_KEY);
-    if (saved === "1" || saved === "0") on = saved === "1";
-  } catch {
-    /* storage blocked: keep the default */
-  }
-  if (params.has("dev")) on = !["0", "false", "off", "no"].includes((params.get("dev") ?? "").toLowerCase());
+  const off = params.has("dev") && ["0", "false", "off", "no"].includes((params.get("dev") ?? "").toLowerCase());
   ui.devBadge.addEventListener("click", () => setDevOpen(!devOpen));
-  setDev(on, false);
+  setDev(!off);
 }
 
-function setDev(on: boolean, remember = true): void {
+function setDev(on: boolean): void {
   devOn = on;
   show(ui.devBadge, on);
-  setDevOpen(on && (devOpen || remember)); // turning on with a key opens the panel; a page load only shows the badge
-  if (!remember) return;
-  try {
-    window.localStorage.setItem(DEV_KEY, on ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
+  setDevOpen(false);
 }
 
 function setDevOpen(open: boolean): void {
