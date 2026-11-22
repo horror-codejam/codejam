@@ -56,21 +56,25 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | Parameter | Night 1 | Night 2 | Night 3 | Night 4 | Night 5 |
 |---|---|---|---|---|---|
 | Active entries | HATCH, WINDOW | all 3 | all 3 | all 3 | all 3 |
-| First visit delay | 25 s | 20 s | 15 s | 12 s | 10 s |
-| AWAY gap (random) | 30 to 45 s | 20 to 30 s | 14 to 22 s | 10 to 16 s | 7 to 12 s |
-| APPROACH time | 6 s | 5 s | 4.5 s | 4 s | 3.5 s |
-| AT_ENTRY time (attempt window, random each visit) | 8 to 10 s | 7 to 9 s | 6 to 8 s | 5 to 7 s | 4 to 6 s |
+| First visit delay | 60 s | 40 s | 30 s | 20 s | 15 s |
+| AWAY gap base (random, then times the hour ramp, 7.6) | 50 to 75 s | 32 to 48 s | 22 to 34 s | 15 to 25 s | 10 to 18 s |
+| APPROACH time | 7 s | 6 s | 5 s | 4.5 s | 4 s |
+| AT_ENTRY time (attempt window, random each visit) | 9 to 11 s | 8 to 10 s | 7 to 9 s | 6 to 8 s | 5 to 7 s |
+| Lull chance per gap (gap times 1.8) | 0% | 15% | 15% | 15% | 15% |
+| Quick-return chance after a retreat (gap 4 to 7 s) | 0% | 0% | 15% | 20% | 25% |
+| Decoy noise interval (random) | 15 to 30 s | 12 to 25 s | 10 to 20 s | 8 to 16 s | 6 to 14 s |
 | Fake-out chance per visit | 0% | 0% | 0% | 30% | 40% |
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
 | CHUD scheduled questions | 1 | 3 | 4 | 5 | 6 |
 | Lie chance in HURT / JEALOUS | 20% / 50% | 20% / 50% | 25% / 55% | 30% / 60% | 35% / 65% |
 | CHUD auto-warns when Ram arrives | while WARM | while WARM | while WARM | while WARM | while WARM |
-| Approx. visits per night | 4 | 6 | 8 | 10 | 12 |
+| Approx. visits per night | 3 to 4 | 5 | 6 to 7 | 8 to 9 | 10 to 11 |
+| Feel | Slow burn. A full minute of nothing before he comes. Mostly atmosphere and CHUD | Settling in, first real doubt after the 3 AM radio | Steady pressure, CHUD starts lying | Tense, few safe moments | Relentless last hour |
 
 Why the attempt window is random and longer than before: there is no audio cue, so the player has to find him by looking. A full look-around (lights on, turn to each entry) takes about 3 to 4 s. The window must leave time to find him and react, and its length must not be learnable, so nobody can count seconds to know when he has left.
 
 Fixed constants:
-- `HOUR_LENGTH` = 40 s, so `NIGHT_LENGTH` = 240 s (6 in-game hours).
+- `HOUR_LENGTH` = 50 s, so `NIGHT_LENGTH` = 300 s (5 real minutes, 6 in-game hours).
 - `RETREAT_TIME` = 3 s.
 - `RELAY_DELAY` = 0.5 s (time for a power switch to land).
 - `TRAVEL_TIME` = 1.5 s, the same for every entry (WINDOW, HATCH, BALCONY) and for returning to the desk. Shown as a dash (section 6.4), so the real distances in the room do not matter.
@@ -202,7 +206,7 @@ Ram makes no sound the player can use. The only ways to know where he is: look w
 
 **Ambient sound (the dread layer):**
 - Storm, rain, waves and wind, always.
-- Decoy noises at random times from random directions (creaks, a knock, metal settling, a gust rattling glass), about one every 8 to 20 s. **They are rolled independently of Ram and never correlate with his state or target.** Code must not use Ram's state when scheduling them. Sound never means danger and never means safe.
+- Decoy noises at random times from random directions (creaks, a knock, metal settling, a gust rattling glass), at the night's decoy interval (section 4), sparse on night 1 so each one lands. **They are rolled independently of Ram and never correlate with his state or target.** Code must not use Ram's state when scheduling them. Sound never means danger and never means safe.
 - Allowed sounds tied to game events: CHUD's voice, the relay clunk when power changes (always, including sabotage), the player's dash footsteps and breathing, the breach burst and the jumpscare.
 - Removed: the approach splashing, the per-entry attempt sounds and Ram's retreat shout. The lore of the shout moves to the voice logs.
 
@@ -217,6 +221,23 @@ What this means for the player:
 - **Locked = blind.** While a lock is on, the room is dark and the player can't clearly see whether he is still there. To check, they either ask CHUD ("is he gone?" is a location question) or switch to the lights, which drops the lock. If his window ends while the lock is off, he is in. Peeking is the gamble.
 - **Staying locked too long** is safe for that entry but costs sight: his next visit can start at another entry while the player sits in the dark.
 - **Bracing** shows the tell clearly if the lights are on, so the player sees him leave and can let go at the right time.
+
+### 7.6 Pacing: the hour ramp, lulls and quick returns
+Goal: not too slow, not too fast, never predictable. Each night builds from quiet to frantic, like a FNAF night where the AI level rises every hour.
+
+**Hour ramp.** Every new AWAY gap is rolled from the night's base range, then multiplied by the current in-game hour:
+
+| Hour | 12 AM | 1 AM | 2 AM | 3 AM | 4 AM | 5 AM |
+|---|---|---|---|---|---|---|
+| Gap multiplier | 1.25 | 1.15 | 1.0 | 0.95 | 0.85 | 0.8 |
+
+**Lull (nights 2 to 5).** When a gap is rolled, with the lull chance it is multiplied by a further 1.8. A long silence is when the player starts to doubt and starts checking without reason. Not on night 1, which is already slow.
+
+**Quick return (nights 3 to 5).** When Ram retreats, with the quick-return chance his next gap is 4 to 7 s instead of the rolled gap (no ramp, no lull). He comes back right after the player relaxes. The target is rolled normally, so it can be the same entry.
+
+**Order when rolling a gap:** quick return check first (if it hits, use 4 to 7 s and stop), else base range times hour ramp, then the lull roll, then apply any pending silence pull cuts (7.3). The 4 s floor always holds.
+
+**Night 1 shape (the slow burn):** a full minute of storm, decoy creaks and CHUD's first SEED question before he comes at all. 3 to 4 visits in 5 minutes, long windows (9 to 11 s), CHUD warns every time while WARM. The player learns the four rules with almost no risk, but never knows when the next one is.
 
 ## 8. CHUD
 
@@ -393,7 +414,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 - **Game won:** after night 5, the ending from GAME_DESIGN.md.
 
 ## 12. Fairness guarantees (must always hold)
-1. Every breach is preceded by an attempt window of at least 4 s during which that entry's tell is clearly visible with the lights on. There is no audio warning by design; the visual is the warning.
+1. Every breach is preceded by an attempt window of at least 5 s during which that entry's tell is clearly visible with the lights on. There is no audio warning by design; the visual is the warning.
 2. Every attempt window is longer than `TRAVEL_TIME` (1.5 s) plus 1 s. Locking (0.5 s) or reaching the entry and bracing it is always physically possible if you spot the tell in time (the brace starts on arrival if you keep the button held through the dash).
 3. CHUD never lies in WARM.
 4. Sabotage and the Furious cut are always loud and visible, and always leave at least `TRAVEL_TIME` + 1 s.
@@ -437,8 +458,8 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 | Two timer events at the same moment | Order: resolve the attempt end, then 6:00 AM check, then question timeout, then silence tick, then scheduled question, then sabotage roll |
 
 ## 14. Tuning knobs (one config file)
-- Per night: AWAY gap, approach time, attempt window, fake-out chance, starting suspicion, question count and mix, lie chances.
-- Global: `HOUR_LENGTH`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `EDGE_DWELL`, the turn times, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, every value in the 8.2 table, the per-message clamp, the sabotage chance, the Furious reset value, the reboot time and the post-reboot suspicion floor.
+- Per night: AWAY gap, approach time, attempt window, lull chance, quick-return chance, decoy interval, fake-out chance, starting suspicion, question count and mix, lie chances.
+- Global: the hour ramp multipliers (7.6), `HOUR_LENGTH`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `EDGE_DWELL`, the turn times, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, every value in the 8.2 table, the per-message clamp, the sabotage chance, the Furious reset value, the reboot time and the post-reboot suspicion floor.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
 
 ## 15. Playtest checklist
