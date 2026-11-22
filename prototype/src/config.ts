@@ -136,7 +136,7 @@ export const CONFIG: Config = {
     {
       activeEntries: ["HATCH", "WINDOW", "BALCONY"],
       firstVisitDelay: 20,
-      awayGap: [28, 42],
+      awayGap: [27, 41],
       approachTime: 4.5,
       atEntryTime: [11, 13],
       lullChance: 0.15,

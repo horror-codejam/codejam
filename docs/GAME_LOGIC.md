@@ -59,7 +59,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 |---|---|---|---|---|---|
 | Active entries | HATCH, WINDOW | all 3 | all 3 | all 3 | all 3 |
 | First visit delay | 60 s | 40 s | 30 s | 20 s | 15 s |
-| AWAY gap base (random, before the hour ramp) | 50 to 70 s | 36 to 52 s | 32 to 46 s | 28 to 42 s | 25 to 37 s |
+| AWAY gap base (random, before the hour ramp) | 50 to 70 s | 36 to 52 s | 32 to 46 s | 27 to 41 s | 25 to 37 s |
 | APPROACH time | 12 s | 9 s | 5 s | 4.5 s | 4 s |
 | AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 16 to 19 s | 13 to 16 s | 11 to 13 s | 8 to 10 s |
 | Lull chance per gap | 0% | 15% | 15% | 15% | 15% |
@@ -70,7 +70,7 @@ log:     last 10 player messages (normalized, for repeat detection), what CHUD l
 | CHUD scheduled questions | 1 | 3 | 4 | 5 | 6 |
 | Lie chance in HURT / JEALOUS | 20% / 50% | 20% / 50% | 25% / 55% | 30% / 60% | 35% / 65% |
 | Visit target (no silence pulls) | 3 | 3 to 4 | 5 to 6 | 6 to 7 | 7 to 8 |
-| Measured average (oracle bot in `prototype/tools/playtest`, 100 seeds, no pulls) | 3.00 | 3.92 | 5.20 | 6.15 | 7.21 |
+| Measured average (oracle bot in `prototype/tools/playtest`, 400 seeds, no pulls) | 3.00 | 3.88 | 5.06 | 6.00 | 7.22 |
 
 A player who never talks gets a silence tick every 45 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 4.3, 5.6, 6.9, 8.0 and 9.3 visits.
 
