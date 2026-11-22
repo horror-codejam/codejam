@@ -23,7 +23,6 @@
         <div id="terminal" class="hidden">
           <div id="t-left">
             <div id="t-face" aria-hidden="true"></div>
-            <button id="kill" type="button" aria-label="Generator" aria-pressed="true">GEN ON</button>
           </div>
           <div id="t-center">
             <div id="log"></div>
@@ -34,7 +33,7 @@
             </form>
             <div id="quick">
               <button type="button" data-quick="ASK_LOCATION">where is it</button>
-              <button type="button" data-quick="POWER_OFF">power off</button>
+              <button type="button" data-quick="POWER_OFF">unlock all</button>
             </div>
           </div>
           <div id="t-right">
@@ -51,6 +50,13 @@
           </div>
         </div>
 
+        <section id="tutorial" aria-label="Evening practice" hidden>
+          <div class="tutorial-card">
+            <h2>Evening practice</h2>
+            <p data-instruction role="status"></p>
+            <button type="button">Skip practice</button>
+          </div>
+        </section>
         <div id="subtitle" aria-live="polite"></div>
         <!-- Cursor ring: edge dwell, arms left while bracing, faint dash and rest progress (main.ts renderRing). -->
         <svg id="ring" class="hidden" viewBox="0 0 36 36" aria-hidden="true">
