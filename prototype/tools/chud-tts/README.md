@@ -48,9 +48,9 @@ done
 
 ## Prototype integration
 
-Keep Piper running on port `5100` and start the game with `npm run dev` from `prototype/`. Start a night to unlock browser audio. CHUD's opening line, questions, lock and light responses, and conversation are voiced automatically.
+Keep Piper running on port `5100` and start the game with `npm run dev` from `prototype/`. Select New Game or Continue on the title screen to unlock browser audio. CHUD's opening line, questions, lock and light responses, and conversation are voiced automatically.
 
-The game sends the displayed line and its original mood to the same-origin `POST /api/tts` route. Hono forwards the request to Piper, and Web Audio plays the WAV from the desk. Speech plays one line at a time. The game displays subtitles and plays the chime immediately, including when Piper is offline. Pausing freezes voice playback, and a power cutoff, restart or breach clears pending and playing speech.
+The game sends the displayed line and its original mood to the same-origin `POST /api/tts` route. Hono forwards the request to Piper, and Web Audio plays the WAV from the desk. Speech plays one line at a time. The game displays subtitles and plays the chime immediately, including when Piper is offline. Pausing freezes voice playback. A power cutoff, restart, breach, dawn or return to the title clears pending and playing speech.
 
 Piper runs with or without an Anthropic key. Claude can rewrite certain conversational lines, while Piper speaks the final text. The local speech proxy expects Piper on the same machine. A static-only deployment does not serve the speech route.
 
