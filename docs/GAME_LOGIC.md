@@ -452,7 +452,7 @@ No canned line repeats the previous line of the same kind back to back (when the
 |---|---|---|
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
-| 1 | 0:08, 0:24, 0:40, 0:56 (real s) | Hints on screen, before the first visit: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it", "The more ChudGPT suspects you, the more it lies." |
+| 1 | 0:08, 0:24, 0:40, 0:56 (real s) | Hints on screen, before the first visit: "Hold Shift to look. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it. Your light drops the lock.", "The more ChudGPT suspects you, the more it lies." |
 | 2 | First defended attempt of the run | On-screen hint: "He left something at the {entry}." (first kill code slip only). See 6.7 |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |

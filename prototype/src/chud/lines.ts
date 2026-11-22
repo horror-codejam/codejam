@@ -355,9 +355,9 @@ export const RADIO_LINES: Record<number, string> = {
 
 // Night 1 tutorial hints, shown at CONFIG.NIGHT_ONE_HINT_TIMES (before the first visit).
 export const NIGHT_ONE_HINTS: string[] = [
-  "Look around. You won't hear him.",
+  "Hold Shift to look. You won't hear him.",
   "Ask ChudGPT where he is",
-  "Lock it or hold it",
+  "Lock it or hold it. Your light drops the lock.",
   "The more ChudGPT suspects you, the more it lies.",
 ];
 
