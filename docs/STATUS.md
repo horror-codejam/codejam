@@ -33,6 +33,9 @@ Last updated: 2026-11-21 (late night)
 - Next: playtest Prototype 3.0 and tune the look (grade, tell placement, sweep), then ask the team before committing and pushing. Later: deploy the same Hono app as a Vercel function.
 
 ## Codex (art pre-production)
+- Audio: added the standalone CHUD Piper service in `prototype/tools/chud-tts/` with a pinned Ryan voice and four mood presets. The handoff documents the prototype playback hook.
+- Audio: extracted the full stereo ambience from the supplied `FNAF Ambience Extended.mp4` to `prototype/public/audio/amb/ambient-noise.m4a` without re-encoding. Reuse rights are unverified.
+- Audio: trimmed the first jumpscare (0:04.84 to 0:07.22) from the supplied CaseOh compilation to `prototype/public/audio/sfx/jumpscare.wav`. The clip includes the source reaction. Reuse rights are unverified.
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.
 - Blockers: screenshot hosts were unreachable from the workspace. No reference images were saved locally.
 - Next: review the schematics, then prepare gameplay concepts in ChatGPT image generation.
