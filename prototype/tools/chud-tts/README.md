@@ -48,10 +48,11 @@ done
 
 ## Prototype integration
 
-1. In `prototype/src/main.ts`, carry `ev.band` from `CHUD_SAY` into `showChud` for both canned and generated dialogue. Start the speech request when the final subtitle appears. Keep the existing night-token check around asynchronous playback.
-2. Add a same-origin `POST /api/tts` to the Hono dev server. Forward JSON of the form below to `http://127.0.0.1:5100/tts` with a timeout and return the WAV. The local service binds to loopback, so the Vite/Hono server must run on the same machine. A hosted build needs a separately hosted service or baked clips.
-3. Decode the WAV in the existing Web Audio context and play it from the desk. Stop pending and active speech when CHUD powers off or the night restarts. Keep subtitles and the chime available when synthesis fails.
-4. Pre-render time-critical warnings and power-cut lines with the same endpoint. Play those from cached buffers so timing stays independent of synthesis.
+Keep Piper running on port `5100` and start the game with `npm run dev` from `prototype/`. Start a night to unlock browser audio. CHUD's opening line, questions, lock and light responses, and conversation are voiced automatically.
+
+The game sends the displayed line and its original mood to the same-origin `POST /api/tts` route. Hono forwards the request to Piper, and Web Audio plays the WAV from the desk. Speech plays one line at a time. The game displays subtitles and plays the chime immediately, including when Piper is offline. Pausing freezes voice playback, and a power cutoff, restart or breach clears pending and playing speech.
+
+Piper runs with or without an Anthropic key. Claude can rewrite certain conversational lines, while Piper speaks the final text. The local speech proxy expects Piper on the same machine. A static-only deployment does not serve the speech route.
 
 ```json
 {"text":"I'm still here, keeper.","band":"WARM"}

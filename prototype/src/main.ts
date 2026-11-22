@@ -106,7 +106,7 @@ let previewSaved: { loss: LossInfo | null; morningLine: string } | null = null;
 const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
-let nightToken = 0; // drops LLM replies that arrive after a night restarts
+let dialogueToken = 0; // drops LLM replies from before a reset, power cut or interruption
 let convo: string[] = []; // recent "Keeper: ..." / "CHUD: ..." lines, context for the voice
 let edges: EdgeTurner;
 let braceDown = false; // left mouse button held down (edge controls: holding it braces)
@@ -167,7 +167,11 @@ function frame(dt: number): void {
     engine.tick(Math.min(dt, 0.1) * speed);
     reconcileBrace();
   }
-  for (const ev of engine.drainEvents()) onEvent(ev, t);
+  sound.setSpeechView(engine.state.player.view);
+  const events = engine.drainEvents();
+  // The name acknowledgment and the first night card arrive together. Stop old audio before either is handled.
+  if (events.some((ev) => ev.type === "NIGHT_CARD")) stopChudSpeech();
+  for (const ev of events) onEvent(ev, t);
   const phase = engine.state.phase;
   if (phase !== lastPhase) {
     lastPhase = phase;
@@ -193,7 +197,6 @@ function onEvent(ev: GameEvent, t: number): void {
       sound.stopCues();
       sound.windowMask = ev.night >= 4 ? 0.55 : 1;
       ui.log.replaceChildren();
-      nightToken++;
       convo = [];
       hintUntil = 0;
       breachShown = false;
@@ -231,16 +234,22 @@ function onEvent(ev: GameEvent, t: number): void {
       sound.paper();
       showReader(ev.id);
       break;
+    case "CHUD_ONLINE":
+      if (!ev.online) stopChudSpeech();
+      break;
     case "CHUD_SAY": {
       if (!ev.text) break;
       const o = ev.outcome;
-      if (o.kind === "morning") morningLine = ev.text;
+      if (o.kind === "morning") {
+        morningLine = ev.text;
+        stopChudSpeech();
+      }
       if (!llm.on || !VOICED.has(o.kind)) {
-        showChud(ev.text, t);
+        showChud(ev.text, ev.band, t);
         break;
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
-      const token = nightToken;
+      const token = dialogueToken;
       const typing = addLog("typing", "CHUD is typing...");
       void voiceRemote({
         kind: o.kind,
@@ -253,7 +262,9 @@ function onEvent(ev: GameEvent, t: number): void {
         recent: convo.slice(-6),
       }).then((text) => {
         typing.remove();
-        if (token === nightToken) showChud(text ?? ev.text, now());
+        if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
+          showChud(text ?? ev.text, ev.band, now());
+        }
       });
       break;
     }
@@ -277,9 +288,13 @@ function onEvent(ev: GameEvent, t: number): void {
       note(ev.reason, t);
       break;
     case "BREACH":
+      stopChudSpeech();
       loss = ev.loss;
       showReader(null);
       startScare(ev.loss);
+      break;
+    case "SAFETY_PAUSE":
+      stopChudSpeech();
       break;
     case "NIGHT_WON":
     case "GAME_WON":
@@ -311,11 +326,17 @@ function addLog(who: keyof typeof LOG_PREFIX, text: string): HTMLElement {
   return d;
 }
 
-function showChud(text: string, t: number): void {
+function stopChudSpeech(): void {
+  dialogueToken++;
+  sound.stopSpeech();
+}
+
+function showChud(text: string, band: Band, t: number): void {
   say(text, "chud", t);
   addLog("chud", text);
   convo.push(`CHUD: ${text}`);
   sound.chime();
+  if (engine.state.power.chudOnline) sound.speak(text, band);
   scene.speakingUntil = t + Math.min(3, 0.4 + text.length * 0.035);
 }
 
