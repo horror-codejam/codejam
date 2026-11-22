@@ -205,6 +205,19 @@ describe("a pending question blocks ChudGPT commands", () => {
     expect(e.state.chud.pendingQuestion).toBeNull();
   });
 
+  it("a message sent after the deadline cannot answer a question still waiting on the judge", () => {
+    const e = playing();
+    pend(e);
+    wait(e, CONFIG.QUESTION_TIMEOUT - 0.5);
+    expect(e.submitMessage("something about the weather").ok).toBe(true); // first message, still with the judge
+    wait(e, 2);
+    const late = e.submitMessage("crates of apples");
+    if (!late.ok) throw new Error(late.reason);
+    expect(late.ticket.judgeInput.pendingQuestion).toBeNull();
+    e.applyJudge(late.ticket.id, judge({ answered_question: true }));
+    expect(e.state.chud.pendingQuestion).not.toBeNull(); // only the in-time message could have answered it
+  });
+
   it("the generator switch is a player action and is not blocked", () => {
     const e = playing();
     pend(e);

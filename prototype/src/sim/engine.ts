@@ -1544,7 +1544,9 @@ export class GameEngine implements IGameEngine {
     // Step 3: keyword parse.
     const parsed = parseCommand(text);
     const id = this.nextTicketId++;
-    const pq = s.chud.pendingQuestion;
+    // Past its 10 s deadline a question only waits for answers already with the judge: a new message cannot answer it.
+    const open = s.chud.pendingQuestion;
+    const pq = open && this.now < open.askedAt + this.cfg.QUESTION_TIMEOUT - EPS ? open : null;
     const judgeInput = { text, pendingQuestion: pq ? { ...pq } : null, facts: { ...s.chud.facts }, band: s.chud.band };
     if (repeat) {
       const ticket: MessageTicket = { id, judgeInput, repeat: true, parsed, commandRanImmediately: false };
