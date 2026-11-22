@@ -6,6 +6,7 @@
     <title>THE KEEPER</title>
     <link rel="stylesheet" href="/src/ui/style.css" />
     <link rel="stylesheet" href="/src/ui/screens.css" />
+    <link rel="stylesheet" href="/src/ui/terminal.css" />
   </head>
   <body>
     <div id="loading">
@@ -19,46 +20,33 @@
           <div id="clock"></div>
           <div id="hud-night"></div>
         </div>
-        <!-- CHUD's terminal: sits on the desk render's screen (DESK_SCREEN) and follows the camera pan. -->
         <div id="terminal" class="hidden">
           <div id="t-left">
-            <div id="t-title">CHUD v0.3</div>
-            <div id="t-face"></div>
-            <div id="t-band"></div>
-            <button id="kill" title="Generator kill switch">GENERATOR <b>ON</b></button>
+            <div id="t-face" aria-hidden="true"></div>
+            <button id="kill" type="button" aria-label="Generator" aria-pressed="true">GEN ON</button>
           </div>
           <div id="t-center">
             <div id="log"></div>
-            <div id="question" class="hidden"><span id="question-label">CHUD is waiting for an answer</span><div class="bar"><i id="question-bar"></i></div></div>
+            <div id="question" hidden aria-hidden="true"></div>
             <form id="chat-form" autocomplete="off">
-              <input id="chat" maxlength="200" placeholder="Type to CHUD and press Enter" />
+              <span aria-hidden="true">&gt;</span>
+              <input id="chat" maxlength="200" aria-label="Talk to CHUD" placeholder=" " />
             </form>
             <div id="quick">
-              <button data-quick="ASK_LOCATION">Where is he?</button>
-              <button data-quick="POWER_OFF">Power off</button>
+              <button type="button" data-quick="ASK_LOCATION">where is it</button>
+              <button type="button" data-quick="POWER_OFF">power off</button>
             </div>
           </div>
           <div id="t-right">
-            <div id="t-clock">12:00</div>
-            <!-- Top-down map of the watch room. Entries and lock state only: never Ram. Lights are not here: hold Shift. -->
-            <svg id="t-map" viewBox="0 0 100 100" aria-label="Watch room map">
-              <circle cx="50" cy="50" r="46" class="wall" />
-              <circle cx="50" cy="50" r="11" class="core" />
-              <path d="M 28 16 A 40 40 0 0 1 72 16" class="desk" />
-              <circle cx="50" cy="13" r="3.2" class="me" />
-              <g class="entry" data-entry="WINDOW"><circle cx="7" cy="50" r="6" /><text x="16" y="53">W</text></g>
-              <g class="entry" data-entry="HATCH"><circle cx="93" cy="50" r="6" /><text x="78" y="53">H</text></g>
-              <g class="entry" data-entry="BALCONY"><rect x="44" y="84" width="12" height="12" /><text x="47" y="80">B</text></g>
-            </svg>
-            <!-- Lock buttons by the map. CHUD can refuse them (the hijack): then run and brace it yourself. -->
-            <div id="locks">
-              <button data-quick="LOCK_WINDOW">Lock W</button>
-              <button data-quick="LOCK_HATCH">Lock H</button>
-              <button data-quick="LOCK_BALCONY">Lock B</button>
+            <div id="t-clock"></div>
+            <div id="t-map" role="group" aria-label="Watch room locks">
+              <svg viewBox="0 0 160 160" aria-hidden="true"><circle cx="80" cy="80" r="62" /><circle cx="80" cy="80" r="13" /></svg>
+              <button type="button" data-entry="WINDOW" data-quick="LOCK_WINDOW" aria-label="Lock window">W</button>
+              <button type="button" data-entry="HATCH" data-quick="LOCK_HATCH" aria-label="Lock hatch">H</button>
+              <button type="button" data-entry="BALCONY" data-quick="LOCK_BALCONY" aria-label="Lock balcony">B</button>
             </div>
-            <div id="t-power-label">POWER</div>
-            <div id="t-power">
-              <i data-cell="LOCK_WINDOW">W</i><i data-cell="LOCK_HATCH">H</i><i data-cell="LOCK_BALCONY">B</i><i data-cell="LIGHT">LIGHT</i>
+            <div id="t-power" aria-label="Power">
+              <span data-cell="LOCK_WINDOW">W</span><span data-cell="LOCK_HATCH">H</span><span data-cell="LOCK_BALCONY">B</span><span data-cell="LIGHT">LIGHT</span>
             </div>
           </div>
         </div>

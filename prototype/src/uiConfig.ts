@@ -22,8 +22,8 @@ export const CONTROLS = {
 
 // Cursor ring (replaces the edge fill and the arms bar): one small ring on the pointer that shows the running timer.
 export const RING = {
-  SIZE: 32, // screen px, diameter (kept the same at any window size)
-  STROKE: 3, // screen px
+  SIZE: 28, // screen px, diameter (kept the same at any window size)
+  STROKE: 2, // screen px
   TRACK: "rgba(255, 255, 255, 0.14)", // the faint full circle behind the arc
   DWELL: "#ffc46b", // edge dwell: fills clockwise over EDGE_DWELL
   BRACE: "#e0b090", // bracing: arms time left, drains over HOLD_MAX

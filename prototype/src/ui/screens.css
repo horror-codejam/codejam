@@ -185,7 +185,6 @@
   pointer-events: auto;
 }
 
-#terminal[inert] #t-face { animation-play-state: paused; }
 
 
 .screen-reveal { animation: screen-reveal 0.8s ease both; }
@@ -227,5 +226,4 @@
 
 @media (prefers-reduced-motion: reduce) {
   .credits-roll { position: relative; animation: screen-reveal 0.8s ease both; }
-  #t-face.furious { animation: none; }
 }

@@ -6,7 +6,7 @@
 //     rendered into a RenderTexture
 //   stage > warp mesh (the RenderTexture on a PlaneGeometry, edges stretched for a cylindrical feel)
 //         > foreground rain (parallax, moves more than the plate) > scare flash > jumpscare frames > fade > grain > vignette
-// CHUD's terminal is DOM (main.ts) placed over DESK_SCREEN with `deskScreenRect()`.
+// The DOM terminal uses the desk's camera transform and the calibrated monitor corners.
 
 import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
@@ -16,7 +16,8 @@ import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
 import { artFrames, hasArt, isFinal, slot, stageSlot } from "./art";
-import { DESK_GLAZING, DESK_SCREEN, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W } from "./layout";
+import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./layout";
+import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
 import { entryPlate, holdPlate, JUMPSCARE_FPS, JUMPSCARE_MIN_FRAMES, jumpscareJob, sequenceFrame } from "./plates";
 
@@ -59,15 +60,11 @@ const GRADE_NONE: Rgb = [1, 1, 1]; // coded placeholders are already dark
 const WARP_S = 0.08; // perspective warp strength
 const SWEEP_PERIOD = 7; // seconds for the beacon to cross the glazing
 const SWEEP_W = 300; // plate px
+const DESK_ZOOM = 1.03 / ZOOM; // leave room for the monitor bezel through the full desk pan
 
 // The green panel in the desk render, slightly outset; blacked out so the DOM terminal blends in.
 const SCREEN_FRAME = { x: 152, y: 259, w: 659, h: 201 };
 
-// The final desk plate (final/webp/view_desk_off.webp, plate px): the monitor's glass is blacked out and the DOM
-// terminal (DESK_SCREEN size, scaled to fit) sits on it, low enough to clear the hint line at the top of the stage.
-// The baked UI text on the rendered screen would fight the live terminal, hence the blackout.
-const FINAL_SCREEN_FRAME = { x: 176, y: 14, w: 608, h: 330 };
-const FINAL_DESK_SCREEN = { x: 186, y: 130, w: 588, h: Math.round((588 * DESK_SCREEN.h) / DESK_SCREEN.w) };
 // The two glazing panes either side of the monitor: lightning and the beacon glow light only these.
 const FINAL_DESK_PANES = [
   { x: 0, y: 0, w: 167, h: 197 },
@@ -85,6 +82,8 @@ export class Scene {
   private rtPrev: RenderTexture; // the last frame of the view being turned away from (edge controls slide)
   private views = new Container(); // warp + warpPrev, motion-blurred during a turn
   private warp: Mesh;
+  private flatGeometry = new PlaneGeometry({ width: W, height: H });
+  private curvedGeometry: PlaneGeometry;
   private warpPrev: Mesh;
   private turnBlur = new BlurFilter({ strengthX: 0, strengthY: 0, quality: 2 });
   private turnSlide = false; // the current turn slides (edge turn) rather than fades (arriving from a dash)
@@ -102,8 +101,8 @@ export class Scene {
   private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
   private sweep = new Container();
   private sweepBand: Sprite;
-  private paneGlow: Graphics[] = []; // final desk: the beacon brightens each side pane as it passes behind the monitor
-  private lightning = new Graphics();
+  private paneGlow: Sprite[] = []; // final desk: the beacon brightens each side pane as it passes behind the monitor
+  private lightning = new Container();
   private rain: TilingSprite;
   private entries = new Map<Entry, EntryLayers>();
   private holds = new Map<Entry, HoldLayers>();
@@ -124,9 +123,9 @@ export class Scene {
   private lightningUntil = 0;
   private lastT = 0;
   private mouse = { x: 0, y: 0 }; // -1..1 over the canvas
+  private overDeskControl = false;
   private pan = { x: 0, y: 0 }; // stage px, lerped toward the mouse
 
-  speakingUntil = 0; // real seconds, set by the UI on CHUD_SAY (the DOM face reads it)
   jumpscare: number | null = null; // frame 1..4 of the jumpscare, set by the UI's scare sequence
   flashEntry: Entry | null = null; // the creepy full-frame flash: this entry, lit, with Ram inside
   flashStartedAt = 0;
@@ -147,8 +146,11 @@ export class Scene {
     this.deskRender = hasArt("view_desk");
     this.deskFinal = isFinal("view_desk");
     this.desk.addChild(slot("view_desk", P.deskView, "stage"));
-    if (this.deskRender) {
-      const f = this.deskFinal ? FINAL_SCREEN_FRAME : SCREEN_FRAME;
+    if (this.deskFinal) {
+      const glass = MONITOR_CORNERS.flat();
+      this.desk.addChild(new Graphics().poly(glass).fill(0x07130d));
+    } else if (this.deskRender) {
+      const f = SCREEN_FRAME;
       this.desk.addChild(new Graphics().rect(f.x, f.y, f.w, f.h).fill(0x020604));
     }
     const gl = DESK_GLAZING;
@@ -159,21 +161,27 @@ export class Scene {
     this.sweepBand.blendMode = "add";
     if (this.deskFinal) {
       // The monitor hides the middle of the glazing: no band across it, a soft glow on each side pane instead.
+      const glow = makePaneGlow();
       for (const p of FINAL_DESK_PANES) {
-        const g = new Graphics().rect(p.x, p.y, p.w, p.h).fill(0xffc878);
-        g.blendMode = "add";
-        g.alpha = 0;
-        this.paneGlow.push(g);
-        this.sweep.addChild(g);
-        this.lightning.rect(p.x, p.y, p.w, p.h);
+        const beacon = new Sprite(glow);
+        const lightning = new Sprite(glow);
+        for (const sprite of [beacon, lightning]) {
+          sprite.position.set(p.x, p.y);
+          sprite.setSize(p.w, p.h);
+          sprite.blendMode = "add";
+        }
+        beacon.tint = 0xffc878;
+        lightning.tint = 0xcfe0ff;
+        this.paneGlow.push(beacon);
+        this.sweep.addChild(beacon);
+        this.lightning.addChild(lightning);
       }
-      this.lightning.fill({ color: 0xcfe0ff, alpha: 1 });
     } else {
       // No mask: the band is exactly the glazing height and the glazing spans the plate width, so it never leaves the
       // glazing on screen. A rect mask turns into a stencil mask once the camera rolls (dash, bracing), and inside the
       // RenderTexture that stencil state broke the frame (the glazing area showed a shifted copy of the plate).
       this.sweep.addChild(this.sweepBand);
-      this.lightning.rect(gl.x, gl.y, gl.w, gl.h).fill({ color: 0xcfe0ff, alpha: 1 });
+      this.lightning.addChild(new Graphics().rect(gl.x, gl.y, gl.w, gl.h).fill(0xcfe0ff));
     }
     this.lightning.alpha = 0;
     this.light.addChild(this.sweep, this.lightning);
@@ -248,6 +256,7 @@ export class Scene {
       pos[i + 1] = H / 2 + (pos[i + 1] - H / 2) * (1 + WARP_S * nx * nx);
     }
     geo.positions = pos;
+    this.curvedGeometry = geo;
     this.warp = new Mesh({ geometry: geo, texture: this.rt });
     this.warpPrev = new Mesh({ geometry: geo, texture: this.rtPrev });
     this.warpPrev.visible = false;
@@ -288,16 +297,16 @@ export class Scene {
     window.addEventListener("mousemove", (ev) => {
       const r = app.canvas.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return;
+      this.overDeskControl = ev.target instanceof Element && !!ev.target.closest("#terminal button, #terminal input");
       this.mouse.x = clamp(((ev.clientX - r.left) / r.width) * 2 - 1, -1, 1);
       this.mouse.y = clamp(((ev.clientY - r.top) / r.height) * 2 - 1, -1, 1);
     });
   }
 
-  // Where the DOM terminal goes, in stage px at the current pan (ignores the small edge warp). The terminal is laid out
-  // at DESK_SCREEN size; `scale` fits it to this desk plate's screen (1 on the blockout desk, about 0.9 on the final).
-  deskScreenRect(): { x: number; y: number; w: number; h: number; scale: number } {
-    const r = this.deskFinal ? FINAL_DESK_SCREEN : DESK_SCREEN;
-    return { ...this.plateRect(r), scale: r.w / DESK_SCREEN.w };
+  deskScreenTransform(): string {
+    const plate = this.plateRect({ x: 0, y: 0, w: PLATE_W, h: PLATE_H });
+    const projection = this.deskFinal ? monitorTransform.final : monitorTransform.fallback;
+    return `translate(${plate.x}px, ${plate.y}px) scale(${this.cam.scale.x}) ${projection}`;
   }
 
   // Any plate-px rect of the current view in stage px at the current pan and zoom (DOM hotspots on the desk).
@@ -340,8 +349,11 @@ export class Scene {
           [this.rt, this.rtPrev] = [this.rtPrev, this.rt];
           this.warp.texture = this.rt;
           this.warpPrev.texture = this.rtPrev;
+          this.warpPrev.geometry = this.warp.geometry;
         }
       }
+      // The desk stays planar so the projected DOM and the monitor glass share exactly the same corners.
+      this.warp.geometry = view === "DESK" ? this.flatGeometry : this.curvedGeometry;
       this.lastView = view;
     }
     this.lastDashing = dashing;
@@ -456,7 +468,7 @@ export class Scene {
       this.onThunder?.();
     }
     const flash = t < this.lightningUntil;
-    this.lightning.alpha = flash && onDesk ? 0.35 : 0;
+    this.lightning.alpha = flash && onDesk ? 0.24 : 0;
 
     // night grade, eased so turning or switching power reads as light changing
     const ease = 1 - Math.exp(-dt * 6);
@@ -466,13 +478,18 @@ export class Scene {
     this.grade.matrix = [r + boost, 0, 0, 0, 0, 0, g + boost, 0, 0, 0, 0, 0, b + boost, 0, 0, 0, 0, 0, 1, 0] as ColorMatrix;
 
     // camera: mouse pan (lerped), plus dash tip, shake and rise (GAME_LOGIC 6.4), otherwise a slow sway
-    const panEase = 1 - Math.exp(-dt * 4);
-    this.pan.x += (this.mouse.x * PAN_X - this.pan.x) * panEase;
-    this.pan.y += (this.mouse.y * PAN_Y - this.pan.y) * panEase;
+    const framedDesk = onDesk && this.deskFinal;
+    let zoom = framedDesk ? DESK_ZOOM : 1;
+    if (!onDesk || !this.overDeskControl) {
+      const panEase = 1 - Math.exp(-dt * 4);
+      const maxX = framedDesk ? (PLATE_W * K * zoom - W) / 2 : PAN_X;
+      const maxY = framedDesk ? (PLATE_H * K * zoom - H) / 2 : PAN_Y;
+      this.pan.x += (this.mouse.x * maxX - this.pan.x) * panEase;
+      this.pan.y += (this.mouse.y * maxY - this.pan.y) * panEase;
+    }
     let ox = -this.pan.x;
     let oy = -this.pan.y;
     this.cam.rotation = 0;
-    let zoom = 1;
     let black = 0;
     if (dashing) {
       const left = pos.until - s.clock.elapsed;
@@ -622,6 +639,18 @@ function makeBandTexture(): Texture {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 64);
   return Texture.from(c);
+}
+
+function makePaneGlow(): Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d")!;
+  const glow = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  glow.addColorStop(0, "#fff");
+  glow.addColorStop(1, "#fff0");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, 128, 128);
+  return Texture.from(canvas);
 }
 
 // Slanted rain streaks that fade out over the lower half (so they stay off the terminal).
