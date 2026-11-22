@@ -475,7 +475,7 @@ No canned line repeats the previous line of the same kind back to back (when the
     2. The eyes shut (fade to black).
     3. They open in the cage hall under the lighthouse (`art/end-cutscene/01-cage-hall.webp`): the player is now one of the caged keepers.
     4. The run is lost and starts over from night 1.
-  - Current build (placeholder until the window shot lands): text beats on black, CHUD says "You don't need to leave, keeper. You never did.", then "Title". Continue still retries night 5 from its checkpoint; change this to a fresh run when the target scene goes in.
+  - Current build: the text beats on black end with CHUD saying "You don't need to leave, keeper. You never did." The Coast Guard boat appears through the watch-room windows, holds for three seconds after fading in, then fades to black before "Title" appears. A click starts the fade early. The watch-room ambience continues through the sequence. Continue retries night 5 from its checkpoint.
 - Night 5 with Ram `INSIDE` at 6:00 AM is a normal `DAWN` loss (section 5).
 - **Loss:** play the flash when applicable and the four-frame jumpscare with sound. Cut to black, then reveal the single option "Title" after about 1.5 seconds. Continue from the highest unlocked night and its facts checkpoint on the title screen.
 - **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.

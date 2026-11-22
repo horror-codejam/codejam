@@ -1,6 +1,7 @@
-// Night 5 endings: the kill code (CHUD dies, the hatch opens, then the exit scene) and the trapped ending. Text beats on black.
+// Night 5 endings: the kill code (CHUD dies, the hatch opens, then the exit scene) and the trapped ending.
 import cageHall from "../../../../art/end-cutscene/01-cage-hall.webp?url";
 import rescueBoat from "../../../../art/end-cutscene/02-rescue-boat.webp?url";
+import coastGuardApproach from "../../../../art/end-cutscene/03-coast-guard-approach.webp?url";
 import { renderCredits } from "./credits";
 import { after } from "./timing";
 
@@ -85,6 +86,7 @@ const EXIT_SHOTS: Shot[] = [
 
 const CAPTION_MS = 5200;
 const SHOT_FADE_MS = 1400;
+const TRAPPED_SHOT_MS = 3800; // 800 ms reveal, then 3 seconds at full opacity
 
 export function renderExitScene(screen: HTMLElement, done: () => void, signal: AbortSignal): void {
   screen.dataset.screen = "exit-scene";
@@ -133,16 +135,38 @@ export function renderExitScene(screen: HTMLElement, done: () => void, signal: A
 
 export function renderTrapped(screen: HTMLElement, title: () => void, signal: AbortSignal): void {
   screen.dataset.screen = "trapped";
+  const image = new Image();
+  image.src = coastGuardApproach;
+  image.alt = "The Coast Guard boat seen from the lighthouse watch room";
+  image.className = "trapped-shot screen-reveal";
+
+  const showTitleOption = (): void => {
+    if (signal.aborted) return;
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "text-option screen-reveal";
+    option.textContent = "Title";
+    option.addEventListener("click", title);
+    screen.replaceChildren(option);
+  };
+
   runBeats(screen, TRAPPED_BEATS, signal, () => {
-    screen.onpointerdown = null;
     screen.replaceChildren();
-    after(1500, signal, () => {
-      const option = document.createElement("button");
-      option.type = "button";
-      option.className = "text-option screen-reveal";
-      option.textContent = "Title";
-      option.addEventListener("click", title);
-      screen.append(option);
-    });
+    void image.decode().then(() => {
+      if (signal.aborted) return;
+      const frame = document.createElement("div");
+      frame.className = "exit-frame";
+      frame.append(image);
+      screen.append(frame);
+
+      const fade = (): void => {
+        if (frame.classList.contains("out")) return;
+        screen.onpointerdown = null;
+        frame.classList.add("out");
+        after(SHOT_FADE_MS, signal, showTitleOption);
+      };
+      screen.onpointerdown = fade;
+      after(TRAPPED_SHOT_MS, signal, fade);
+    }, showTitleOption);
   });
 }

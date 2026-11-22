@@ -137,7 +137,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 - Kill code ending (2026-11-22, replaces the night 5 win): the run's kill code is random and has 4 characters. Ram leaves its characters on slips at the entries he was blocked at, from night 2 on, and all four are reachable by night 5. On night 5 the player types the code into CHUD's chat before 6 AM. CHUD dies and the hatch opens by itself. The exit scene follows (a teammate's work): down through the dungeon of cages where every previous keeper died, Ram freed and harmless, rescue by the coast guard. Then credits.
 - Two endings (decided 2026-11-22):
   - Code found (true ending): the kill code cracks everything. CHUD dies, the hatch opens, and the keeper gets on the coast guard boat and leaves (cage hall and rescue boat stills, in the build).
-  - Code not found, 5 nights survived (trapped ending, a fail): the keeper sees the coast guard boat coming in through the window and is relieved. The next moment their eyes shut, and when they open they are in the cage hall, caged like every keeper before. The run is lost and starts over. The window shot is being made on another machine; until it lands the build shows text beats on black and Continue retries night 5. There is no morning or helicopter screen on night 5 anymore.
+  - Code not found, 5 nights survived (trapped ending, a fail): the build plays text beats, then shows the Coast Guard boat through the watch-room windows. The shot fades to black before Title, with the room ambience continuing. Continue retries night 5. The planned cage hall reveal and restart from Night 1 are a later step.
 
 ## AI architecture and anti-cheat
 - The AI never decides win or loss. Game code owns every meter, lock, timer and outcome.
