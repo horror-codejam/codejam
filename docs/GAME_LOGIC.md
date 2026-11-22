@@ -459,7 +459,13 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
   3. The exit scene (`renderExitScene` in `prototype/src/ui/screens/killEnding.ts`), two Blender stills with captions: the cage hall under the hatch where the earlier keepers were kept, then the rescue boat pulling away from the lighthouse.
 
   Then credits.
-- **Trapped ending (night 5, phase `TRAPPED`):** 6:00 AM with no code entered and Ram not inside. Show "The AI won't let you leave". The boat is below, but the hatch and door stay shut. CHUD says "You don't need to leave, keeper. You never did." Then offer "Title". Continue retries night 5 from its checkpoint.
+- **Trapped ending (night 5, phase `TRAPPED`):** 6:00 AM with no code entered and Ram not inside. This is a fail, not a win.
+  - Target (decided 2026-11-22, art in progress on another machine):
+    1. The player sees the coast guard boat coming in through the window. A moment of relief.
+    2. The eyes shut (fade to black).
+    3. They open in the cage hall under the lighthouse (`art/end-cutscene/01-cage-hall.webp`): the player is now one of the caged keepers.
+    4. The run is lost and starts over from night 1.
+  - Current build (placeholder until the window shot lands): text beats on black, CHUD says "You don't need to leave, keeper. You never did.", then "Title". Continue still retries night 5 from its checkpoint; change this to a fresh run when the target scene goes in.
 - Night 5 with Ram `INSIDE` at 6:00 AM is a normal `DAWN` loss (section 5).
 - **Loss:** play the flash when applicable and the four-frame jumpscare with sound. Cut to black, then reveal the single option "Title" after about 1.5 seconds. Continue from the highest unlocked night and its facts checkpoint on the title screen.
 - **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
