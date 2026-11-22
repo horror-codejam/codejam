@@ -82,6 +82,7 @@ type Caption = { text: string; until: number };
 let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
 let hintCaption: Caption | undefined;
+let braceHintShown = false; // one-time "hold the mouse button" caption on the first arrival at an entry
 let powerAlarmUntil = 0;
 let powerAlarmEntry: Entry | null = null;
 let previousPowerSlot: PowerSlot = "NONE";
@@ -329,6 +330,11 @@ function onEvent(ev: GameEvent, t: number): void {
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
       if (ev.position.kind === "HOLDING") sound.braceStart();
+      // At an entry there is no lock: the only defense is holding the mouse button. Say it once.
+      if (ev.position.kind === "STANDING" && !braceHintShown && !engine.isPracticing) {
+        braceHintShown = true;
+        hintCaption = { text: "Hold the mouse button to hold it shut.", until: t + 5 };
+      }
       break;
     case "HOLD_ENDED":
       sound.braceEnd(ev.reason === "arms");
