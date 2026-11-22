@@ -186,6 +186,55 @@ export class GameEngine implements IGameEngine {
     this.startNight(this.clampNight(n), { ...this.state.chud.facts });
   }
 
+  // ---- Dev methods (dev panel only, never called by the game rules). Pure state edits: no DOM, no clock, no Math.random.
+
+  // Advances the clock through normal ticks until 1 s before 6 AM. Ram is held away during the skip (any visit is cancelled)
+  // so nobody is breached for not defending skipped minutes; CHUD, questions and radio still run. Ram is due again after the skip.
+  devSkipToLastSecond(): void {
+    const target = nightLength(this.cfg) - 1;
+    if (this.state.phase !== "PLAYING" || this.now >= target - EPS) return;
+    this.devRamAway();
+    this.state.ram.stateEndsAt = Infinity;
+    while (this.state.phase === "PLAYING" && this.now < target - EPS) this.tick(this.cfg.TICK);
+    if (this.state.phase === "PLAYING") this.state.ram.stateEndsAt = this.now + this.np.awayGap[0];
+  }
+
+  // Ends the night as a win right now (NIGHT_WON, or GAME_WON on the last night).
+  devWinNight(): void {
+    if (this.state.phase === "PLAYING") this.winNight();
+  }
+
+  // Starts a Ram visit to `entry` now, with the night's normal approach time. Only while Ram is AWAY. Returns false otherwise.
+  devSendRam(entry: Entry): boolean {
+    const s = this.state;
+    if (s.phase !== "PLAYING" || s.ram.state !== "AWAY") return false;
+    s.ram.stateEndsAt = this.now;
+    this.startApproach(entry);
+    return true;
+  }
+
+  // Cancels the current visit (no breach) and sends Ram away for the night's shortest away gap.
+  devRamAway(): void {
+    const s = this.state;
+    const r = s.ram;
+    if (s.phase !== "PLAYING") return;
+    if (s.chud.furiousActive && s.chud.furiousVisitId === r.visitId && r.state !== "AWAY") this.endFurious(false);
+    r.state = "AWAY";
+    r.target = null;
+    r.fakeOutAt = null;
+    r.pendingPull = 0;
+    r.stateEndsAt = this.now + this.np.awayGap[0];
+    this.awayStartedAt = this.now;
+    this.emit({ type: "RAM_AWAY", nextVisitAt: r.stateEndsAt });
+  }
+
+  // Sets suspicion (clamped) and refreshes the band. Setting it below the Furious threshold ends an active episode.
+  devSetSuspicion(value: number): void {
+    const c = this.state.chud;
+    if (c.furiousActive && value < this.cfg.bands.furiousAt) this.endFurious(false);
+    this.changeSuspicion(value - c.suspicion, ["dev"]);
+  }
+
   resumeFromSafetyPause(): void {
     if (this.state.phase !== "SAFETY_PAUSE") return;
     this.state.phase = "PLAYING";
@@ -565,7 +614,7 @@ export class GameEngine implements IGameEngine {
     }
   }
 
-  private startApproach(): void {
+  private startApproach(forced?: Entry): void {
     const s = this.state;
     const r = s.ram;
     const np = this.np;
@@ -575,7 +624,7 @@ export class GameEngine implements IGameEngine {
       const filtered = choices.filter((e) => e !== r.lastTarget);
       if (filtered.length) choices = filtered;
     }
-    const target = this.rng.pick(choices);
+    const target = forced ?? this.rng.pick(choices);
     r.visitId++;
     r.state = "APPROACHING";
     r.target = target;

@@ -16,7 +16,17 @@ import { RING } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-const engine = new GameEngine({ seed: Date.now() % 2147483647 });
+// URL params: ?dev (dev mode on, ?dev=0 off) and ?night=N (start straight at that night's card as "Keeper").
+const params = new URLSearchParams(window.location.search);
+const deepNight = ((): number | null => {
+  const raw = params.get("night");
+  const n = raw === null || raw.trim() === "" ? NaN : Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= CONFIG.nights.length ? n : null;
+})();
+const engine = new GameEngine({
+  seed: Date.now() % 2147483647,
+  ...(deepNight ? { startNight: deepNight, skipNamePrompt: true, facts: { name: "Keeper" } } : {}),
+});
 const sound = new Sound();
 let scene: Scene;
 if (import.meta.env.DEV) Object.assign(window, { engine }); // console access while developing
@@ -48,6 +58,7 @@ const ui = {
   subtitle: $("subtitle"),
   screen: $("screen"),
   dev: $("dev"),
+  devBadge: $("dev-badge"),
   devText: $("dev-text"),
   devBtns: $("dev-btns"),
   pauseBtn: $<HTMLButtonElement>("pause-btn"),
@@ -74,8 +85,14 @@ let hintUntil = 0;
 let noteUntil = 0;
 let powerAlarmUntil = 0;
 let speed = 1;
-let devOpen = false;
+const DEV_KEY = "chud.dev";
+let devOn = false; // dev mode: badge visible, shortcuts live
+let devOpen = false; // panel open
 let devNextAt = 0;
+let devSkipCard = false; // N buttons go straight into PLAYING
+let previewing = false; // a dev screen preview is up: the night is frozen behind it
+let previewSaved: { loss: LossInfo | null; morningLine: string } | null = null;
+const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
 let nightToken = 0; // drops LLM replies that arrive after a night restarts
@@ -106,6 +123,7 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", fit);
   wireInput();
   buildDevButtons();
+  initDev();
   app.ticker.add((tk) => frame(tk.deltaMS / 1000));
 }
 
@@ -130,7 +148,7 @@ function frame(dt: number): void {
   }
   // Paused: no tick, so the night clock, Ram, CHUD timers and silence all stand still. Replies still apply.
   // Clamp so a hidden tab (no frames) does not fast-forward the night.
-  if (!paused) {
+  if (!paused && !previewing) {
     engine.tick(Math.min(dt, 0.1) * speed);
     reconcileBrace();
   }
@@ -165,7 +183,9 @@ function onEvent(ev: GameEvent, t: number): void {
       hintUntil = 0;
       breachShown = false;
       loss = null;
-      showScreen("NIGHT_CARD"); // also covers retry and dev jumps within the same phase
+      // also covers retry and dev jumps within the same phase; a dev jump with "skip night card" is already PLAYING
+      if (engine.state.phase === "PLAYING") show(ui.screen, false);
+      else showScreen("NIGHT_CARD");
       break;
     case "RAM_APPROACH":
       sound.approachStart();
@@ -537,7 +557,7 @@ function showScreen(phase: Phase): void {
         <h1>NIGHT ${n}</h1>
         <p>12:00 AM. SURVIVE UNTIL 6 AM.</p>
         <p class="log">${esc(voiceLog)}</p>
-        <p class="small">Look around: push the mouse to the left edge (window), right edge (hatch) or bottom edge (behind you). The opposite edge brings you back (the bottom again from behind).<br />Go to an entry: look at it and click. There, hold the left mouse button to brace it (your arms last a few seconds). Push the mouse to the same edge as before to run back to the desk.<br />At the desk, just start typing to talk to CHUD, Enter sends. Esc pauses. \` : dev panel.</p>
+        <p class="small">Look around: push the mouse to the left edge (window), right edge (hatch) or bottom edge (behind you). The opposite edge brings you back (the bottom again from behind).<br />Go to an entry: look at it and click. There, hold the left mouse button to brace it (your arms last a few seconds). Push the mouse to the same edge as before to run back to the desk.<br />At the desk, just start typing to talk to CHUD, Enter sends. Esc pauses.</p>
         <button id="go">Start night ${n}</button>`);
       $("go").addEventListener("click", () => {
         sound.unlock();
@@ -657,10 +677,10 @@ function wireInput(): void {
 }
 
 function onKey(e: KeyboardEvent): void {
-  if (e.code === "Backquote") {
+  // Dev mode shortcuts work everywhere, including in the chat and name inputs (Backquote is not typed there).
+  if (e.code === "Backquote" || (e.code === "KeyD" && e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey)) {
     e.preventDefault();
-    devOpen = !devOpen;
-    show(ui.dev, devOpen);
+    setDev(!devOn);
     return;
   }
   if (e.target === ui.chat) {
@@ -762,20 +782,171 @@ function reconcileBrace(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Dev panel (backtick)
+// Dev mode. On with ?dev, Backquote or Ctrl+Shift+D (state kept in localStorage); off for players by default.
+// Every action goes through the engine object (dev* methods or the normal flow methods).
+
+function initDev(): void {
+  let on = false;
+  try {
+    on = window.localStorage.getItem(DEV_KEY) === "1";
+  } catch {
+    /* storage blocked: stay off */
+  }
+  if (params.has("dev")) on = !["0", "false", "off", "no"].includes((params.get("dev") ?? "").toLowerCase());
+  ui.devBadge.addEventListener("click", () => setDevOpen(!devOpen));
+  setDev(on, false);
+}
+
+function setDev(on: boolean, remember = true): void {
+  devOn = on;
+  show(ui.devBadge, on);
+  setDevOpen(on && (devOpen || remember)); // turning on with a key opens the panel; a page load only shows the badge
+  if (!remember) return;
+  try {
+    window.localStorage.setItem(DEV_KEY, on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+function setDevOpen(open: boolean): void {
+  devOpen = devOn && open;
+  show(ui.dev, devOpen);
+  ui.devBadge.classList.toggle("open", devOpen);
+  if (devOpen) renderDev();
+}
+
+// Gets the engine into PLAYING from any phase so a time or Ram action can run. Returns false if it cannot.
+function devEnsurePlaying(): boolean {
+  if (previewing) endPreview();
+  if (engine.state.phase === "NAME_PROMPT") engine.setName("Keeper");
+  if (engine.state.phase === "BREACH") engine.retryNight();
+  if (engine.state.phase === "NIGHT_WON" || engine.state.phase === "GAME_WON") return false;
+  if (engine.state.phase === "NIGHT_CARD") engine.beginNight();
+  return engine.state.phase === "PLAYING";
+}
+
+function devJump(n: number): void {
+  if (previewing) endPreview();
+  if (engine.state.phase === "NAME_PROMPT") engine.setName("Keeper");
+  engine.jumpToNight(n);
+  if (devSkipCard) engine.beginNight();
+}
+
+function devNight(): number {
+  return engine.state.run.night;
+}
+
+function devRestart(): void {
+  if (previewing) endPreview();
+  if (engine.state.phase === "BREACH" || engine.state.phase === "PLAYING") engine.retryNight();
+  else devJump(devNight());
+  if (devSkipCard) engine.beginNight();
+}
+
+// Skips the clock with normal ticks. The events of the skipped minutes are mostly dropped (no radio and shout burst),
+// except the Ram cue that matches where Ram is now and anything that ends or changes the night.
+function devSkipClock(): void {
+  if (!devEnsurePlaying()) return;
+  engine.devSkipToLastSecond();
+  const t = now();
+  const evs = engine.drainEvents();
+  const lastOf = (type: GameEvent["type"]): GameEvent | undefined => [...evs].reverse().find((e) => e.type === type);
+  const ramState = engine.state.ram.state;
+  const mute = new Set<GameEvent["type"]>(["CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "HINT", "SILENCE_PULL"]);
+  for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
+  sound.stopCues();
+  if (ramState === "APPROACHING") {
+    const a = lastOf("RAM_APPROACH");
+    if (a) onEvent(a, t);
+  } else if (ramState === "AT_ENTRY") {
+    const a = lastOf("RAM_AT_ENTRY");
+    if (a) onEvent(a, t);
+  }
+}
+
+function devPreview(kind: "BREACH" | "NIGHT_WON" | "GAME_WON"): void {
+  if (!previewing) previewSaved = { loss, morningLine };
+  const n = devNight();
+  if (kind === "BREACH") loss = { night: n, entry: "WINDOW", cause: "UNLOCKED", lastClaim: null, heldEntry: null };
+  if (!morningLine) morningLine = "(preview) The tide held. Morning.";
+  previewing = true;
+  showScreen(kind);
+  const go = $("go");
+  const copy = go.cloneNode(true) as HTMLElement; // drops the real click handler
+  copy.textContent = "Close preview";
+  copy.addEventListener("click", endPreview);
+  go.replaceWith(copy);
+}
+
+function endPreview(): void {
+  if (!previewing) return;
+  previewing = false;
+  if (previewSaved) {
+    loss = previewSaved.loss;
+    morningLine = previewSaved.morningLine;
+    previewSaved = null;
+  }
+  skipDt = true;
+  showScreen(engine.state.phase);
+}
 
 function buildDevButtons(): void {
-  const add = (label: string, fn: () => void): void => {
+  const root = ui.devBtns;
+  const group = (title: string): HTMLElement => {
+    const g = document.createElement("div");
+    g.className = "dev-grp";
+    const h = document.createElement("span");
+    h.className = "dev-title";
+    h.textContent = title;
+    g.appendChild(h);
+    root.appendChild(g);
+    return g;
+  };
+  const add = (g: HTMLElement, label: string, fn: () => void, title = ""): HTMLButtonElement => {
     const b = document.createElement("button");
     b.textContent = label;
-    b.addEventListener("click", fn);
-    ui.devBtns.appendChild(b);
+    if (title) b.title = title;
+    b.addEventListener("click", () => {
+      fn();
+      b.blur();
+      renderDev();
+    });
+    g.appendChild(b);
+    return b;
   };
-  for (let n = 1; n <= CONFIG.nights.length; n++) add(`N${n}`, () => engine.jumpToNight(n));
-  add("x1", () => (speed = 1));
-  add("x3", () => (speed = 3));
-  add("x8", () => (speed = 8));
-  add("LLM on/off", () => (llm.enabled = !llm.enabled));
+
+  const nights = group("Nights");
+  for (let n = 1; n <= CONFIG.nights.length; n++) add(nights, `N${n}`, () => devJump(n));
+  add(nights, "Prev", () => devJump(Math.max(1, devNight() - 1)));
+  add(nights, "Next", () => devJump(Math.min(CONFIG.nights.length, devNight() + 1)));
+  add(nights, "Restart night", devRestart);
+  devRefs.skip = add(nights, "Skip night card", () => (devSkipCard = !devSkipCard), "N buttons go straight into play");
+
+  const time = group("Time");
+  for (const x of [1, 3, 8]) devRefs.speed.push(add(time, `x${x}`, () => (speed = x)));
+  add(time, "Skip to 5:59 AM", devSkipClock, "Runs the clock with normal ticks; a loss on the way is possible");
+  add(time, "Win night now", () => {
+    if (devEnsurePlaying()) engine.devWinNight();
+  });
+
+  const ram = group("Ram");
+  for (const e of ["WINDOW", "HATCH", "BALCONY"] as const)
+    add(ram, `Send ${NAME[e]}`, () => {
+      if (devEnsurePlaying()) engine.devSendRam(e);
+    }, "Only while Ram is away");
+  add(ram, "Ram away", () => {
+    if (devEnsurePlaying()) engine.devRamAway();
+  });
+
+  const chud = group("CHUD");
+  for (const [label, v] of [["WARM", 0], ["HURT", 50], ["JEALOUS", 80]] as const) add(chud, label, () => engine.devSetSuspicion(v), `suspicion ${v}`);
+  devRefs.llm = add(chud, "LLM", () => (llm.enabled = !llm.enabled));
+
+  const screens = group("Screens");
+  add(screens, "Loss", () => devPreview("BREACH"));
+  add(screens, "Night won", () => devPreview("NIGHT_WON"));
+  add(screens, "Game won", () => devPreview("GAME_WON"));
 }
 
 function renderDev(): void {
@@ -783,7 +954,7 @@ function renderDev(): void {
   const r = s.ram;
   const q = s.chud.pendingQuestion;
   const lines = [
-    `phase ${s.phase}  speed x${speed}`,
+    `phase ${s.phase}  night ${s.run.night}  speed x${speed}  skip card ${devSkipCard ? "on" : "off"}${previewing ? "  PREVIEW" : ""}`,
     `LLM ${!llm.available ? "unavailable (no key or server)" : llm.enabled ? "on" : "off"}  last judge: ${lastJudgeSource}`,
     `t ${s.clock.elapsed.toFixed(1)} / ${CONFIG.HOUR_LENGTH * CONFIG.NIGHT_HOURS}`,
     `RAM ${r.state} ${r.target ?? ""} ends ${r.stateEndsAt.toFixed(1)} (in ${(r.stateEndsAt - s.clock.elapsed).toFixed(1)})`,
@@ -796,6 +967,9 @@ function renderDev(): void {
     `silence ticks ${s.timers.silenceTicks}  last real ${s.timers.lastRealMessageAt.toFixed(1)}`,
   ];
   ui.devText.textContent = lines.join("\n");
+  devRefs.speed.forEach((b, i) => b.classList.toggle("on", speed === [1, 3, 8][i]));
+  devRefs.skip?.classList.toggle("on", devSkipCard);
+  devRefs.llm?.classList.toggle("on", llm.enabled);
 }
 
 void boot();

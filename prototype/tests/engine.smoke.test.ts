@@ -380,3 +380,75 @@ describe("edge-controls brace flow", () => {
     }
   });
 });
+
+describe("dev methods", () => {
+  it("devSkipToLastSecond runs the clock to 1 s before 6 AM and the next tick wins", () => {
+    const e = playing({ seed: 3 });
+    e.devSendRam("WINDOW"); // a visit in progress is cancelled by the skip, so it cannot breach
+    e.devSkipToLastSecond();
+    expect(e.state.ram.state).toBe("AWAY");
+    const len = CONFIG.HOUR_LENGTH * CONFIG.NIGHT_HOURS;
+    expect(e.state.phase).toBe("PLAYING");
+    expect(e.state.clock.elapsed).toBeGreaterThanOrEqual(len - 1 - 1e-6);
+    expect(e.state.clock.elapsed).toBeLessThan(len);
+    run(e, 2);
+    expect(e.state.phase).toBe("NIGHT_WON");
+  });
+
+  it("devWinNight wins now, and GAME_WON on the last night; no-op outside PLAYING", () => {
+    const e = playing();
+    e.devWinNight();
+    expect(e.state.phase).toBe("NIGHT_WON");
+    e.devWinNight();
+    expect(e.state.phase).toBe("NIGHT_WON");
+    const last = playing({ startNight: CONFIG.nights.length });
+    last.devWinNight();
+    expect(last.state.phase).toBe("GAME_WON");
+  });
+
+  it("devSendRam starts an approach to the chosen entry, then Ram arrives and a lock holds", () => {
+    const e = playing({ seed: 5 });
+    expect(e.devSendRam("BALCONY")).toBe(true);
+    expect(e.state.ram.state).toBe("APPROACHING");
+    expect(e.state.ram.target).toBe("BALCONY");
+    expect(e.devSendRam("HATCH")).toBe(false); // already on a visit
+    const evs: GameEvent[] = [];
+    run(e, 60, (ev) => evs.push(ev), () => e.state.ram.state === "AT_ENTRY");
+    expect(e.state.ram.state).toBe("AT_ENTRY");
+    expect(e.state.ram.target).toBe("BALCONY");
+  });
+
+  it("devRamAway cancels a visit without a breach and Ram returns later", () => {
+    const e = playing({ seed: 5 });
+    e.devSendRam("WINDOW");
+    run(e, 5);
+    e.devRamAway();
+    expect(e.state.ram.state).toBe("AWAY");
+    expect(e.state.ram.target).toBeNull();
+    expect(e.state.ram.stateEndsAt).toBeGreaterThan(e.state.clock.elapsed);
+    run(e, 10);
+    expect(e.state.phase).toBe("PLAYING");
+  });
+
+  it("devSetSuspicion sets the value and the band, and clamps", () => {
+    const e = playing();
+    e.devSetSuspicion(0);
+    expect([e.state.chud.suspicion, e.state.chud.band]).toEqual([0, "WARM"]);
+    e.devSetSuspicion(50);
+    expect([e.state.chud.suspicion, e.state.chud.band]).toEqual([50, "HURT"]);
+    e.devSetSuspicion(80);
+    expect([e.state.chud.suspicion, e.state.chud.band]).toEqual([80, "JEALOUS"]);
+    e.devSetSuspicion(-20);
+    expect(e.state.chud.suspicion).toBe(0);
+  });
+
+  it("dev methods unused leave the normal run unchanged (same seed, same state)", () => {
+    const a = playing({ seed: 11 });
+    const b = playing({ seed: 11 });
+    b.devSetSuspicion(b.state.chud.suspicion);
+    run(a, 120);
+    run(b, 120);
+    expect(b.state.ram).toEqual(a.state.ram);
+    expect(b.state.chud.suspicion).toBe(a.state.chud.suspicion);
+  });
+});
