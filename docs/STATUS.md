@@ -11,11 +11,13 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
-- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the desk fallback until the production still or video lands.
+- Done: release HUD cleanup, CHUD fitted to the monitor glass, title and desk video support, 45 resized stills, three 24-frame jumpscares, and a local Vercel adapter for the existing API.
+- Checks: build and all 261 tests passed. Reviewed 13 headless screenshots. First-night texture and frame-buffer estimate was 582.5 MB at DPR 2. Cold production transfer was 18.49 MB.
+- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the production still while its video renders.
 - Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
-- Working on: watch room look pass.
-- Blockers: none. Poly Haven is switched on in the MCP for Blender tab.
-- Next: real materials from Poly Haven (wet stone, worn metal, glass), then moody lighting per camera, then the hands and animated props.
+- Working on: final Blender clip renders.
+- Blockers: the title and desk loops need complete PNG sequences before their production WebMs can be encoded.
+- Next: convert and verify the completed loops in the browser.
 - Blender MCP setup per person: install uv, run `claude mcp add -s user blender uvx mcp-for-blender` (or `codex mcp add blender -- uvx mcp-for-blender`), run `uvx mcp-for-blender install-addon`, open Blender once first, enable "MCP for Blender" in Preferences, Add-ons, press N and start the MCP server, restart the AI tool.
 
 ## Vidush (Vidush-jpg)
