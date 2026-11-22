@@ -478,6 +478,8 @@ export class GameEngine implements IGameEngine {
       lastClaim: s.chud.lastLocationClaim,
     };
     this.emit({ type: "RAM_INSIDE", entry, trigger });
+    // Section 8.9: the episode ends when its visit resolves, and getting inside resolves it.
+    if (s.chud.furiousActive && s.chud.furiousVisitId === r.visitId) this.endFurious(true);
   }
 
   private rollInsideTrigger(): InsideTrigger {
@@ -1176,13 +1178,13 @@ export class GameEngine implements IGameEngine {
     if (this.windowLeft() < this.cutMargin() - EPS) return;
     s.chud.furiousCutDone = true;
     // The cut only hits a lock (engaged or on its way). The player's light is not CHUD's to cut.
+    // With nothing to cut it stays silent: the line would otherwise announce that he just reached an entry.
     const p = s.power;
-    if (isLockSlot(p.slot) || (p.pending && isLockSlot(p.pending.target))) {
-      p.pending = null;
-      if (isLockSlot(p.slot)) p.slot = "NONE";
-      this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: "furious" });
-      s.log.visit.furiousCut = true;
-    }
+    if (!isLockSlot(p.slot) && !(p.pending && isLockSlot(p.pending.target))) return;
+    p.pending = null;
+    if (isLockSlot(p.slot)) p.slot = "NONE";
+    this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: "furious" });
+    s.log.visit.furiousCut = true;
     this.emit({ type: "FURIOUS_CUT", entry: r.target! });
     this.say({ kind: "furious_cut" });
   }

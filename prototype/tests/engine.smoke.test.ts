@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { CONFIG, type Config, type NightParams } from "../src/config";
 import { GameEngine } from "../src/sim/engine";
-import { NEUTRAL_JUDGE, type Entry, type GameEvent, type JudgeResult } from "../src/sim/types";
+import { NEUTRAL_JUDGE, lockSlot, type Entry, type GameEvent, type JudgeResult } from "../src/sim/types";
 
 const T = CONFIG.TICK;
 const judge = (over: Partial<JudgeResult> = {}): JudgeResult => ({ ...NEUTRAL_JUDGE, ...over });
@@ -190,6 +190,8 @@ describe("engine smoke", () => {
       30,
       (ev) => {
         events.push(ev.type);
+        // A lock engaged before the window opens, so the cut has something to drop (test-only state edit).
+        if (ev.type === "RAM_APPROACH") e.state.power.slot = lockSlot(e.state.ram.target!);
         if (ev.type === "RAM_AT_ENTRY") e.startHold(ev.entry);
         if (ev.type === "FURIOUS_END") ended = true;
       },
@@ -201,6 +203,21 @@ describe("engine smoke", () => {
     expect(e.state.chud.furiousActive).toBe(false);
     expect(e.state.chud.suspicion).toBe(CONFIG.FURIOUS_RESET);
     expect(e.state.chud.band).toBe("JEALOUS");
+  });
+
+  it("Furious episode with no lock to cut stays silent, and getting inside ends the episode", () => {
+    const config = cfgWith(5, { fakeOutChance: 0 });
+    const e = playing({ startNight: 5, config });
+    e.devSetSuspicion(100);
+    expect(e.state.chud.furiousActive).toBe(true);
+    e.drainEvents();
+    const events: GameEvent[] = [];
+    run(e, 60, (ev) => events.push(ev), () => e.state.ram.state === "INSIDE");
+    expect(e.state.ram.state).toBe("INSIDE");
+    expect(events.some((ev) => ev.type === "FURIOUS_CUT")).toBe(false);
+    expect(events.some((ev) => ev.type === "CHUD_SAY" && ev.outcome.kind === "furious_cut")).toBe(false);
+    expect(e.state.chud.furiousActive).toBe(false);
+    expect(e.state.chud.suspicion).toBe(CONFIG.FURIOUS_RESET);
   });
 
   it("kill switch: reboot brings CHUD back with suspicion at least the floor", () => {
