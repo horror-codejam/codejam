@@ -34,6 +34,7 @@ Last updated: 2026-11-21 (late night)
 - Next: team playtest of the new loop (is night 1 tense rather than empty, are PEEKED and refusals fair, light cut rate), tune numbers in prototype/src/config.ts, then commit and PR with the team's go-ahead.
 
 ## Codex (art pre-production)
+- Audio checklist: delivered 40 CC0-sourced effects and beds, 521 CHUD clips, two radio lines, and five archival Ram logs in `prototype/assets/audio/` on `codex/source-audio`. Verified Ogg Vorbis decoding, 44.1 kHz channel formats, loop seams, and file coverage. Source credits are in `scenes/03-watch-room/CREDITS.md`.
 - Release visual audit: recorded every player-facing slot, replaced the gray-box dash and name backgrounds, and wired optional WebMs for both run directions, turns, desk ambience and desk typing. Each breach uses its final flash plate and full 24-frame scare sequence when those assets are available.
 - Visual checks: inspected six headless captures and tested the render paths with missing clips and temporary FFmpeg WebMs. The build and all 261 tests passed.
 - Pending art: final run, turn, ambient and typing WebMs. The typing layer follows the final desk camera and sits under the calibrated monitor mask. Production hands alignment still needs the real render.
