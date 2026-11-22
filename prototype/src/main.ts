@@ -158,6 +158,7 @@ async function boot(): Promise<void> {
   app.ticker.add((tk) => frame(tk.deltaMS / 1000));
   if (deepNight) wake();
   $("loading").classList.add("loaded");
+  sound.preloadBackground();
 }
 
 // Menus and pause have no per-frame work. Their callbacks wake the renderer when the engine can progress.

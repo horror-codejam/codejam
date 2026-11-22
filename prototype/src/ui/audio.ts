@@ -14,6 +14,12 @@ const sampleUrls = new Map(Object.entries(import.meta.glob<string>([
   eager: true, import: "default", query: "?url",
 })).map(([path, url]) => [path.slice(path.lastIndexOf("/") + 1, -4), url]));
 
+const essentialClips = new Set([
+  "music_title", "ui_click",
+  "bed_storm", "bed_room", "night_start",
+  "breach_balcony", "breach_hatch", "breach_window",
+]);
+
 const radioClips = new Map([
   [RADIO_LINES[2], "radio_coastguard"],
   [RADIO_LINES[5], "radio_helicopter"],
@@ -41,7 +47,7 @@ export class Sound {
   private stormLevel = 0;
   private noise!: AudioBuffer;
   private loops = new Map<string, () => void>();
-  private clipData = new Map<string, ArrayBuffer>();
+  private clipData = new Map<string, Promise<ArrayBuffer | undefined>>();
   private clips = new Map<string, AudioBuffer>();
   private pendingClips = new Map<string, Promise<AudioBuffer | undefined>>();
   private cues = new Set<AudioScheduledSourceNode>();
@@ -75,13 +81,7 @@ export class Sound {
   }
 
   async preload(): Promise<void> {
-    const recordings = [...sampleUrls].map(async ([name, url]) => {
-      try {
-        this.clipData.set(name, await this.fetchClip(url));
-      } catch {
-        // A missing recording leaves the synthesized fallback available.
-      }
-    });
+    const recordings = [...essentialClips].map((name) => this.preloadClip(name));
     const jumpscare = fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare.wav`)
       .then((response) => {
         if (!response.ok) throw new Error(String(response.status));
@@ -90,6 +90,24 @@ export class Sound {
       .then((data) => { this.jumpData = data; })
       .catch((err) => console.warn("jumpscare.wav failed to load, using the synth burst", err));
     await Promise.all([...recordings, jumpscare]);
+  }
+
+  preloadBackground(): void {
+    for (const [name, url] of sampleUrls) {
+      if (!essentialClips.has(name)) void this.preloadClip(name, url);
+    }
+  }
+
+  private async preloadClip(name: string, url = sampleUrls.get(name)): Promise<void> {
+    if (!url) return;
+    if (this.ctx) {
+      await this.loadClip(name, url);
+      return;
+    }
+    // Register the fetch immediately so unlock and playback can share it in flight.
+    const data = this.clipData.get(name) ?? this.fetchClip(url).catch(() => undefined);
+    this.clipData.set(name, data);
+    if (!(await data) && this.clipData.get(name) === data) this.clipData.delete(name);
   }
 
   unlock(): void {
@@ -129,6 +147,12 @@ export class Sound {
     this.stormGain = ctx.createGain();
     this.stormGain.gain.value = this.stormLevel;
     this.stormGain.connect(this.master);
+    if (this.jumpData) {
+      void ctx.decodeAudioData(this.jumpData)
+        .then((buffer) => { this.jumpBuf = buffer; })
+        .catch((err) => console.warn("jumpscare.wav failed to decode, using the synth burst", err));
+      this.jumpData = null;
+    }
     void this.loadClip("bed_storm").then((buffer) => {
       if (!buffer) this.stormFallback();
       else this.play("bed_storm", { level: 0.34, loop: true, dest: this.stormGain });
@@ -136,12 +160,6 @@ export class Sound {
     for (const name of this.clipData.keys()) void this.loadClip(name);
     this.syncBeds();
     this.startSpeech();
-    if (this.jumpData) {
-      void ctx.decodeAudioData(this.jumpData)
-        .then((buffer) => { this.jumpBuf = buffer; })
-        .catch((err) => console.warn("jumpscare.wav failed to decode, using the synth burst", err));
-      this.jumpData = null;
-    }
   }
 
   private async fetchClip(url: string): Promise<ArrayBuffer> {
@@ -158,10 +176,10 @@ export class Sound {
     if (pending) return pending;
     const data = this.clipData.get(name);
     this.clipData.delete(name);
-    const request = (data ? Promise.resolve(data) : this.fetchClip(url))
-      .then((bytes) => ctx.decodeAudioData(bytes))
+    const request = (data ?? this.fetchClip(url))
+      .then((bytes) => bytes && ctx.decodeAudioData(bytes))
       .then((buffer) => {
-        this.clips.set(name, buffer);
+        if (buffer) this.clips.set(name, buffer);
         return buffer;
       })
       .catch(() => undefined)
@@ -173,7 +191,11 @@ export class Sound {
   private play(name: string, options: Playback = {}): AudioBufferSourceNode | undefined {
     const ctx = this.ctx;
     const buffer = this.clips.get(name);
-    if (!ctx || !buffer) return;
+    if (!ctx) return;
+    if (!buffer) {
+      void this.loadClip(name);
+      return;
+    }
     return this.playBuffer(ctx, buffer, options);
   }
 
