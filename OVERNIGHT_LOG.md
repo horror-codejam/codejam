@@ -10,6 +10,9 @@ Started 2026-11-22 05:58 EST. Base: origin/main c2ab13b (PR #31 ending logic mer
 | 06:15 to 06:30 | Sonnet subagents | 2 council reviewers per round |
 | 06:30 to 06:50 | Codex + Sonnet | Round 1 and 2 reviews, harness metric. No limit hit yet |
 | 06:50 to 07:25 | Codex + Sonnet | Perf task, round 3 and 4 reviews, PEEKED trace (one Codex run stopped to ask for plan approval; rerun with pre-approval). No Codex limit hit |
+| 07:30 to 08:43 | Codex | Final sweeps: 6 more rounds, 20 more fixes |
+| 08:43 | Codex | **Usage limit hit. Resets 11:01 AM (after the 11:00 stop).** Switched to Sonnet subagents for the remaining reviews |
+| about 08:50 | Sonnet / Opus | **Anthropic limit hit (org monthly spend / 5-hour window), reset 09:10.** The FNAF-persona Sonnet sweep stopped mid-run; casual and judge final checks had finished (all 8, MINOR_ONLY yes). Resumed at 09:12 |
 
 ## Baseline
 - Build: pass. Tests: 308 passed (9 files).
@@ -110,3 +113,9 @@ Remaining: loop (casual, judge: nights 2 and 3 average bot under target, mostly 
 
 Stop condition met at 07:28: every median 8 or higher, remaining problems minor. Fixed the one real bug from round 4 (8d89bf1) and one perf item (f8ee802), then stopped. Final: build pass, 315 tests pass, branch pushed. Summary in OVERNIGHT_REPORT.md.
 Model status at stop: Codex never hit its limit (11 runs). No limit resets to track.
+
+## Final checks after round 4 (07:30 to 09:15)
+- Codex (FNAF) found more real edge cases in rounds 5 to 13 (late judge verdicts, parser negation, status questions, offline judge answers, captions, sabotage timing, speech queue). All were fixed with tests: 8d89bf1 f8ee802 f174eca f25ac73 c3d8253 c682ce5 a294389 3155954 ea13884 b6443ae 5485176 c814a1e 888fc3f 322d542 4800905 ce84566 7ad82d3 92729ee edab4bb c1b0cbe 9f1baf6 367b432 0e78ab0.
+- Production build checked with vite preview: blocking audio arrives first, beds and title music load in the background, intro starts with no errors, DEV badge hidden.
+- Final council on HEAD 0e78ab0: FNAF persona (Sonnet, after the Codex limit) loop 8 chud 8 onboarding 8 horror 8 ui 9 bugs 8 perf 8, MINOR_ONLY yes. Casual: all 8, MINOR_ONLY yes. Judge: all 8, MINOR_ONLY yes.
+- Stopped at 09:15: build passes, 344 tests pass, branch pushed.

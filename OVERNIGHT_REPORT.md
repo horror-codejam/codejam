@@ -1,21 +1,21 @@
 # Overnight report (branch `overnight-playtest`)
 
-Stopped at 07:30 because the stop condition was met: every area's council median is 8 or higher, and the remaining problems are minor.
+Stopped at 09:15. The stop condition was first met at 07:30. A stricter final check by the FNAF reviewer then found more real edge cases, and I fixed those until all three reviewers agreed on HEAD 0e78ab0: every area is 8 or higher, and only minor problems remain.
 
 ## Result
 - Branch `overnight-playtest`, based on `origin/main` c2ab13b (PR #31 ending logic was merged after fbdfc58). Pushed. `main`, `release-integration` and Vercel were not touched.
-- `npm run build` passes. `npm test` passes 315 tests (308 before).
+- `npm run build` passes. `npm test` passes 344 tests (308 before).
 - The council had three reviewers: Codex playing a hardcore FNAF player, Sonnet playing a first-time casual player, and Sonnet playing a hackathon judge. Median scores:
 
-| Area | Start | Round 1 | Round 2 | Round 3 | Final (round 4) |
-|---|---|---|---|---|---|
-| Gameplay loop and curve | 6 | 6 | 7 | 7 | 8 |
-| ChudGPT behavior | 7 | 7 | 8 | 8 | 8 |
-| Onboarding | 6 | 7 | 7 | 8 | 8 |
-| Horror feel and pacing | 8 | n/a | 8 | 8 | 8 |
-| UI and readability | 7 | 7 | 7 | 8 | 8 |
-| Bugs and robustness | 6 | 7 | 8 | 8 | 8 |
-| Performance and loading | 6 | 6 | 7 | 8 | 8 |
+| Area | Start | Round 1 | Round 2 | Round 3 | Round 4 | Final (HEAD 0e78ab0) |
+|---|---|---|---|---|---|---|
+| Gameplay loop and curve | 6 | 6 | 7 | 7 | 8 | 8 |
+| ChudGPT behavior | 7 | 7 | 8 | 8 | 8 | 8 |
+| Onboarding | 6 | 7 | 7 | 8 | 8 | 8 |
+| Horror feel and pacing | 8 | n/a | 8 | 8 | 8 | 8 |
+| UI and readability | 7 | 7 | 7 | 8 | 8 | 8 |
+| Bugs and robustness | 6 | 7 | 8 | 8 | 8 | 8 |
+| Performance and loading | 6 | 6 | 7 | 8 | 8 | 8 |
 
 ## Playtest evidence (seeded bots)
 - Run it with `cd prototype && npx vite-node tools/playtest/bots.ts -- --seeds 400`. It takes about 70 s. The report lands in `prototype/tools/playtest/last-report.md`.
@@ -33,6 +33,27 @@ Stopped at 07:30 because the stop condition was met: every area's council median
   - An answer typed before the 10 s question timeout waits up to 3 s for the judge. Before, a slow hosted judge could turn a valid answer into a +15 timeout.
   - A message sent after the deadline cannot answer the question.
   - During that grace, typed commands stay blocked like the map buttons.
+
+### Late-verdict and parser fixes (found by the final Codex checks; take together, in order)
+- f174eca: a typed command sent while a question was pending stays blocked when its verdict arrives late, unless that message answered the question.
+- f25ac73 + c3d8253: a lock or power-off from a late verdict never overrides a lock the player asked for later. Requests are ordered by when the player made them, not by when verdicts arrive.
+- c682ce5: a negated request ("Please don't unlock the window") is never parsed as the opposite command.
+- a294389: the entry named after the lock verb wins ("The window is clear. Lock the hatch." now locks the hatch).
+- 3155954: in the offline fallback judge, asking where he is never counts as an answer to ChudGPT's question. It used to fail memory checks (+20).
+- ea13884: a hint's countdown pauses while a paper is open or another caption covers it, so the slip hint can't expire unseen.
+- b6443ae: urgent ChudGPT lines (questions, location answers, refusals, cuts) skip queued speech and cut short a synthesis that hasn't started playing.
+- 5485176: "close" and "shut" only lock when they have an object ("close the hatch"). "Is he close to the hatch?" used to move an active lock.
+- c814a1e: sabotage and the Furious cut also leave time for a trip cooldown still running. GAME_LOGIC 12.4 updated.
+- 888fc3f: hints queue instead of overwriting each other. A ChudGPT question caption also stays up for most of its 10 s timer, so the night 2 radio caption can't hide it.
+- 322d542: in the offline judge, an answer and a location request in one message both count ("Halifax. Where is it?").
+- 4800905: a status question ("Is the hatch locked?", "are the lights off?") never changes power. In the offline judge, a command on its own ("Unlock all") never answers a question, and "Halifax and where is it?" still counts as an answer.
+- ce84566: a sabotage or Furious cut must leave the player's fastest route to a brace from where they actually are, including the trip back from another entry. GAME_LOGIC 12.4 updated.
+- 7ad82d3: status questions are checked per clause after filler words ("Okay, is the hatch locked?").
+- 92729ee: in the offline judge, "Did he leave?" no longer counts as the keeper leaving (+25), and a numeric answer next to a command survives ("3, where is it?").
+- edab4bb + 367b432: away from the desk, a pending question keeps its own caption until it resolves. A message sent inside the 1.5 s limit now sends itself once the limit ends and the player is back at the desk, instead of being silently dropped.
+- c1b0cbe: embedded status questions ("Can you tell me if the hatch is locked?") never change power.
+- 9f1baf6: in the offline judge, a status question is never an answer.
+- 0e78ab0: an insult like "shut up and get off me" no longer parses as power-off.
 
 ### ChudGPT
 - 673848f: a blocked command ("Answer me first") repeats the pending question, so a question that scrolled off the monitor can still be answered.
@@ -70,7 +91,8 @@ Stopped at 07:30 because the stop condition was met: every area's council median
 ## Risky or needs a team call
 - All difficulty numbers come from bots, not humans. Nights 2 to 4 were tuned partly before the bot fix in cbb98a9. With the fixed bot, night 3 reads slightly easy (60% against a 55% target). One human playtest of nights 2 and 3 would settle it.
 - The two ending commits (6b197a0, 0047966) change how night 5 plays. Siqi should agree before merging.
-- The audio preload commits were checked on the dev server: the title loads, a night starts, and there are no new console errors. Codex also checked late decoding in headless Chrome. Nobody listened to them in a production build. Worth one listen on the deployed preview, especially the title music start on a cold load.
+- The audio preload commits were checked in a local production build (vite preview). The blocking sounds (night_start, jumpscare.wav) arrive by 0.36 s. The beds and title music finish in the background by 1.7 s, before the title shows at 3.3 s (art is the slower part). New Game starts the intro with no console errors. Nobody has listened yet: give the title music one listen on a cold load.
+- These UI changes are typecheck-, test- and review-checked only: the hint pause and queue (ea13884, 888fc3f), urgent speech (b6443ae), and the question caption plus draft resend (edab4bb, 367b432). The browser pane was hidden, which pauses the game, so none was driven in a browser. Give them a 2-minute look on night 1 and 2.
 - The LLM voice path could not run locally because there's no API key in this worktree. The stale-reply fix (21f58fc) is typecheck- and logic-reviewed only.
 - `prototype/src/main.ts` got several small edits. Expect merge conflicts if teammates changed the same HUD or POWER_CHANGED code.
 
@@ -79,21 +101,29 @@ Small, independent bug fixes:
 ```
 git cherry-pick 73e691e ed7fdc3 4ace39f 21f58fc 2a51c43 5187451 8d89bf1 673848f
 ```
+Then the late-verdict and parser fixes (they build on the set above):
+```
+git cherry-pick f174eca f25ac73 c3d8253 c682ce5 a294389 3155954 322d542 5485176 c814a1e 4800905 ce84566 7ad82d3 92729ee c1b0cbe 9f1baf6 0e78ab0
+```
 Then the UI and onboarding set. The last commit, 08f7a13, needs 768cb6a.
 ```
 git cherry-pick 0e30f91 93f83e7 85b3721 a780765 768cb6a 08f7a13
 ```
 Then, after a quick look:
 - Difficulty: 446b4bb 83a7e94 74e8b7e 58b0e23 (the last two together)
-- Perf: 8f4a82e 60845a4 f8ee802
+- Perf and audio: 8f4a82e 60845a4 f8ee802 b6443ae
+- Captions and chat: ea13884 888fc3f edab4bb 367b432 (after 08f7a13)
 - Ending: 6b197a0 0047966
 - Release: 4d77fb1
 
-## Remaining minor problems (from round 4, not fixed)
-- The slip hint can be hidden behind a ChudGPT caption or an open paper, so it can show for less than its full time (Codex).
+## Remaining minor problems (not fixed)
+- The parser misses some requests ("cut the power", "lock the door", "lock everything"). In the deployed game the LLM judge catches them, about 2.5 s later.
+- The server allows 90 requests per minute per IP. A room on one network at the demo could hit that, and the game would then fall back to the offline judge.
+- Whether the LLM judge treats "I'm going to brace the window" as leaving can't be tested without the API key.
 - Careless play falls off sharply on night 3: 4% survival for the careless bot (judge).
 - Silent players struggle from night 2. GAME_LOGIC 15 says this is intended.
 
 ## Model usage
-- Codex `gpt-6.2-sol` high ran 11 times: the harness, 5 reviews, 4 fix or diagnosis tasks, and one rerun after a run stopped to ask for plan approval. It never hit its usage limit.
-- Sonnet subagents ran 8 council reviews. Opus orchestrated, made the small fixes and checked everything in the browser.
+- Codex `gpt-6.2-sol` high ran 21 times: the harness, 14 reviews and sweeps, 4 fix or diagnosis tasks, one rerun after a run stopped to ask for plan approval, and one sweep cut off by the limit. It hit its usage limit at 08:43, and it resets at 11:01 AM.
+- Sonnet subagents ran 13 council reviews and checks. An Anthropic limit hit at about 08:50 and reset at 09:10. One review was resumed after it.
+- Opus orchestrated, made the fixes after round 2 and checked them in the browser where the pane was visible.
