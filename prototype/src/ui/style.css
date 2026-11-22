@@ -24,21 +24,6 @@ button {
 button:hover { border-color: var(--dim); background: #1c232b; }
 button:disabled { opacity: 0.35; cursor: default; }
 
-#hud { position: absolute; top: 14px; left: 18px; right: 18px; display: flex; gap: 24px; font-size: 15px; text-shadow: 0 0 4px #000; }
-#clock { flex: 1; letter-spacing: 0.1em; }
-#power { color: var(--amber); }
-#power.switching { opacity: 0.6; }
-#power.cut { color: #ff5a4a; }
-#chud-status { color: var(--dim); min-width: 160px; text-align: right; }
-
-/* pause: top right of the stage, under the status line, clear of the terminal */
-#pause-btn { position: absolute; top: 44px; right: 18px; font-size: 12px; padding: 5px 10px; background: rgba(21, 26, 32, 0.55); }
-#pause { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.94); pointer-events: auto; }
-#pause .card { text-align: center; }
-#pause h1 { font-size: 30px; letter-spacing: 0.18em; margin: 0 0 10px; font-weight: normal; }
-#pause .small { font-size: 13px; color: var(--dim); margin: 0 0 14px; }
-#pause button { font-size: 16px; padding: 10px 22px; margin: 0 6px; }
-
 #hint {
   position: absolute; top: 84px; left: 50%; transform: translateX(-50%);
   background: rgba(255, 196, 107, 0.12); border: 1px solid var(--amber); color: var(--amber);
@@ -155,33 +140,24 @@ button:disabled { opacity: 0.35; cursor: default; }
 }
 #subtitle.radio { color: var(--amber); }
 
-/* phase screens */
-#screen {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.72);
+.title-plate video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 65% center;
+  opacity: 0;
 }
-/* ending and intro renders behind a card: the image, darkened so the text stays readable */
-#screen.art { background-size: cover; background-position: center; }
-#screen.art .card { background: rgba(0, 0, 0, 0.6); padding: 18px 28px; }
-#screen .card { width: 640px; text-align: center; }
-#screen h1 { font-size: 30px; letter-spacing: 0.18em; margin: 0 0 18px; font-weight: normal; }
-#screen p { font-size: 16px; line-height: 1.5; color: var(--ink); }
-#screen .log { color: #c8b8a8; font-style: italic; }
-#screen .small { font-size: 13px; color: var(--dim); }
-#screen input { font: inherit; font-size: 18px; padding: 8px 10px; width: 280px; background: #05090a; color: var(--crt); border: 1px solid var(--crt); outline: none; }
-#screen button { margin-top: 16px; font-size: 16px; padding: 10px 22px; }
-#screen .lost h1 { color: #ff5a4a; }
+.title-plate video.playing { opacity: 1; }
 
 #dev {
-  position: absolute; top: 80px; right: 10px; width: 330px; /* below the HUD and the DEV / Pause row */ margin: 0; padding: 10px; font-size: 11px; line-height: 1.4;
+  position: absolute; top: 80px; right: 10px; width: 330px; /* below the HUD */ margin: 0; padding: 10px; font-size: 11px; line-height: 1.4;
   background: rgba(0, 0, 0, 0.85); border: 1px solid #333; color: #9fe0b0; white-space: pre-wrap;
 }
 #dev button { font-size: 11px; padding: 3px 6px; margin: 2px; }
 #dev pre { margin: 6px 0 0; font: inherit; white-space: pre-wrap; }
 
 #dev-badge {
-  /* on the pause button's row, just left of it, so it never covers the HUD status line */
-  position: absolute; top: 44px; right: 110px; z-index: 5; font-size: 12px; padding: 5px 10px; letter-spacing: 0.12em;
+  position: fixed; top: 18px; left: 18px; z-index: 5; font-size: 12px; padding: 5px 10px; letter-spacing: 0.12em;
   color: #9fe0b0; background: rgba(0, 0, 0, 0.7); border-color: #2f5a3b;
 }
 #dev-badge.open { background: #1b3a25; }

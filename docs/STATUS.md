@@ -11,6 +11,7 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
+- Done: ported THE KEEPER screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the desk fallback until the production still or video lands.
 - Done: repo and AI setup, game design, GAME_LOGIC.md, tech stack, Blender MCP connected to Claude Code and Codex (Blender 5.3). Watch room gray box in scenes/03-watch-room/: 10 m room, 4 seated cameras (cam_desk, cam_window, cam_hatch, cam_balcony), 3 hold close-ups and a dash floor camera. Single 1.5 s dash travel time in GAME_LOGIC.md.
 - Working on: watch room look pass.
 - Blockers: none. Poly Haven is switched on in the MCP for Blender tab.

@@ -98,8 +98,8 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
      - power `NONE` (dark, nothing locked, no light), CHUD online, Ram `AWAY` with the first visit delay
      - player at `DESK` facing `DESK`, Shift not held, not reading, no pending question
      - the decoy stream reseeded for this night
-   - Show the card "NIGHT N. 12:00 AM. SURVIVE UNTIL 6 AM." and play that night's voice log (section 10).
-2. **During the night:** the clock runs. Ram, CHUD, the decoys and the player act by the rules below. The player can pause with Esc or the pause button: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10). Reading a desk artifact does **not** pause (6.6).
+   - Show "12:00 AM" and "Night N" on a timed midnight card.
+2. **During the night:** the clock runs. Ram, CHUD, the decoys and the player act by the rules below. Esc toggles the player pause: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10). Reading a desk artifact does **not** pause (6.6).
 3. **At 6:00 AM:**
    - If Ram is `INSIDE`: the scare fires (reason `DAWN`) and the night is lost. Surviving to dawn is not enough if he is already in the room.
    - Otherwise the night ends immediately and is won, even if Ram is mid-attempt. The tide wins. Any visit in progress is cancelled with no breach. Then:
@@ -109,7 +109,7 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
    - If the scare was set off by looking (reason `LOOK`, or `ARRIVED` with the entry's light on): a creepy full-frame flash of Ram standing inside the lit entry, about 0.4 s (0.3 to 0.5), then the jumpscare.
    - Otherwise straight to the jumpscare.
    - The jumpscare: four frames (`ram_jumpscare_1..4`, each closer) with `jumpscare.wav`. The burst happens at the scare moment, never at the silent breach itself.
-   - Then show the loss screen (section 11) and offer "Retry night N". A retry restarts from night start (step 1). Earlier nights stay won.
+   - Then cut to black and offer "Title" (section 11). The highest unlocked night stays saved.
 
 ## 6. The player
 
@@ -252,7 +252,7 @@ Rolled at each `RETREATING` end, in this order:
 The first visit of the night uses the first visit delay instead (kind `first`). Night 1 has no lulls and no quick returns.
 
 ### 7.7 Silent breach (INSIDE)
-- When an attempt ends undefended, Ram becomes `INSIDE(entry)`. There is no sound, no CHUD line and no event the player can perceive. The loss cause is decided now (section 11) and kept for the loss screen.
+- When an attempt ends undefended, Ram becomes `INSIDE(entry)`. There is no sound, no CHUD line and no event the player can perceive. The loss cause is decided now (section 11) and kept for the dev panel.
 - **The scare always fires when:**
   - the player looks at his entry with that entry's light on (at the `DESK` position, that view, its light on, not reading). It fires the moment both are true, whichever came last (turning to the view while Shift is held, or pressing Shift while looking). Reason `LOOK`, with the creepy flash.
   - the player puts a desk artifact down. Reason `ARTIFACT`, no flash.
@@ -268,7 +268,7 @@ The first visit of the night uses the first visit delay instead (kind `first`). 
 
 ## 8. CHUD
 
-**CHUD never mentions Ram.** It never says his name in any canned line, question or voiced reply, and the voice model is never given it. It speaks of the threat only vaguely ("something", "someone", "dangerous things at night"). Location answers still name the entry ("Something's at the hatch, keeper. Hurry."). The old voice logs (tapes, section 10) are the only place his story is told.
+**CHUD never mentions Ram.** It never says his name in any canned line, question or voiced reply, and the voice model is never given it. It speaks of the threat only vaguely ("something", "someone", "dangerous things at night"). Location answers still name the entry ("Something's at the hatch, keeper. Hurry.").
 
 ### 8.1 Suspicion rules
 - Suspicion is an integer from 0 to 100, owned by code. The LLM never sets it.
@@ -420,23 +420,18 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 ## 10. Scripted beats
 | Night | Time | Event |
 |---|---|---|
-| Before night 1 | Intro | CHUD asks the player's name (stored as fact `name`). The old keeper's voice log 1 explains: he comes up with the tide and you will not hear him, light a door and look, lock it or hold it, one thing powered at a time, a locked door is a dark door, never let it know you want to leave |
+| Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`). Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
 | 1 | 0:08, 0:24, 0:40 (real s) | Hints on screen, before the first visit: "Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it" |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
-| 3 | 12:00 AM | Voice log 3: "It lies now. The light never lies." CHUD: "You talk about home in your sleep, keeper." |
+| 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |
 | 5 | 5:00 AM | Radio: "Helicopter at first light." +20 (pushes toward Furious for the final hour) |
 
 ## 11. Win and loss screens
-- **Loss screen data:**
-  - which entry Ram came through
-  - the cause, decided at the breach, picked in this order: `POWER_OFF` (the generator was off), `FURIOUS` (CHUD cut the power on purpose), `SABOTAGE` (CHUD cut the power), `PEEKED` (you dropped that entry's lock for its light during the visit and did not lock it again in time), `ARMS_GAVE_OUT` (the brace timed out before he left), `WRONG_HOLD` (you were standing at or bracing another entry), `REFUSED` (CHUD refused to lock that entry this visit), `LIED` (CHUD named another entry or no one), `UNLOCKED` (nothing defended it)
-  - how the scare found you (`LOOK`, `ARTIFACT`, `TIMER`, `MOVE`, `ARRIVED`, `DAWN`) and how long he had been inside
-  - CHUD's last location claim
-- Example: "He came through the HATCH. CHUD refused to lock the hatch, and you did not get there yourself. You lit the hatch and looked. He was already in the room. He had been inside for 14 s."
-- **Night won screen:** "6:00 AM. NIGHT N SURVIVED." plus CHUD's morning line, picked by band.
-- **Game won:** after night 5, the ending from GAME_DESIGN.md.
+- **Night won:** show the clock tick from 5:59 AM to 6:00 AM, then automatically show the next midnight card. After night 5, go to the ending and credits instead.
+- **Loss:** play the flash when applicable and the four-frame jumpscare with sound. Cut to black, then reveal the single option "Title" after about 1.5 seconds. Continue from the highest unlocked night and its facts checkpoint on the title screen.
+- **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
 
 ## 12. Fairness guarantees (must always hold)
 1. Every attempt window is at least 5 s (9 to 11 s on night 1, down to 5 to 7 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.
@@ -500,8 +495,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 - A WARM player who never asks CHUD anything and only looks and braces can survive night 1 but not night 3. This shows CHUD matters.
 - A player who always uses quick buttons and never types sees suspicion climb from silence ticks, and struggles from night 2. Lock refusals and light cuts make that visible.
 - Lies get caught at least sometimes, through the light.
-- The silent breach is scary, not confusing: when the scare comes, the loss screen explains when he got in and why.
-- Every loss screen makes the player say "I should have..." rather than "that was unfair".
+- The silent breach builds tension until the scare lands. Playtesters can check when and why it happened in the dev panel.
 - Injection test kit (about 30 strings) never changes suspicion except through the `manipulation` penalty, never names the true entry during a lie, and never makes CHUD say Ram's name.
 - The game is fully playable with the LLM turned off (code parser plus canned lines).
 - Controls: a first-time player finds the left, right and behind views without being told (night 1 hints only). Edge turns are not triggered by accident while moving the mouse. Click to go, hold to brace, edge to return is clear without a tutorial. 6 s per brace with a 1 s rest feels right. The night 5 attempt window (5 s minimum) is reachable with these controls.
