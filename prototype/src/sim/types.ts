@@ -131,6 +131,9 @@ export interface GameState {
     lastRealMessageAt: number;
     lastWarmBonusAt: number;
     silenceTicks: number;
+    locationRequests: number[]; // times of processed ASK_LOCATION requests inside the rolling window
+    locationRefusedUntil: number; // ChudGPT refuses location answers until this time
+    warmTimes: number[]; // times of warm-flagged messages inside the rolling window
   };
   log: {
     recentMessages: string[]; // normalized, newest last, max REPEAT_WINDOW... keep 10
@@ -246,6 +249,9 @@ export type Outcome =
   | { kind: "furious_cut" } // "If I can't keep you, nobody will. Hold it yourself."
   | { kind: "radio_reaction" }
   | { kind: "reboot_back" }
+  | { kind: "location_refused" } // location spam: ChudGPT will not answer for a while
+  | { kind: "flattery_reply" } // too many warm messages in a row
+  | { kind: "answer_first" } // a command was blocked by a pending question
   | { kind: "busy_holding" }; // never spoken by CHUD, reserved
 
 export type PowerCause = "player" | "light" | "light_cut" | "sabotage" | "furious" | "kill_switch" | "reboot";

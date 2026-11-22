@@ -51,16 +51,20 @@ describe("engine smoke", () => {
     let chatCount = 0;
     let nextChatAt = 5;
     let answerAt: number | null = null;
+    let lockFor: (typeof quickFor)[Entry] | null = null;
     let retreats = 0;
     const steps = Math.round(310 / T);
     for (let i = 0; i < steps && e.state.phase === "PLAYING"; i++) {
       e.tick(T);
       const now = e.state.clock.elapsed;
       for (const ev of e.drainEvents()) {
-        if (ev.type === "RAM_AT_ENTRY") e.pressQuick(quickFor[ev.entry]);
-        if (ev.type === "QUESTION_ASKED") answerAt = now + 2;
+        if (ev.type === "RAM_AT_ENTRY") lockFor = quickFor[ev.entry];
+        if (ev.type === "QUESTION_ASKED") answerAt = now;
         if (ev.type === "RAM_RETREAT") retreats++;
       }
+      // A pending question blocks lock requests (answer first), so the bot answers at once and retries the lock.
+      if (lockFor && e.state.ram.state !== "AT_ENTRY") lockFor = null;
+      if (lockFor && !e.state.chud.pendingQuestion && e.state.power.slot !== lockFor && e.state.power.pending?.target !== lockFor) e.pressQuick(lockFor);
       if (answerAt !== null && now >= answerAt && e.state.chud.pendingQuestion) {
         const r = e.submitMessage(`I came from harbour number ${chatCount++}`);
         if (r.ok) {
@@ -69,7 +73,7 @@ describe("engine smoke", () => {
         }
       } else if (now >= nextChatAt) {
         const r = e.submitMessage(`you are good company chud ${chatCount++}`);
-        if (r.ok) e.applyJudge(r.ticket.id, judge({ warm: true }));
+        if (r.ok) e.applyJudge(r.ticket.id, judge());
         nextChatAt = now + 12;
       }
     }

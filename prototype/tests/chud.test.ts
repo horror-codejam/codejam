@@ -367,7 +367,7 @@ describe("canned lines", () => {
       for (const l of sweep({ kind: "furious_cut" }, band)) expect(l).toBe("If I can't keep you, nobody will. Hold it yourself.");
       for (const l of sweep({ kind: "sabotage" }, band)) expect(l).toMatch(/^Oops|generator's acting up/);
       for (const l of sweep({ kind: "sabotage" }, band)) expect(l).toMatch(/The generator's acting up/);
-      for (const l of sweep({ kind: "silence" }, band)) expect(l).toMatch(/^You've gone quiet/);
+      expect(new Set(sweep({ kind: "silence" }, band)).size).toBeGreaterThanOrEqual(6);
     }
     expect(sweep({ kind: "night_opener", night: 3 }, "WARM")).toEqual(["You talk about home in your sleep, keeper."]);
     expect(sweep({ kind: "night_opener", night: 4 }, "HURT")).toEqual(["Two more days until your pickup, isn't it?"]);
@@ -511,7 +511,7 @@ describe("scripted lines", () => {
   it("keeps the radio beats and night 1 tutorial hints", () => {
     expect(RADIO_LINES[2]).toBe("Coast guard, pickup in 3 days.");
     expect(RADIO_LINES[5]).toBe("Helicopter at first light.");
-    expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it"]);
+    expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it", "The more ChudGPT suspects you, the more it lies."]);
   });
 });
 

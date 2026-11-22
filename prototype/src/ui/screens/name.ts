@@ -5,7 +5,7 @@ export function renderName(screen: HTMLElement, confirm: (name: string) => void)
   screen.innerHTML = `
     <div class="name-plate" aria-hidden="true"></div>
     <form class="name-prompt" autocomplete="off">
-      <label for="keeper-name">What should I call you, keeper?</label>
+      <label for="keeper-name">I'm ChudGPT. I pulled you out of the storm, you're safe here. What's your name?</label>
       <input id="keeper-name" type="text" maxlength="24" spellcheck="false" />
     </form>`;
   if (isFinal("view_desk_off")) {

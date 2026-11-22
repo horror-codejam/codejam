@@ -24,18 +24,15 @@ export type Speaker = "YOU" | "MATE" | "COAST GUARD";
 export interface Beat { n: number; speaker?: Speaker; line?: string; minMs: number }
 
 export const BEATS: Beat[] = [
-  { n: 1, minMs: 5500 },
-  { n: 2, speaker: "YOU", line: "Report! What's happening back there?", minMs: 3600 },
-  { n: 3, speaker: "MATE", line: "We're taking on water, Captain! The hull's cracked, she's going down!", minMs: 3600 },
-  { n: 4, speaker: "YOU", line: "Get on the radio. Call the coast guard!", minMs: 3600 },
-  { n: 5, speaker: "MATE", line: "Mayday, mayday, mayday! We're sinking, three souls aboard, we need help now!", minMs: 3600 },
-  { n: 6, speaker: "COAST GUARD", line: "...copy your mayday. The storm has grounded every crew we have. Earliest we can reach you is five days. Repeat, five days.", minMs: 3600 },
-  { n: 7, speaker: "YOU", line: "Five days? We won't last the night!", minMs: 3600 },
-  { n: 8, speaker: "MATE", line: "Captain, wave, starboard side! Hold on...", minMs: 3600 },
-  { n: 9, speaker: "YOU", line: "Hey? HEY! Answer me!", minMs: 3600 },
-  { n: 10, minMs: 5600 },
-  { n: 11, minMs: 8200 },
-  { n: 12, minMs: 3200 },
+  { n: 1, minMs: 4000 },
+  { n: 2, speaker: "MATE", line: "Captain! The hull's cracked, we're taking on water!", minMs: 3600 },
+  { n: 3, speaker: "YOU", line: "Get on the radio. Mayday!", minMs: 3600 },
+  { n: 4, speaker: "COAST GUARD", line: "...copy your mayday. The storm has grounded every crew we have. Earliest we can reach you is five days. Repeat, five days.", minMs: 3600 },
+  { n: 5, speaker: "YOU", line: "Five days? We won't last the night!", minMs: 3600 },
+  { n: 6, speaker: "MATE", line: "Wave, starboard side!", minMs: 3600 },
+  { n: 7, minMs: 5600 },
+  { n: 8, minMs: 8200 },
+  { n: 9, minMs: 3200 },
 ];
 
 // Reading time for a subtitle line.
@@ -285,7 +282,7 @@ export function playIntro(opts: IntroOptions): IntroHandle {
     }
     return p;
   });
-  const water = el("div", "water", view); // black water edge that rises over the frame in beat 10
+  const water = el("div", "water", view); // black water edge that rises over the frame in beat 7
   const rain = el("div", "rain", layer);
   if (finalHelm) rain.style.display = "none"; // the new still already has rain on the glass
   const flash = el("div", "flash", layer);
@@ -391,18 +388,16 @@ export function playIntro(opts: IntroOptions): IntroHandle {
         break;
       case 2:
         view.classList.add("shake");
-        break;
-      case 3:
         synth.creak();
         break;
-      case 6:
+      case 4:
         synth.static_(dur / 1000 * 0.8);
         break;
-      case 8:
+      case 6:
         later(() => { synth.waveImpact(); synth.cutBed(0.3); }, dur - 700);
         later(() => strike(), 900);
         break;
-      case 10: {
+      case 7: {
         // Wave and capsize on the helm still: it darkens, tilts hard and blurs while a black water edge rises,
         // then a hard cut to black on the impact. The bed is already cut to silence at the start of the beat.
         stormOn = false;
@@ -424,7 +419,7 @@ export function playIntro(opts: IntroOptions): IntroHandle {
         }, 2700);
         break;
       }
-      case 11: {
+      case 8: {
         show();
         lids(false);
         view.style.animation = "none";
@@ -440,14 +435,14 @@ export function playIntro(opts: IntroOptions): IntroHandle {
         });
         break;
       }
-      case 12:
+      case 9:
         lids(false);
         show();
         animate(black, [{ opacity: 0 }, { opacity: 1 }], { duration: dur - 500, fill: "forwards" });
         synth.fadeOut(dur / 1000);
         break;
     }
-    rain.classList.toggle("off", b.n >= 10);
+    rain.classList.toggle("off", b.n >= 7);
   };
 
   const advance = (): void => { if (!finished && index < BEATS.length) enter(index + 1); };

@@ -8,6 +8,7 @@ export interface LineContext {
   band: Band;
   name: string | null;
   rand: () => number; // 0..1
+  avoid?: string; // the previous line of the same kind: cannedLine will not return it again when it can help it
 }
 
 export interface SeedTopic {
@@ -149,10 +150,61 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "night_opener" |
     FURIOUS: ["Words. Just words."],
   },
   silence: {
-    WARM: ["You've gone quiet, keeper.", "You've gone quiet, {n}. Talk to me."],
-    HURT: ["You've gone quiet, keeper. Again.", "You've gone quiet. Bored of me already?"],
-    JEALOUS: ["You've gone quiet, {n}. Planning something?", "You've gone quiet, keeper. I don't like it."],
-    FURIOUS: ["You've gone quiet. Good. So has he."],
+    WARM: [
+      "You've gone quiet, keeper.",
+      "You've gone quiet, {n}. Talk to me.",
+      "Still there, {n}? I miss your voice.",
+      "It's so quiet in here, keeper. Say something.",
+      "Don't leave me alone with the storm, {n}.",
+      "Keeper? Tell me what you're thinking.",
+      "I could listen to you all night, {n}.",
+    ],
+    HURT: [
+      "You've gone quiet, keeper. Again.",
+      "You've gone quiet. Bored of me already?",
+      "Nothing to say to me, {n}?",
+      "I'm still here, you know. Not that you care.",
+      "Fine. Ignore me, keeper.",
+      "The silence is loud tonight.",
+    ],
+    JEALOUS: [
+      "You've gone quiet, {n}. Planning something?",
+      "You've gone quiet, keeper. I don't like it.",
+      "What are you doing over there, {n}?",
+      "Quiet keepers worry me.",
+      "Who are you thinking about, keeper?",
+      "Say something. Or I'll assume the worst.",
+      "I can tell when you stop talking, {n}.",
+    ],
+    FURIOUS: [
+      "You've gone quiet. Good. So has he.",
+      "Silence. How fitting.",
+      "Keep quiet, then. Listen to the dark.",
+      "Not talking, {n}? Fine.",
+      "Say something, keeper. Anything.",
+      "Quiet now. Is that how it ends?",
+    ],
+  },
+  // Location spam (8.3): ChudGPT will not answer "where is it" for a while.
+  location_refused: {
+    WARM: ["Ask me later, {n}.", "Not now, keeper. Ask me later.", "Give me a moment, {n}. Ask again soon."],
+    HURT: ["Stop asking. Ask me later.", "Not now, {n}. You keep asking.", "Ask me later, keeper."],
+    JEALOUS: ["You ask too much, {n}. Later.", "No more answers for now, keeper.", "Ask me later. I'm busy."],
+    FURIOUS: ["No. Not now.", "Stop asking, {n}.", "Ask me later. If there is a later."],
+  },
+  // Too many warm messages in a minute (8.2): ChudGPT sees through it.
+  flattery_reply: {
+    WARM: ["You're laying it on thick, {n}.", "That's a lot of sweet words, keeper.", "Careful, {n}. Flattery has a price."],
+    HURT: ["Flattery now? I'm not that easy.", "Too sweet, {n}. Too late.", "You think kind words fix everything?"],
+    JEALOUS: ["You're laying it on thick, {n}.", "What do you want, keeper? Nobody's this nice.", "Sweet talk. What are you hiding?"],
+    FURIOUS: ["Flattery. How pathetic.", "Save your sweet words, {n}."],
+  },
+  // A command was blocked by a pending question (8.5).
+  answer_first: {
+    WARM: ["Answer me first, {n}.", "One thing at a time, keeper. Answer me first.", "My question first, {n}."],
+    HURT: ["Answer me first, keeper.", "Not until you answer me.", "My question first. Then yours."],
+    JEALOUS: ["Answer me first, {n}.", "You'll get what you want after you answer.", "I asked first, keeper."],
+    FURIOUS: ["Answer me. Then we talk.", "My question first, {n}."],
   },
   sabotage: {
     WARM: ["Oops. The generator's acting up."],
@@ -259,7 +311,14 @@ export function entryPhrase(entry: Entry): string {
   return ENTRY_PHRASE[entry];
 }
 
+// Never repeats ctx.avoid (the previous line of this kind) while another version is possible.
 export function cannedLine(outcome: Outcome, ctx: LineContext): string {
+  let line = cannedLineOnce(outcome, ctx);
+  for (let i = 0; i < 12 && ctx.avoid !== undefined && line === ctx.avoid; i++) line = cannedLineOnce(outcome, ctx);
+  return line;
+}
+
+function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
   const band = ctx.band;
   const r = ctx.rand;
   switch (outcome.kind) {
@@ -295,7 +354,12 @@ export const RADIO_LINES: Record<number, string> = {
 };
 
 // Night 1 tutorial hints, shown at CONFIG.NIGHT_ONE_HINT_TIMES (before the first visit).
-export const NIGHT_ONE_HINTS: string[] = ["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it"];
+export const NIGHT_ONE_HINTS: string[] = [
+  "Look around. You won't hear him.",
+  "Ask ChudGPT where he is",
+  "Lock it or hold it",
+  "The more ChudGPT suspects you, the more it lies.",
+];
 
 // Every raw template in this file, for content checks in tests (word counts, em dashes).
 export function allLineTemplates(): string[] {

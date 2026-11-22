@@ -252,7 +252,7 @@ describe("decoy noises (section 7.4): never correlated with Ram", () => {
     for (const fn of ["private stepDecoys(", "private rollDecoyInterval("]) {
       const start = src.indexOf(fn);
       expect(start).toBeGreaterThan(0);
-      const body = src.slice(start, src.indexOf("\n  }\n", start));
+      const body = src.slice(start, src.indexOf("\n  }", start));
       expect(body).not.toMatch(/ram|this\.rng\b/i);
       expect(body).toMatch(/decoyRng/);
     }
@@ -672,7 +672,7 @@ describe("night 1 hints and CHUD's warnings", () => {
     const e = playing();
     const hints: [number, string][] = [];
     run(e, CONFIG.nights[0].firstVisitDelay, (ev) => ev.type === "HINT" && hints.push([e.state.clock.elapsed, ev.text]));
-    expect(hints.map((h) => h[1])).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it"]);
+    expect(hints.map((h) => h[1])).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it", "The more ChudGPT suspects you, the more it lies."]);
     hints.forEach(([t], i) => expect(t).toBeCloseTo(CONFIG.NIGHT_ONE_HINT_TIMES[i], 6));
     for (const [t] of hints) expect(t).toBeLessThan(CONFIG.nights[0].firstVisitDelay);
   });

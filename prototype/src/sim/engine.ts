@@ -117,6 +117,7 @@ export class GameEngine implements IGameEngine {
   private pendingPowerCause: PowerCause = "player";
   private killCode = "";
   private initPapers = 0;
+  private lastLineByKind = new Map<string, string>(); // last canned line per outcome kind (no back-to-back repeats)
   private memoryChecked: string[] = []; // MEMORY keys checked this night
   private readonly practiceBeforeNight: boolean;
   private practiceElapsed: number | null = null;
@@ -403,7 +404,7 @@ export class GameEngine implements IGameEngine {
         questionPlan: this.planQuestions(np),
         usedSeedKeys: [],
       },
-      timers: { lastRealMessageAt: 0, lastWarmBonusAt: -Infinity, silenceTicks: 0 },
+      timers: { lastRealMessageAt: 0, lastWarmBonusAt: -Infinity, silenceTicks: 0, locationRequests: [], locationRefusedUntil: -Infinity, warmTimes: [] },
       log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [], nightOneHintsShown: 0, paperHintShown: false },
       decoy: { nextAt: Infinity, count: 0 }, // set by startNight from the decoy stream
       loss: null,
@@ -1393,6 +1394,10 @@ export class GameEngine implements IGameEngine {
     if (cmd === "ASK_LOCATION" || cmd === "POWER_OFF") parsed = { command: cmd, entry: null };
     else if (isLockSlot(cmd)) parsed = { command: "LOCK", entry: slotEntry(cmd) };
     else return; // there are no light buttons: lights are the player's own (Shift)
+    if (s.chud.pendingQuestion) {
+      this.say({ kind: "answer_first" }); // a pending question blocks every ChudGPT command (no suspicion)
+      return;
+    }
     this.say(this.resolveCommand(parsed));
   }
 
@@ -1404,6 +1409,7 @@ export class GameEngine implements IGameEngine {
         if (this.effectiveSlot() !== "NONE") this.requestPower("NONE", "player");
         return { kind: "power_off" };
       case "ASK_LOCATION":
+        if (this.locationSpam()) return { kind: "location_refused" };
         return { kind: "location_claim", entry: this.locationClaim() };
       case "LOCK": {
         // Section 8.3: a lock request is never gated. CHUD rolls a refusal by its band at this moment (the hijack:
@@ -1421,6 +1427,21 @@ export class GameEngine implements IGameEngine {
       default:
         return { kind: "small_talk" };
     }
+  }
+
+  // Counts a processed location request in the rolling window. 2nd: small penalty, 3rd and later: bigger penalty,
+  // and the 3rd starts a refusal. Returns true when ChudGPT refuses to answer this one.
+  private locationSpam(): boolean {
+    if (this.isPracticing) return false;
+    const t = this.state.timers;
+    const c = this.cfg;
+    t.locationRequests = t.locationRequests.filter((x) => this.now - x < c.LOCATION_SPAM_WINDOW - EPS);
+    t.locationRequests.push(this.now);
+    const n = t.locationRequests.length;
+    const refusing = this.now < t.locationRefusedUntil - EPS;
+    if (n >= 2) this.changeSuspicion(n === 2 ? c.LOCATION_SPAM_PENALTIES[0] : c.LOCATION_SPAM_PENALTIES[1], ["location_spam"]);
+    if (n === 3 && !refusing) t.locationRefusedUntil = this.now + c.LOCATION_REFUSE_TIME;
+    return refusing || n === 3;
   }
 
   private refuseLock(entry: Entry): void {
@@ -1574,7 +1595,7 @@ export class GameEngine implements IGameEngine {
     // Gibberish: no social effects, not a real message. A code-parsed command still runs.
     if (r.gibberish) {
       if (t.seq === this.messageSeq) s.timers.lastRealMessageAt = t.prevLastReal;
-      if (!t.ranImmediately && t.parsed.command !== "NONE") this.say(this.resolveCommand(t.parsed));
+      if (!t.ranImmediately && t.parsed.command !== "NONE") this.say(s.chud.pendingQuestion ? { kind: "answer_first" } : this.resolveCommand(t.parsed));
       return;
     }
 
@@ -1613,9 +1634,18 @@ export class GameEngine implements IGameEngine {
       if (pq.type === "MEMORY") add(true, S.memoryPassed, "memory_passed");
       else add(!r.contradiction, S.answered, "answered");
     }
-    if (r.warm && this.now - s.timers.lastWarmBonusAt >= c.WARM_BONUS_COOLDOWN - EPS) {
-      add(true, S.warm, "warm");
-      s.timers.lastWarmBonusAt = this.now;
+    let flattery = false;
+    if (r.warm) {
+      const wt = s.timers;
+      wt.warmTimes = wt.warmTimes.filter((x) => this.now - x < c.FLATTERY_WINDOW - EPS);
+      wt.warmTimes.push(this.now);
+      if (wt.warmTimes.length >= c.FLATTERY_COUNT) {
+        flattery = true;
+        add(true, c.FLATTERY_PENALTY, "flattery");
+      } else if (this.now - wt.lastWarmBonusAt >= c.WARM_BONUS_COOLDOWN - EPS) {
+        add(true, S.warm, "warm");
+        wt.lastWarmBonusAt = this.now;
+      }
     }
     if (reasons.length) this.changeSuspicion(clamp(delta, c.MESSAGE_CLAMP[0], c.MESSAGE_CLAMP[1]), reasons);
 
@@ -1634,7 +1664,10 @@ export class GameEngine implements IGameEngine {
     if (r.new_fact && !seedPassed) this.storeFact(r.new_fact.key, r.new_fact.value);
 
     // Step 8: resolve the command (answer first, then command).
-    if (cmd.command !== "NONE" && s.power.chudOnline) commandOutcome = this.resolveCommand(cmd);
+    // A question still pending (the message did not answer it) blocks the command: answer me first, no suspicion.
+    if (cmd.command !== "NONE" && s.power.chudOnline) {
+      commandOutcome = s.chud.pendingQuestion ? { kind: "answer_first" } : this.resolveCommand(cmd);
+    }
 
     // Step 9: exactly one line, picked by priority.
     let line: Outcome | null = null;
@@ -1646,7 +1679,7 @@ export class GameEngine implements IGameEngine {
     else if (answerOutcome) line = answerOutcome;
     else if (r.mentions_leaving) line = { kind: "leaving_reply" };
     else if (r.rude) line = { kind: "rude_reply" };
-    else if (r.warm) line = { kind: "warm_reply" };
+    else if (r.warm) line = { kind: flattery ? "flattery_reply" : "warm_reply" };
     else line = { kind: "small_talk" };
     if (line) this.say(line);
 
@@ -1667,7 +1700,9 @@ export class GameEngine implements IGameEngine {
       band,
       name: this.state.chud.facts.name ?? null,
       rand: () => this.isPracticing ? 0 : this.rng.next(),
+      avoid: this.isPracticing ? undefined : this.lastLineByKind.get(outcome.kind),
     });
+    this.lastLineByKind.set(outcome.kind, text);
     this.emit({ type: "CHUD_SAY", outcome, text, band });
   }
 
