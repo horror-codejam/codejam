@@ -264,11 +264,6 @@ function onEvent(ev: GameEvent, t: number): void {
     case "CHUD_SAY": {
       if (!ev.text) break;
       const o = ev.outcome;
-      if (o.kind === "morning") {
-        // No morning line on screen (owner decision); just make sure CHUD is not mid-sentence.
-        stopChudSpeech();
-        break;
-      }
       if (!llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, ev.band, t);
         break;
@@ -610,7 +605,7 @@ function resetScreen(): void {
 function showTitle(): void {
   resetScreen();
   frontScreen = "title";
-  nightToken++;
+  stopChudSpeech();
   sound.stopCues();
   sound.setAmbientPlaying(false);
   sound.fadeStorm(0.65, 0.9);
