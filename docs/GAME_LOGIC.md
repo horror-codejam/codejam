@@ -368,7 +368,7 @@ Question mix per night:
 - **Answering:**
   - While a question is pending, the next real message is judged as the answer.
   - If that message is clearly something else (for example only a lock command), the question stays pending and its timer keeps running.
-- **Timeout:** 10 s with no answer gives +15.
+- **Timeout:** 10 s with no answer gives +15. A message typed before the 10 s are up waits for its judge verdict (at most `QUESTION_JUDGE_GRACE`, 3 s more) before the timeout can fire, so a slow judge never turns an answer into a timeout.
 - **Failed MEMORY answer:** +20.
 
 ### 8.6 Facts

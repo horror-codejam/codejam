@@ -31,6 +31,7 @@ export interface Config {
   HOLD_COOLDOWN: number;
   BRACE_REST: number; // edge-controls flow: rest at the entry after a brace ends before the next one
   QUESTION_TIMEOUT: number;
+  QUESTION_JUDGE_GRACE: number; // extra seconds a question waits while a typed answer is still with the judge
   SILENCE_LIMIT: number;
   SILENCE_PULL: number; // fraction of remaining AWAY time cut per silence tick
   MIN_AWAY_GAP: number;
@@ -174,6 +175,7 @@ export const CONFIG: Config = {
   HOLD_COOLDOWN: 4,
   BRACE_REST: 1.0,
   QUESTION_TIMEOUT: 10,
+  QUESTION_JUDGE_GRACE: 3,
   SILENCE_LIMIT: 45,
   SILENCE_PULL: 0.25,
   MIN_AWAY_GAP: 4,

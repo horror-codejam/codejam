@@ -1337,7 +1337,12 @@ export class GameEngine implements IGameEngine {
   private stepQuestionTimeouts(): void {
     const c = this.state.chud;
     const limit = this.cfg.QUESTION_TIMEOUT;
-    if (c.pendingQuestion && this.due(c.pendingQuestion.askedAt + limit)) this.timeoutQuestion(c.pendingQuestion);
+    const q = c.pendingQuestion;
+    if (!q || !this.due(q.askedAt + limit)) return;
+    // A message typed before the timeout is still with the judge: wait for its verdict (up to the grace) before penalizing.
+    const inFlight = [...this.tickets.values()].some((t) => t.questionId === q.id && t.token === this.nightToken);
+    if (inFlight && !this.due(q.askedAt + limit + this.cfg.QUESTION_JUDGE_GRACE)) return;
+    this.timeoutQuestion(q);
   }
 
   private timeoutQuestion(q: PendingQuestion): void {

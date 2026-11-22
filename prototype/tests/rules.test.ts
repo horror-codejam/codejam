@@ -182,6 +182,29 @@ describe("a pending question blocks ChudGPT commands", () => {
     expect(says(e.drainEvents())[0].kind).toBe("locked");
   });
 
+  it("an answer typed before the timeout waits for a slow judge instead of timing out", () => {
+    const e = playing();
+    pend(e);
+    wait(e, CONFIG.QUESTION_TIMEOUT - 0.5);
+    const r = e.submitMessage("crates of apples");
+    if (!r.ok) throw new Error(r.reason);
+    wait(e, 2); // the judge is still out at the 10 s mark
+    expect(e.state.chud.pendingQuestion).not.toBeNull();
+    const before = e.state.chud.suspicion;
+    e.applyJudge(r.ticket.id, judge({ answered_question: true }));
+    expect(e.state.chud.pendingQuestion).toBeNull();
+    expect(e.state.chud.suspicion).toBeLessThanOrEqual(before); // the answer counted, no timeout penalty
+  });
+
+  it("a judge that never answers still lets the question time out after the grace", () => {
+    const e = playing();
+    pend(e);
+    wait(e, CONFIG.QUESTION_TIMEOUT - 0.5);
+    expect(e.submitMessage("crates of apples").ok).toBe(true);
+    wait(e, 0.5 + CONFIG.QUESTION_JUDGE_GRACE + 0.1);
+    expect(e.state.chud.pendingQuestion).toBeNull();
+  });
+
   it("the generator switch is a player action and is not blocked", () => {
     const e = playing();
     pend(e);
