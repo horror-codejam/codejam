@@ -99,7 +99,9 @@ let previewing = false; // a dev screen preview is up: the night is frozen behin
 const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
-let dialogueToken = 0; // invalidates pending LLM replies when a line is shown or speech is stopped
+let dialogueToken = 0; // drops LLM replies from before a reset, power cut or interruption
+let chudLineSeq = 0; // order of CHUD_SAY events as they arrive
+let shownChudSeq = 0; // newest CHUD_SAY event whose line is on screen; older pending LLM replies are dropped
 let convo: string[] = []; // recent "Keeper: ..." / "ChudGPT: ..." lines, context for the voice
 let edges: EdgeTurner;
 let lastTypedAt = -Infinity;
@@ -297,11 +299,13 @@ function onEvent(ev: GameEvent, t: number): void {
       if (!ev.text) break;
       const o = ev.outcome;
       if (engine.isPracticing) tutorial.reply(o);
+      const seq = ++chudLineSeq;
       if (engine.isPracticing || !llm.on || !VOICED.has(o.kind)) {
-        showChud(ev.text, ev.band, t);
+        showChud(ev.text, ev.band, t, seq);
         break;
       }
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
+      // A line from a newer event shown meanwhile (a refusal, a question) makes this reply stale: drop it.
       const token = dialogueToken;
       void voiceRemote({
         kind: o.kind,
@@ -313,8 +317,8 @@ function onEvent(ev: GameEvent, t: number): void {
         night: engine.state.run.night,
         recent: convo.slice(-6),
       }).then((text) => {
-        if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
-          showChud(text ?? ev.text, ev.band, now());
+        if (token === dialogueToken && seq > shownChudSeq && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
+          showChud(text ?? ev.text, ev.band, now(), seq);
         }
       });
       break;
@@ -378,8 +382,8 @@ function stopChudSpeech(): void {
   sound.stopSpeech();
 }
 
-function showChud(text: string, band: Band, t: number): void {
-  dialogueToken++;
+function showChud(text: string, band: Band, t: number, seq: number): void {
+  shownChudSeq = Math.max(shownChudSeq, seq);
   chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
   terminal.addLine("chud", text, t);
   convo.push(`ChudGPT: ${text}`);
