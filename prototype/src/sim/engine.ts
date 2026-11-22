@@ -1210,8 +1210,11 @@ export class GameEngine implements IGameEngine {
     return this.state.ram.stateEndsAt - this.now;
   }
 
+  // Time a cut must leave in the window: the dash plus the margin, plus any trip cooldown still running (a player just
+  // back from another entry cannot leave again until it ends), so bracing in time is always possible (GAME_LOGIC 12.4).
   private cutMargin(): number {
-    return this.cfg.TRAVEL_TIME + this.cfg.SABOTAGE_MARGIN;
+    const cooldownLeft = Math.max(0, this.state.player.holdCooldownUntil - this.now);
+    return this.cfg.TRAVEL_TIME + this.cfg.SABOTAGE_MARGIN + cooldownLeft;
   }
 
   // =========================================================================
