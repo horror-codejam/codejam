@@ -164,7 +164,9 @@
 #t-power [data-cell="LIGHT"].on { background: #372510; color: var(--light); }
 #t-power .alert { background: #351611; color: var(--alert); border-color: currentColor; }
 
-#terminal[inert] *, #terminal[inert] *::after { animation-play-state: paused; }
+#terminal[inert] #t-face,
+#terminal[inert] #log .typing::after,
+#terminal[inert] #chat-form:has(#chat:placeholder-shown)::after { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
-  #log .typing::after, #chat-form::after, #t-face.glitch { animation: none; }
+  #log .typing::after, #chat-form:has(#chat:placeholder-shown)::after, #t-face.glitch { animation: none; }
 }

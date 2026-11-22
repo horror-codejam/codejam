@@ -13,7 +13,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 
 - After loading Night 1 in headless Chrome, unique Pixi sources plus three frame buffers total about 582.5 MB of RGBA pixels at DPR 2. Chrome reported 11.9 MB of JS heap in that run. Removing the dormant ending plates and conditional legacy scare frames from the normal preload saved 31.3 MB of counted textures.
 - A cold run through New Game and into Night 1, with the intro started and then skipped, transferred 18.49 MB across 141 requests from the local production build, including Pixi worker requests. Audio accounted for 7.78 MB.
-- All 13 requested captures are in [screenshots](screenshots/). The browser check covered menu and pause idling, the dawn transition to Night 2, and title and desk WebM playback with temporary clips.
+- All 13 requested captures are in [screenshots](screenshots/). The browser check covered menu and pause idling, the dawn transition to Night 2, reduced-motion terminal behavior, and title and desk WebM playback with temporary clips. The terminal corners were within 0.04 stage pixels of the calibrated glass at both horizontal pan extremes.
 - The committed set contains 45 resized stills and all 72 final scare frames. Four hatch hold stills were resized from the team's WebPs because their original PNGs were unavailable. Complete production loop sequences are still pending.
 
 ### Vercel
