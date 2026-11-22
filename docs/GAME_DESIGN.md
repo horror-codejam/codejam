@@ -49,9 +49,9 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. A night lasts 
 
 ## The lighthouse
 - You sit in the round watch room at mid-tower. The chair sits close to the curved keeper's desk, with the CHUD terminal straight ahead, with the ocean visible through the fixed glazing behind them.
-- Left entry window (`cam_window`): the window opens directly into the watch room. Listen for tapping on the glass.
-- Right floor hatch (`cam_hatch`): look right and down at a floor hatch over a fixed ladder. Listen for metal rungs and knocks from below. CHUD can lock the lid, and the player can press it shut from the watch-room floor.
-- Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Listen for scraping and movement at the rail behind you.
+- Left entry window (`cam_window`): the window opens directly into the watch room. Look for a hand pressed on the fogged glass.
+- Right floor hatch (`cam_hatch`): look right and down at a floor hatch over a fixed ladder. Look for fingers curled over the rim of the lid. CHUD can lock the lid, and the player can press it shut from the watch-room floor.
+- Rear balcony (`cam_balcony`): look 180° over your shoulder to face the balcony door and rail. Look for the handle held down and feet shadows under the door.
 - Forward desk view (`cam_desk`): CHUD's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
 - One power slot: the storm-damaged generator powers ONE thing at a time: one magnetic lock, or the lights circuit (the beacon beam plus the watch room's caged bulbs). At night all its power goes to the lights by default, so every lock steals power from the light and plunges the room into darkness lit only by CHUD's screen. The lights let you see where Ram is. Seeing and locking never happen together.
@@ -70,9 +70,9 @@ Controls: the mouse moves you, the keyboard is only for chat (details in docs/GA
 | Phase | What happens | Player cue |
 |---|---|---|
 | 1. In the caves | Out of reach | Silence, waves |
-| 2. Approaching | Heading for one entry | Splashing on the rocks, footsteps (does not reveal which entry) |
-| 3. At the entry | Trying to break in | Right hatch: metal rung noise and pounding under the lid. Left window: tapping on glass. Rear balcony: scraping at the rail |
-| Result | Locked or held: he shouts through the door and leaves. Open: he gets in | Night lost |
+| 2. Approaching | Heading for one entry | Silent. With the lights on, a faint hint of him at the entry he is heading for |
+| 3. At the entry | Trying to break in | Silent. Visual tells only (fingers on the hatch rim, hand on the window glass, balcony handle held down), clear with the lights on, faint without |
+| Result | Locked or held: the tell vanishes and he leaves, silently. Open: he gets in | Night lost |
 
 Ram also talks through doors ("Don't trust it! It'll never let you go!"). This is the second voice in the player's ear.
 
@@ -102,7 +102,7 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 
 ## Example night (night 2)
 1. 12:00 AM: the AI is friendly. "Evening, keeper. I kept the cottage warm for you."
-2. 12:40 AM: metal rungs clatter below. Player: "where is he?" AI: "Right hatch, coming up the ladder." Player: "lock the hatch." Locked.
+2. 12:40 AM: silence. CHUD (still warm): "The hatch, keeper. Now." Player: "where is he?" AI: "Right hatch, coming up the ladder." Player: "lock the hatch." Locked.
 3. Ram pounds on the hatch: "Don't trust it! It'll never let you go!" He leaves.
 4. 1:30 AM: AI: "You'll stay with me after the storm, won't you?" Player lies: "Of course." Suspicion down.
 5. 2:10 AM: scraping behind the chair. The player turns the lights back on, looks back and sees the balcony door handle held down, then switches power to the balcony door lock.
@@ -176,7 +176,7 @@ The watch room is damp stone and worn marine hardware. The forward view is ancho
 
 What makes it scary (design rules):
 - Darkness, one harsh light source per view, near-black ambient.
-- Sound over sight: the player listens, then decides whether to look.
+- Sight over sound: Ram is silent. The player has to keep looking, and random noises that mean nothing keep them on edge. CHUD is the only ears in the room.
 - Short decision windows (3 to 4 seconds).
 - Show as much of Ram as reads and scares best in each shot. The tells are partial by nature (fingers, a hand, a face at the glass, a shadow under the door); the jumpscare shows him in full.
 
@@ -204,7 +204,7 @@ CHUD's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, fur
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
 - Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
-- Positional audio (headphones): storm and waves in front, taps on glass to the left, ladder rungs and hatch knocks below and to the right, scraping at the rail behind, Ram's voice, CHUD's chime, radio static, helicopter.
+- Positional audio (headphones): storm and waves in front, random decoy creaks and knocks from every direction (never tied to Ram), Ram's voice in the logs, CHUD's chime, radio static, helicopter.
 - "Click to begin" title screen (browsers block audio until first click). Preload jumpscare frames before each night.
 
 Workflow:

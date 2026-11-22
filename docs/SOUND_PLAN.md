@@ -66,7 +66,7 @@ Shipping edited Sonniss audio inside the web build is part of the game; keep the
 | C, engineer | `audio.ts`: load, play(name, opts), panners and listener, voice chain, mixer | 4 to 5 h |
 
 - Folder: `public/audio/{amb,sfx,voice,ui}/`. Names `domain_event_variant.ogg`, e.g. `sfx_hatch_knock_02.ogg`, `voice_chud_night1_lie_03.ogg`. Manifest `audio.json` maps event IDs to files.
-- **Must-have:** storm and wave bed, room hum bed, rain on glass, key clicks, head-turn whoosh and chair creak, the three entry cues (window tap, ladder rungs and hatch knock, door handle rattle), jumpscare, thunder, CHUD canned voice.
+- **Must-have:** storm and wave bed, room hum bed, rain on glass, key clicks, head-turn whoosh and chair creak, random decoy noises from all directions (creaks, knocks, metal settling; never tied to Ram, see GAME_LOGIC 7.4; the old per-entry cues are cut), jumpscare, thunder, CHUD canned voice.
 - **Nice-to-have:** dash footsteps and breathing, radio static and coast-guard lines, generator relay clunk, beacon motor, Ram's lines through the door.
 - **Risks:** Sonniss download size (grab only needed packs), Safari formats (test early), Kokoro install on Windows (test run first), loudness mismatch (check on headphones).
 - **Fallbacks:** if HRTF sounds weak, `StereoPannerNode` plus a low-pass for "behind"; if Kokoro fails, one ElevenLabs free-tier batch after reading the terms.
