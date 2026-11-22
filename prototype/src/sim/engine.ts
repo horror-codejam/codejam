@@ -1706,6 +1706,9 @@ export class GameEngine implements IGameEngine {
     });
     this.lastLineByKind.set(outcome.kind, text);
     this.emit({ type: "CHUD_SAY", outcome, text, band });
+    // A blocked command repeats the pending question, so it is on screen again even if it scrolled away (timer unchanged).
+    const pq = this.state.chud.pendingQuestion;
+    if (outcome.kind === "answer_first" && pq) this.say({ kind: "question", question: pq.text, type: pq.type });
   }
 
   private emit(e: GameEvent): void {

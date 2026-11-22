@@ -151,7 +151,7 @@ describe("a pending question blocks ChudGPT commands", () => {
     pend(e);
     for (const b of ["LOCK_HATCH", "LOCK_WINDOW", "ASK_LOCATION", "POWER_OFF"] as const) {
       e.pressQuick(b);
-      expect(says(e.drainEvents()).map((o) => o.kind)).toEqual(["answer_first"]);
+      expect(says(e.drainEvents()).map((o) => o.kind)).toEqual(["answer_first", "question"]); // the pending question is asked again
       wait(e, 0.6);
       pend(e);
     }
