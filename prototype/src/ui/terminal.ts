@@ -29,7 +29,6 @@ export class Terminal {
 
   readonly chat: HTMLInputElement;
   readonly form: HTMLFormElement;
-  readonly kill: HTMLButtonElement;
   readonly quick: HTMLButtonElement[];
 
   constructor(readonly root: HTMLElement) {
@@ -41,7 +40,6 @@ export class Terminal {
     this.clock = root.querySelector("#t-clock")!;
     this.chat = root.querySelector("#chat")!;
     this.form = root.querySelector("#chat-form")!;
-    this.kill = root.querySelector("#kill")!;
     this.quick = [...root.querySelectorAll<HTMLButtonElement>("[data-quick]")];
   }
 
@@ -82,8 +80,6 @@ export class Terminal {
     const { power, chud } = state;
     this.chat.disabled = !power.chudOnline;
     for (const button of this.quick) button.disabled = !power.chudOnline;
-    updateText(this.kill, power.generatorOn ? "GEN ON" : "GEN OFF");
-    this.kill.setAttribute("aria-pressed", String(power.generatorOn));
     this.root.classList.toggle("offline", !power.chudOnline);
     this.root.classList.toggle("flicker", effects.flicker && !REDUCED.matches);
 

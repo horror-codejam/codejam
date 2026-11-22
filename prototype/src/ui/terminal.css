@@ -73,8 +73,6 @@
   0%, 60% { transform: translate(-3px, 1px) skewX(-4deg); opacity: 0.55; }
   25%, 80% { transform: translate(2px, -1px) skewX(2deg); }
 }
-#kill { align-self: start; margin-top: auto; min-height: 29px; }
-#kill[aria-pressed="true"] { color: var(--green); }
 
 #t-center { min-width: 0; }
 #log {

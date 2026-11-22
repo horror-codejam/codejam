@@ -1,6 +1,6 @@
 // Shared contract for the game engine, CHUD text modules, UI and tests.
 // Rules come from docs/GAME_LOGIC.md. Interpretations of gaps are in prototype/IMPLEMENTATION_NOTES.md.
-// Times are seconds of game time (state.clock.elapsed), never wall-clock.
+// Times are simulation seconds. Practice uses its own elapsed time before the night clock starts.
 
 export type Entry = "WINDOW" | "HATCH" | "BALCONY";
 export const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
@@ -326,6 +326,7 @@ export interface EngineOptions {
   startNight?: number; // 1..5, default 1. If > 1 the name prompt is skipped and facts may be passed
   facts?: Facts;
   skipNamePrompt?: boolean; // tests and dev panel
+  practiceBeforeNight?: boolean; // New Game only
 }
 
 export interface IGameEngine {
@@ -335,7 +336,7 @@ export interface IGameEngine {
   tick(dt: number): void; // advance game time by dt seconds in fixed TICK steps. No-op unless phase is PLAYING
 
   // Flow
-  setName(name: string): void; // NAME_PROMPT -> NIGHT_CARD (night 1). Stores fact "name", CHUD says name_ack
+  setName(name: string): void; // NAME_PROMPT -> practice or NIGHT_CARD. Stores fact "name", CHUD says name_ack
   beginNight(): void; // NIGHT_CARD -> PLAYING
   retryNight(): void; // BREACH -> NIGHT_CARD, same night, facts from checkpoint
   nextNight(): void; // NIGHT_WON -> NIGHT_CARD (next night) or GAME_WON

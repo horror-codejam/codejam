@@ -4,6 +4,7 @@
 import { Application } from "pixi.js";
 import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
+import { offlineJudge } from "./chud/offlineJudge";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
 import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand } from "./sim/types";
@@ -14,6 +15,7 @@ import { playIntro } from "./ui/intro";
 import { H, W } from "./ui/layout";
 import { Scene } from "./ui/scene";
 import { Terminal } from "./ui/terminal";
+import { EveningTutorial } from "./ui/tutorial";
 import { renderMorning, renderNightCard } from "./ui/screens/clock";
 import { renderEnding } from "./ui/screens/credits";
 import { preloadScreens } from "./ui/screens/loading";
@@ -61,6 +63,7 @@ const ui = {
 const NAME: Record<Entry, string> = { WINDOW: "window", HATCH: "hatch", BALCONY: "balcony" };
 
 const terminal = new Terminal($("terminal"));
+const tutorial = new EveningTutorial($("tutorial"), terminal.root, finishPractice);
 
 // UI-only state
 let lastPhase: Phase | null = null;
@@ -244,6 +247,7 @@ function onEvent(ev: GameEvent, t: number): void {
     case "POWER_CHANGED": {
       const previous = previousPowerSlot;
       previousPowerSlot = ev.slot;
+      if (engine.isPracticing) tutorial.powerChanged(previous, ev.slot);
       powerFlicker ||= previous !== ev.slot;
       if ((ev.cause === "sabotage" || ev.cause === "furious") && previous.startsWith("LOCK_")) {
         powerAlarmEntry = previous.slice(5) as Entry;
@@ -288,7 +292,8 @@ function onEvent(ev: GameEvent, t: number): void {
     case "CHUD_SAY": {
       if (!ev.text) break;
       const o = ev.outcome;
-      if (!llm.on || !VOICED.has(o.kind)) {
+      if (engine.isPracticing) tutorial.reply(o);
+      if (engine.isPracticing || !llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, ev.band, t);
         break;
       }
@@ -389,12 +394,14 @@ function show(el: HTMLElement, on: boolean): void {
 function renderHud(t: number): void {
   const s = engine.state;
   const playing = s.phase === "PLAYING";
+  const practicing = engine.isPracticing;
   const pos = s.player.position;
   const atDesk = pos.kind === "DESK";
   const view = s.player.view;
 
-  show(ui.hud, playing);
-  setText(ui.clock, clockText());
+  const clock = practicing ? "Evening" : clockText();
+  show(ui.hud, playing && !practicing);
+  setText(ui.clock, clock);
   setText(ui.night, "Night " + s.run.night);
 
   const p = s.power;
@@ -410,7 +417,7 @@ function renderHud(t: number): void {
   if (deskView) {
     terminal.root.style.transform = scene.deskScreenTransform();
     terminal.root.style.opacity = String(scene.transitionVisible ? 0 : 1 - scene.fadeAlpha);
-    terminal.render(s, clockText(), t, {
+    terminal.render(s, clock, t, {
       malicious: p.chudOnline && t < maliciousUntil,
       flicker: powerFlicker,
       alertEntry: powerAlarmEntry,
@@ -422,6 +429,8 @@ function renderHud(t: number): void {
   }
   powerFlicker = false;
   artifacts?.render(deskView && s.player.reading === null);
+  if (practicing && playing && !paused) tutorial.render(s);
+  else tutorial.hide();
   renderRing();
 }
 
@@ -431,7 +440,7 @@ function renderHud(t: number): void {
 function renderRing(): void {
   const s = engine.state;
   const pos = s.player.position;
-  const now = s.clock.elapsed;
+  const now = engine.now;
   let k = -1;
   let color = RING.FAINT;
   if (s.phase === "PLAYING" && !paused && edges.pointer.inside) {
@@ -479,6 +488,7 @@ function resetScreen(): void {
 }
 
 function showTitle(): void {
+  tutorial.hide();
   resetScreen();
   frontScreen = "title";
   scene.pauseMedia();
@@ -501,6 +511,7 @@ function showTitle(): void {
 }
 
 function startRun(saved?: SavedRun): void {
+  tutorial.reset();
   sound.setTitlePlaying(false);
   resetScreen();
   show(ui.screen, false);
@@ -509,10 +520,12 @@ function startRun(saved?: SavedRun): void {
     startNight: saved?.night,
     facts: saved?.factsCheckpoint,
     skipNamePrompt: !!saved,
+    practiceBeforeNight: !saved,
   });
   if (import.meta.env.DEV) Object.assign(window, { engine });
   frontScreen = null;
   lastPhase = null;
+  previousPowerSlot = "NONE";
   devRun = false;
   terminal.chat.value = "";
   terminal.clear();
@@ -528,6 +541,17 @@ function startRun(saved?: SavedRun): void {
       onDone: () => { frontScreen = null; wake(); },
     });
   } else wake();
+}
+
+function finishPractice(): void {
+  if (!engine.isPracticing || paused) return;
+  sound.menuTick();
+  engine.finishPractice();
+  tutorial.hide();
+  terminal.chat.value = "";
+  lastTypedAt = -Infinity;
+  shiftDown = braceDown = pressSpent = wasBracing = false;
+  wake();
 }
 
 function showScreen(phase: Phase): void {
@@ -619,6 +643,7 @@ function setPaused(on: boolean): void {
   terminal.root.inert = on;
   artifacts?.pause(on);
   if (on) {
+    tutorial.hide();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     scene.pauseMedia();
     app.ticker.stop();
@@ -651,6 +676,12 @@ function wireInput(): void {
     terminal.chat.value = "";
     lastTypedAt = -Infinity;
     const ticket = res.ticket;
+    if (engine.isPracticing) {
+      tutorial.messageSent();
+      terminal.chat.blur();
+      if (!ticket.repeat) engine.applyJudge(ticket.id, offlineJudge(ticket.judgeInput));
+      return;
+    }
     if (ticket.repeat) return;
     const run = engine;
     void judge(ticket.judgeInput).then((r) => {
@@ -673,7 +704,6 @@ function wireInput(): void {
   for (const b of terminal.quick) {
     b.addEventListener("click", () => engine.pressQuick(b.dataset.quick as QuickCommand));
   }
-  terminal.kill.addEventListener("click", () => engine.toggleGenerator());
   wireBrace();
 
   document.addEventListener("visibilitychange", () => {
@@ -716,11 +746,15 @@ function onKey(e: KeyboardEvent): void {
     return;
   }
   if (e.target instanceof HTMLInputElement) return;
+  if ((e.key === "Enter" || e.key === " ") && e.target instanceof Element && e.target.closest("#tutorial button")) return;
   const s = engine.state;
   if (s.phase !== "PLAYING") return;
   if (e.key === "Escape") {
     e.preventDefault();
-    if (!e.repeat) setPaused(!paused);
+    if (!e.repeat) {
+      if (engine.isPracticing) tutorial.pauseChanged(!paused);
+      setPaused(!paused);
+    }
     return;
   }
   if (paused) return;
