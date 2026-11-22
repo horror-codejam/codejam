@@ -434,7 +434,7 @@ Question mix per night:
    - Execute a lock, or refuse it (the hijack roll).
    - Or power off.
    - Or answer the location question, with the truth or lie decision from section 8.7.
-   - A lock or power-off resolved here (after the judge) is dropped if the player issued a newer lock or power-off since sending the message (a map button or a later message). The latest power choice wins; a slow judge never overrides it.
+   - A lock or power-off resolved here (after the judge) is dropped if a lock or power-off the player asked for later (a map button, or a message sent later) has already been resolved. Requests are ordered by when the player made them, not by when verdicts arrive, so the latest choice wins and a slow judge never overrides it.
 9. **Voice call (LLM, persona):**
    - Input: an outcome object already decided by code. For example: `{outcome: "locked", entry: "HATCH", band: "HURT", name: "Sam", tone: "sulky", max_words: 20}`.
    - It writes 1 or 2 sentences.

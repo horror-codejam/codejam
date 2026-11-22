@@ -87,7 +87,7 @@ interface Ticket {
   ranImmediately: boolean;
   questionId: number | null; // pending question at submit time (one this message may answer)
   blockedBy: number | null; // question that blocked ChudGPT commands at submit time (live, even during the judge grace)
-  powerSeq: number; // powerCmdSeq right after submit: a newer lock or power-off makes this message's own one stale
+  order: number; // actionOrder at submit: a lock or power-off from a newer action makes this message's own one stale
   prevLastReal: number; // lastRealMessageAt before this message (gibberish restore)
   seq: number; // message sequence number (gibberish restore only if no later message)
 }
@@ -110,7 +110,8 @@ export class GameEngine implements IGameEngine {
 
   // Engine bookkeeping that is not game state (tickets in flight, ids, the fixed-step accumulator).
   private tickets = new Map<number, Ticket>();
-  private powerCmdSeq = 0; // counts lock and power-off commands resolved, so a late verdict can tell it was overtaken
+  private actionOrder = 0; // order of player command actions (map clicks and messages, at the moment they are made)
+  private lastPowerOrder = 0; // order of the newest action whose lock or power-off has been resolved
   private nextTicketId = 1;
   private nextQuestionId = 1;
   private nightToken = 0;
@@ -1417,12 +1418,13 @@ export class GameEngine implements IGameEngine {
   // A lock or power-off from a message whose verdict came back after a newer lock or power-off (a map button or a
   // later message) is dropped: the player's latest power choice wins, a slow judge never overrides it.
   private overtaken(t: Ticket, p: ParsedCommand): boolean {
-    return (p.command === "LOCK" || p.command === "POWER_OFF") && this.powerCmdSeq !== t.powerSeq;
+    return (p.command === "LOCK" || p.command === "POWER_OFF") && t.order < this.lastPowerOrder;
   }
 
-  private resolveCommand(p: ParsedCommand): Outcome {
+  // `order` is when the player asked (a map click now, a message when it was sent), so verdicts can arrive in any order.
+  private resolveCommand(p: ParsedCommand, order = ++this.actionOrder): Outcome {
     const s = this.state;
-    if (p.command === "LOCK" || p.command === "POWER_OFF") this.powerCmdSeq++;
+    if (p.command === "LOCK" || p.command === "POWER_OFF") this.lastPowerOrder = Math.max(this.lastPowerOrder, order);
     const band = s.chud.band;
     switch (p.command) {
       case "POWER_OFF":
@@ -1570,10 +1572,11 @@ export class GameEngine implements IGameEngine {
     const seq = ++this.messageSeq;
 
     // Command timing: run now if the parser found one and no question is pending.
+    const order = ++this.actionOrder; // the moment the player asked, for ordering its power command against later ones
     let ranImmediately = false;
     // The live question decides blocking (as for the map buttons), even during the judge grace when it can no longer be answered.
     if (parsed.command !== "NONE" && !open) {
-      this.say(this.resolveCommand(parsed));
+      this.say(this.resolveCommand(parsed, order));
       ranImmediately = true;
     }
 
@@ -1585,7 +1588,7 @@ export class GameEngine implements IGameEngine {
       ranImmediately,
       questionId: pq ? pq.id : null,
       blockedBy: open ? open.id : null,
-      powerSeq: this.powerCmdSeq,
+      order,
       prevLastReal,
       seq,
     });
@@ -1620,7 +1623,7 @@ export class GameEngine implements IGameEngine {
     // Gibberish: no social effects, not a real message. A code-parsed command still runs.
     if (r.gibberish) {
       if (t.seq === this.messageSeq) s.timers.lastRealMessageAt = t.prevLastReal;
-      if (!t.ranImmediately && t.parsed.command !== "NONE" && !this.overtaken(t, t.parsed)) this.say(s.chud.pendingQuestion || t.blockedBy !== null ? { kind: "answer_first" } : this.resolveCommand(t.parsed));
+      if (!t.ranImmediately && t.parsed.command !== "NONE" && !this.overtaken(t, t.parsed)) this.say(s.chud.pendingQuestion || t.blockedBy !== null ? { kind: "answer_first" } : this.resolveCommand(t.parsed, t.order));
       return;
     }
 
@@ -1694,7 +1697,7 @@ export class GameEngine implements IGameEngine {
     // a late verdict must never run a stale command over a lock the player set since.
     if (cmd.command !== "NONE" && s.power.chudOnline && !this.overtaken(t, cmd)) {
       const blocked = s.chud.pendingQuestion !== null || (t.blockedBy !== null && answerOutcome === null);
-      commandOutcome = blocked ? { kind: "answer_first" } : this.resolveCommand(cmd);
+      commandOutcome = blocked ? { kind: "answer_first" } : this.resolveCommand(cmd, t.order);
     }
 
     // Step 9: exactly one line, picked by priority.

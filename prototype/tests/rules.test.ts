@@ -272,6 +272,27 @@ describe("a pending question blocks ChudGPT commands", () => {
     expect(e.state.power.slot).toBe("LOCK_WINDOW");
   });
 
+  it("two judge-only locks: the newer request wins whichever verdict comes back first", () => {
+    for (const newerFirst of [false, true]) {
+      const e = playing();
+      const a = e.submitMessage("secure the hatch");
+      if (!a.ok) throw new Error(a.reason);
+      wait(e, CONFIG.MESSAGE_RATE_LIMIT + 0.1);
+      const b = e.submitMessage("secure the window instead");
+      if (!b.ok) throw new Error(b.reason);
+      const verdicts: [number, JudgeResult][] = [
+        [a.ticket.id, judge({ command_hint: "LOCK", entry_hint: "HATCH" })],
+        [b.ticket.id, judge({ command_hint: "LOCK", entry_hint: "WINDOW" })],
+      ];
+      if (newerFirst) verdicts.reverse();
+      for (const [id, v] of verdicts) {
+        e.applyJudge(id, v);
+        wait(e, CONFIG.RELAY_DELAY + 0.1);
+      }
+      expect(e.state.power.slot).toBe("LOCK_WINDOW");
+    }
+  });
+
   it("the generator switch is a player action and is not blocked", () => {
     const e = playing();
     pend(e);
