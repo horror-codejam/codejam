@@ -13,9 +13,9 @@
     }
   ],
   "routes": [
-    { "src": "^/api/tts/?$", "dest": "/prototype/api/tts" },
-    { "src": "^/api/(health|judge|voice)/?$", "dest": "/prototype/api/turn?route=$1" },
-    { "src": "^/(api/)?turn/?$", "dest": "/prototype/api/turn" },
+    { "src": "^/api/tts/?$", "dest": "/prototype/api/tts.py" },
+    { "src": "^/api/(health|judge|voice)/?$", "dest": "/prototype/api/turn.ts?route=$1" },
+    { "src": "^/(api/)?turn/?$", "dest": "/prototype/api/turn.ts" },
     { "src": "^/$", "dest": "/prototype/index.html" },
     { "src": "^/(.*)$", "dest": "/prototype/$1" }
   ]
