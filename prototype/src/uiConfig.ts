@@ -1,6 +1,15 @@
 // UI-only tuning knobs for the edge controls (docs/CONTROLS_PROPOSAL.md, branch proto/v3-controls-edge).
 // Not game rules: nothing in src/sim reads this file. Game timers (TRAVEL_TIME, HOLD_MAX, HOLD_COOLDOWN, BRACE_REST) stay in config.ts.
 
+export const CHUD_SPEECH = {
+  REQUEST_TIMEOUT_MS: 3000,
+  MAX_WAITING_LINES: 4,
+  DESK: { gain: 0.9, pan: 0 },
+  WINDOW: { gain: 0.58, pan: 0.55 },
+  HATCH: { gain: 0.58, pan: -0.55 },
+  BALCONY: { gain: 0.45, pan: 0 },
+};
+
 export const CONTROLS = {
   EDGE_DWELL: 0.3, // real seconds the mouse must stay in an edge zone before the turn fires
   EDGE_ZONE_SIDE: 70, // stage px (of 1280) from the left or right edge of the stage

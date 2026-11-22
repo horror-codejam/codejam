@@ -2,6 +2,8 @@
 // (public/audio/amb/ambient-noise.m4a), decoy noises of the house, the player, CHUD, the lights and the jumpscare
 // (public/audio/sfx/jumpscare.wav). Synth stand-ins cover everything that has no recording yet.
 
+import type { Band, View } from "../sim/types";
+import { CHUD_SPEECH } from "../uiConfig";
 
 export class Sound {
   private ctx: AudioContext | null = null;
@@ -10,6 +12,12 @@ export class Sound {
   private loops = new Map<string, () => void>();
   private ambient: HTMLAudioElement | null = null;
   private jumpBuf: AudioBuffer | null = null;
+  private speechGain!: GainNode;
+  private speechPan!: StereoPannerNode;
+  private speechView: View = "DESK";
+  private speechQueue: { text: string; band: Band }[] = [];
+  private speechRun: AbortController | null = null;
+  private speechSource: AudioBufferSourceNode | null = null;
   windowMask = 1; // the storm masks the window more on nights 4 and 5
 
   // UI pause: freeze every scheduled sound and loop, resume where they were.
@@ -33,6 +41,11 @@ export class Sound {
     this.master = ctx.createGain();
     this.master.gain.value = 0.8;
     this.master.connect(ctx.destination);
+    this.speechGain = ctx.createGain();
+    this.speechPan = ctx.createStereoPanner();
+    this.speechGain.connect(this.speechPan).connect(this.master);
+    this.speechGain.gain.value = CHUD_SPEECH[this.speechView].gain;
+    this.speechPan.pan.value = CHUD_SPEECH[this.speechView].pan;
     ctx.listener.positionX.value = 0;
     ctx.listener.positionY.value = 0;
     ctx.listener.positionZ.value = 0;
@@ -259,6 +272,66 @@ export class Sound {
     if (!this.ctx) return;
     this.tone(this.master, 880, 0.12, "sine", 0.05);
     this.tone(this.master, 1320, 0.16, "sine", 0.04, 0.07);
+  }
+
+  setSpeechView(view: View): void {
+    if (this.speechView === view) return;
+    this.speechView = view;
+    if (!this.ctx) return;
+    const { gain, pan } = CHUD_SPEECH[view];
+    this.speechGain.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.06);
+    this.speechPan.pan.setTargetAtTime(pan, this.ctx.currentTime, 0.06);
+  }
+
+  speak(text: string, band: Band): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift();
+    this.speechQueue.push({ text, band });
+    if (this.speechRun) return;
+    const run = new AbortController();
+    this.speechRun = run;
+    void this.playSpeech(ctx, run);
+  }
+
+  stopSpeech(): void {
+    this.speechQueue.length = 0;
+    this.speechRun?.abort();
+    this.speechRun = null;
+    this.speechSource?.stop();
+    this.speechSource = null;
+  }
+
+  private async playSpeech(ctx: AudioContext, run: AbortController): Promise<void> {
+    while (!run.signal.aborted && this.speechQueue.length > 0) {
+      const line = this.speechQueue.shift()!;
+      try {
+        const response = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(line),
+          signal: AbortSignal.any([run.signal, AbortSignal.timeout(CHUD_SPEECH.REQUEST_TIMEOUT_MS)]),
+        });
+        if (!response.ok || response.headers.get("content-type") !== "audio/wav") continue;
+        const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+        if (run.signal.aborted) break;
+
+        const source = ctx.createBufferSource();
+        this.speechSource = source;
+        source.buffer = buffer;
+        source.connect(this.speechGain);
+        const ended = new Promise<void>((resolve) => {
+          source.onended = () => resolve();
+        });
+        source.start();
+        await ended;
+        source.disconnect();
+        if (this.speechSource === source) this.speechSource = null;
+      } catch {
+        // Keep the existing subtitle and chime if Piper or audio decoding fails.
+      }
+    }
+    if (this.speechRun === run) this.speechRun = null;
   }
 
   radio(): void {

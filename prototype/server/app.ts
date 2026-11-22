@@ -4,10 +4,12 @@
 import { Hono } from "hono";
 import type { Band, JudgeInput } from "../src/sim/types";
 import { judgeWithClaude, makeClient, voiceWithClaude } from "./llm";
-import { VOICED_KINDS, type VoiceRequest } from "./prompts";
+import { mentionsForbiddenName, VOICED_KINDS, type VoiceRequest } from "./prompts";
 
 const BANDS: Band[] = ["WARM", "HURT", "JEALOUS", "FURIOUS"];
 const RATE_PER_MIN = 90;
+const PIPER_URL = "http://127.0.0.1:5100/tts";
+const PIPER_TIMEOUT_MS = 2500;
 
 export function createApi(opts: { apiKey?: string }): Hono {
   const app = new Hono().basePath("/api");
@@ -26,6 +28,30 @@ export function createApi(opts: { apiKey?: string }): Hono {
   });
 
   app.get("/health", (c) => c.json({ llm: !!client }));
+
+  app.post("/tts", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { text?: unknown; band?: Band } | null;
+    const text = typeof body?.text === "string" ? body.text.trim() : "";
+    const band = body?.band;
+    if (!text || text.length > 300 || !band || !BANDS.includes(band) || mentionsForbiddenName(text)) {
+      return c.json({ error: "bad request" }, 400);
+    }
+
+    try {
+      const wav = await fetch(PIPER_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text, band }),
+        signal: AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(PIPER_TIMEOUT_MS)]),
+      });
+      if (wav.ok && wav.headers.get("content-type") === "audio/wav") {
+        return c.body(await wav.arrayBuffer(), 200, { "content-type": "audio/wav", "cache-control": "no-store" });
+      }
+    } catch {
+      // Speech is optional. The game still displays the line and plays its chime.
+    }
+    return c.json({ error: "speech unavailable" }, 503);
+  });
 
   app.post("/judge", async (c) => {
     if (!client) return c.json({ error: "no api key" }, 503);
