@@ -4,7 +4,7 @@ Stopped at 09:15. The stop condition was first met at 07:30. A stricter final ch
 
 ## Result
 - Branch `overnight-playtest`, based on `origin/main` c2ab13b (PR #31 ending logic was merged after fbdfc58). Pushed. `main`, `release-integration` and Vercel were not touched.
-- `npm run build` passes. `npm test` passes 344 tests (308 before).
+- `npm run build` passes. `npm test` passes 348 tests (308 before).
 - The council had three reviewers: Codex playing a hardcore FNAF player, Sonnet playing a first-time casual player, and Sonnet playing a hackathon judge. Median scores:
 
 | Area | Start | Round 1 | Round 2 | Round 3 | Round 4 | Final (HEAD 0e78ab0) |
@@ -96,7 +96,8 @@ Stopped at 09:15. The stop condition was first met at 07:30. A stricter final ch
   - Hint pause and queue (ea13884, 888fc3f): the 0:08 hint, fired while the clipping was open, still showed after closing it at 0:27. The 0:24 hint queued behind it and showed next.
   - Question caption (edab4bb): at the hatch, newer lines covered the pending question. It came back once they expired, and it cleared when the question timed out.
   - Draft resend (edab4bb, 367b432): a draft sent inside the 1.5 s limit sent itself about 1.55 s after the previous message. "lock the hatch", sent while turning to the window, waited and then locked the hatch on return to the desk.
-- Not verified: the urgent speech queue (b6443ae) can't be heard locally, because there's no text-to-speech server here (`/api/tts` returns 503). Listen once on the deployed preview: a question should play right after any line already playing. Also give the title music one listen on a cold load.
+- The urgent speech queue (b6443ae) is covered by 4 unit tests (b1f2tests): an urgent line replaces the waiting lines and cuts short a line still being synthesized, but never one already playing. It can't be heard locally, because there's no text-to-speech server here (`/api/tts` returns 503).
+- Left for a human, because I can't hear audio or play the game: one listen to a question line and to the title music on a cold load of the deployed preview, and one human playthrough of nights 1 to 3 to confirm the bot-based difficulty.
 - The LLM voice path could not run locally because there's no API key in this worktree. The stale-reply fix (21f58fc) is typecheck- and logic-reviewed only.
 - `prototype/src/main.ts` got several small edits. Expect merge conflicts if teammates changed the same HUD or POWER_CHANGED code.
 
