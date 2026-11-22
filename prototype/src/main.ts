@@ -782,15 +782,18 @@ function reconcileBrace(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Dev mode. On with ?dev, Backquote or Ctrl+Shift+D (state kept in localStorage); off for players by default.
-// Every action goes through the engine object (dev* methods or the normal flow methods).
+// Dev mode. On by default while everyone playing is on the team; Backquote, Ctrl+Shift+D or ?dev=0 turns it off
+// (state kept in localStorage). Every action goes through the engine object (dev* methods or the normal flow methods).
+// To ship to players, flip DEV_DEFAULT to false.
+const DEV_DEFAULT = true;
 
 function initDev(): void {
-  let on = false;
+  let on = DEV_DEFAULT;
   try {
-    on = window.localStorage.getItem(DEV_KEY) === "1";
+    const saved = window.localStorage.getItem(DEV_KEY);
+    if (saved === "1" || saved === "0") on = saved === "1";
   } catch {
-    /* storage blocked: stay off */
+    /* storage blocked: keep the default */
   }
   if (params.has("dev")) on = !["0", "false", "off", "no"].includes((params.get("dev") ?? "").toLowerCase());
   ui.devBadge.addEventListener("click", () => setDevOpen(!devOpen));
