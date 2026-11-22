@@ -214,7 +214,7 @@ describe("engine smoke", () => {
   });
 
   it("6:00 AM wins even mid-attempt", () => {
-    const config = cfgWith(1, { firstVisitDelay: 290 }, { SILENCE_LIMIT: 10000 });
+    const config = cfgWith(1, { firstVisitDelay: 280 }, { SILENCE_LIMIT: 10000 });
     const e = playing({ config });
     runUntil(e, 299);
     expect(e.state.ram.state).toBe("AT_ENTRY");

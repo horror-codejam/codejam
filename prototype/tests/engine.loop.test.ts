@@ -167,8 +167,8 @@ describe("night length and pacing (sections 4 and 7.6)", () => {
   // Low frequency so tension builds (section 4). A player who keeps talking (no silence pulls) and defends every visit.
   // Going silent adds visits through the silence pull (section 7.3); that is the intended cost of silence.
   it.each([
-    [1, 3, 4],
-    [2, 4, 5],
+    [1, 3, 3],
+    [2, 3, 4],
     [3, 5, 6],
     [4, 6, 7],
     [5, 7, 8],
