@@ -268,6 +268,82 @@ export class Sound {
     lfo.stop(t + dur + 0.05);
   }
 
+  // --- bracing an entry (edge controls) ----------------------------------------
+
+  // A short voiced effort: a sagging buzz through a vowel-ish band, plus breath noise.
+  private voice(dest: AudioNode, f0: number, f1: number, dur: number, gain: number, formant: number, delay = 0): void {
+    const ctx = this.ctx!;
+    const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.value = formant;
+    f.Q.value = 2.5;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 1400;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f).connect(lp).connect(g).connect(dest);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+    this.burst(dest, dur * 0.9, "bandpass", formant * 1.6, gain * 0.9, 1.2, undefined, delay);
+  }
+
+  // Brace start: a grunt as the shoulder hits the entry, then strained breathing through the teeth until release.
+  braceStart(): void {
+    if (!this.ctx) return;
+    this.voice(this.master, 125, 92, 0.3, 0.07, 620);
+    this.burst(this.master, 0.09, "lowpass", 300, 0.25); // body against wood or metal
+    this.loop("brace", 1250, (i) => {
+      if (i === 0) return;
+      // a held breath forced out in a hiss, now and then a small voiced strain
+      this.burst(this.master, 0.45, "bandpass", 1100 + Math.random() * 300, 0.035, 1.4, 800);
+      if (i % 2 === 0) this.voice(this.master, 105, 98, 0.35, 0.025, 520, 0.05);
+    });
+  }
+
+  // Brace end: a release breath. `armsGaveOut` (HOLD_MAX): a heavier gasp.
+  braceEnd(armsGaveOut: boolean): void {
+    if (!this.ctx) return;
+    this.stop("brace");
+    this.burst(this.master, armsGaveOut ? 0.7 : 0.45, "bandpass", 900, armsGaveOut ? 0.07 : 0.04, 1, 500);
+    if (armsGaveOut) this.voice(this.master, 140, 90, 0.35, 0.05, 700);
+  }
+
+  // Ram shoves the entry you are bracing: a creak of the wood or metal and a dull knock. Not positional: it is
+  // right under your hands.
+  bracePush(entry: Entry): void {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const metal = entry === "HATCH";
+    this.tone(this.master, metal ? 85 : 70, 0.16, "sine", 0.22); // the knock
+    this.burst(this.master, 0.1, "lowpass", metal ? 700 : 450, 0.12);
+    // creak: slow saw ticks through a narrow band (as the chair creak), metal is higher and rings
+    const dur = 0.5;
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(metal ? 60 : 28, t + 0.04);
+    o.frequency.linearRampToValueAtTime(metal ? 44 : 20, t + 0.04 + dur);
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.value = (metal ? 1900 : 900) + Math.random() * 200;
+    f.Q.value = metal ? 14 : 6;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04 + dur);
+    o.connect(f).connect(g).connect(this.master);
+    o.start(t + 0.04);
+    o.stop(t + dur + 0.1);
+  }
+
   footsteps(seconds: number): void {
     if (!this.ctx) return;
     const steps = Math.round(seconds / 0.27);

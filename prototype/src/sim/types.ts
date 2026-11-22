@@ -21,10 +21,14 @@ export type Phase =
   | "NIGHT_WON" // 6 AM screen (nextNight)
   | "GAME_WON"; // after night 5
 
+// `stay` marks the edge-controls flow (docs/CONTROLS_PROPOSAL.md, goToEntry): the dash ends in STANDING, a brace
+// is a HOLDING that ends back in STANDING, and the player leaves with returnToDesk. Without it (startHold, the
+// GAME_LOGIC 6.4 flow) the dash ends in HOLDING and the hold ends in RETURNING.
 export type PlayerPosition =
   | { kind: "DESK" }
-  | { kind: "TRAVELING"; entry: Entry; until: number }
-  | { kind: "HOLDING"; entry: Entry; since: number }
+  | { kind: "TRAVELING"; entry: Entry; until: number; stay?: boolean; braceOnArrival?: boolean }
+  | { kind: "STANDING"; entry: Entry; restUntil: number } // at the entry, not bracing; a brace may start at restUntil
+  | { kind: "HOLDING"; entry: Entry; since: number; stay?: boolean }
   | { kind: "RETURNING"; from: Entry; until: number };
 
 export interface PendingQuestion {
@@ -288,8 +292,13 @@ export interface IGameEngine {
 
   // Player
   turn(view: View): void; // only when position is DESK
-  startHold(entry: Entry): void;
-  backToDesk(): void; // only while HOLDING
+  startHold(entry: Entry): void; // GAME_LOGIC 6.4 flow: dash, then HOLDING, then RETURNING when the hold ends
+  backToDesk(): void; // while HOLDING (either flow) or STANDING; in the edge flow same as returnToDesk
+  // Edge-controls flow (docs/CONTROLS_PROPOSAL.md): click to go, hold to brace, edge to return
+  goToEntry(entry: Entry): void; // DESK, looking at that entry, after HOLD_COOLDOWN: TRAVELING (stay), then STANDING
+  startBrace(): void; // STANDING after its rest: HOLDING (stay). While TRAVELING (stay): brace on arrival
+  endBrace(): void; // HOLDING (stay): back to STANDING with BRACE_REST. While TRAVELING (stay): cancels brace on arrival
+  returnToDesk(): void; // STANDING or HOLDING (stay): RETURNING, then DESK. Starts HOLD_COOLDOWN
   pressQuick(cmd: QuickCommand): void;
   toggleGenerator(): void;
   submitMessage(text: string): SubmitResult;

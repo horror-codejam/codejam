@@ -6,12 +6,13 @@ import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
-import type { Band, Entry, GameEvent, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason } from "./sim/types";
+import type { Band, Entry, GameEvent, LossInfo, Phase, PowerSlot, QuickCommand, RejectReason, View } from "./sim/types";
 import { artUrl, loadArt } from "./ui/art";
 import { Sound } from "./ui/audio";
 import { EDGE_TARGET, EdgeTurner, EDGES } from "./ui/edges";
 import { H, W } from "./ui/layout";
 import { Scene } from "./ui/scene";
+import { RING } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -43,7 +44,7 @@ const ui = {
   edges: $("edges"),
   braceHint: $("brace-hint"),
   holdPanel: $("hold-panel"),
-  armsBar: $("arms-bar"),
+  ring: $("ring"),
   subtitle: $("subtitle"),
   screen: $("screen"),
   dev: $("dev"),
@@ -80,8 +81,10 @@ let skipDt = false; // first frame after a resume gets dt 0
 let nightToken = 0; // drops LLM replies that arrive after a night restarts
 let convo: string[] = []; // recent "Keeper: ..." / "CHUD: ..." lines, context for the voice
 let edges: EdgeTurner;
-let braceDown = false; // left mouse button held down for a brace (edge controls)
-let braceByMouse = false; // the current dash or hold came from the mouse, so letting go ends it
+let braceDown = false; // left mouse button held down (edge controls: holding it braces)
+let pressSpent = false; // this press's brace already ended by HOLD_MAX: a new press is needed to brace again
+let wasBracing = false; // position was a brace (HOLDING) at the last reconcile
+let frameScale = 1; // stage px to screen px, for the cursor ring
 const now = (): number => performance.now() / 1000;
 
 // ---------------------------------------------------------------------------
@@ -96,6 +99,8 @@ async function boot(): Promise<void> {
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);
   scene.onThunder = () => sound.thunder();
+  scene.onRamPush = (entry) => sound.bracePush(entry);
+  if (import.meta.env.DEV) Object.assign(window, { scene });
   edges = new EdgeTurner($("stage"));
   fit();
   window.addEventListener("resize", fit);
@@ -106,6 +111,7 @@ async function boot(): Promise<void> {
 
 function fit(): void {
   const k = Math.min(window.innerWidth / W, window.innerHeight / H);
+  frameScale = k;
   const f = $("frame");
   f.style.transformOrigin = "0 0";
   f.style.transform = `scale(${k}) translate(-50%, -50%)`;
@@ -213,6 +219,10 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
+      if (ev.position.kind === "HOLDING") sound.braceStart();
+      break;
+    case "HOLD_ENDED":
+      sound.braceEnd(ev.reason === "arms");
       break;
     case "MESSAGE_REJECTED":
       note(ev.reason, t);
@@ -351,8 +361,9 @@ function renderHud(t: number): void {
     ui.chat.blur();
   }
 
-  // edge indicators and the brace hint (edge controls)
-  const canLook = playing && !paused && atDesk;
+  // edge indicators, the brace hint and the cursor ring (edge controls)
+  const atEntry = pos.kind === "STANDING" || (pos.kind === "HOLDING" && !!pos.stay);
+  const canLook = playing && !paused && (atDesk || atEntry);
   show(ui.edges, canLook);
   if (canLook) {
     for (const el of ui.edges.querySelectorAll<HTMLElement>(".edge")) {
@@ -361,23 +372,62 @@ function renderHud(t: number): void {
       show(el, !!to);
       if (!to) continue;
       setText(el.querySelector("span")!, to === "DESK" ? "DESK" : to === "BALCONY" ? "BEHIND" : to);
-      const k = edges.active === edge ? edges.progress : 0;
-      el.style.setProperty("--k", k.toFixed(3));
       el.classList.toggle("on", edges.active === edge);
     }
   }
-  const onEntry = canLook && view !== "DESK";
-  show(ui.braceHint, onEntry);
-  if (onEntry) {
-    const cooling = s.clock.elapsed < s.player.holdCooldownUntil;
-    setText(ui.braceHint, cooling ? "Arms resting..." : `Hold left click to brace the ${NAME[view]}`);
-  }
-
+  const hint = !playing || paused ? null : braceHint(view);
+  show(ui.braceHint, hint !== null);
+  if (hint !== null) setText(ui.braceHint, hint);
   show(ui.holdPanel, playing && pos.kind === "HOLDING");
-  if (pos.kind === "HOLDING") {
-    const left = 1 - (s.clock.elapsed - pos.since) / CONFIG.HOLD_MAX;
-    ui.armsBar.style.width = `${Math.max(0, left) * 100}%`;
+  renderRing();
+}
+
+function braceHint(view: View): string | null {
+  const s = engine.state;
+  const pos = s.player.position;
+  const now = s.clock.elapsed;
+  if (pos.kind === "DESK" && view !== "DESK") return now < s.player.holdCooldownUntil ? "Catching your breath..." : `Click to go to the ${NAME[view]}`;
+  if (pos.kind === "STANDING") return now < pos.restUntil ? "Arms resting..." : "Hold left click to brace. Edge to go back.";
+  return null;
+}
+
+// One small ring on the pointer for whichever timer is running: edge dwell (fills), arms left while bracing
+// (drains, red near the end), faint progress for the brace rest and HOLD_COOLDOWN. Hidden while walking (the
+// dash to an entry and back) and otherwise.
+function renderRing(): void {
+  const s = engine.state;
+  const pos = s.player.position;
+  const now = s.clock.elapsed;
+  let k = -1;
+  let color = RING.FAINT;
+  if (s.phase === "PLAYING" && !paused && edges.pointer.inside) {
+    if (edges.active !== null) {
+      k = edges.progress;
+      color = RING.DWELL;
+    } else if (pos.kind === "HOLDING") {
+      const left = Math.max(0, pos.since + CONFIG.HOLD_MAX - now);
+      k = left / CONFIG.HOLD_MAX;
+      color = left <= RING.BRACE_WARN ? RING.BRACE_LOW : RING.BRACE;
+    } else if (pos.kind === "STANDING" && now < pos.restUntil) {
+      k = 1 - (pos.restUntil - now) / CONFIG.BRACE_REST;
+    } else if (pos.kind === "DESK" && s.player.view !== "DESK" && now < s.player.holdCooldownUntil) {
+      k = 1 - (s.player.holdCooldownUntil - now) / CONFIG.HOLD_COOLDOWN;
+    }
   }
+  show(ui.ring, k >= 0);
+  if (k < 0) return;
+  const size = RING.SIZE / frameScale; // the ring lives in stage px; keep it the same size on screen
+  const el = ui.ring;
+  el.style.width = el.style.height = `${size}px`;
+  el.style.transform = `translate(${(edges.pointer.x - size / 2).toFixed(1)}px, ${(edges.pointer.y - size / 2).toFixed(1)}px)`;
+  const sw = String((RING.STROKE * 36) / RING.SIZE); // viewBox units
+  const track = el.querySelector<SVGCircleElement>(".track")!;
+  const arc = el.querySelector<SVGCircleElement>(".arc")!;
+  track.setAttribute("stroke", RING.TRACK);
+  track.setAttribute("stroke-width", sw);
+  arc.setAttribute("stroke", color);
+  arc.setAttribute("stroke-width", sw);
+  arc.setAttribute("stroke-dasharray", `${Math.max(0, Math.min(1, k)).toFixed(4)} 1`);
 }
 
 let faceKey = "";
@@ -487,7 +537,7 @@ function showScreen(phase: Phase): void {
         <h1>NIGHT ${n}</h1>
         <p>12:00 AM. SURVIVE UNTIL 6 AM.</p>
         <p class="log">${esc(voiceLog)}</p>
-        <p class="small">Look around: push the mouse to the left edge (window), right edge (hatch) or bottom edge (behind you). The opposite edge brings you back (the bottom again from behind).<br />Brace an entry: look at it, then hold the left mouse button. Let go to run back to the desk.<br />At the desk, just start typing to talk to CHUD, Enter sends. Esc pauses. \` : dev panel.</p>
+        <p class="small">Look around: push the mouse to the left edge (window), right edge (hatch) or bottom edge (behind you). The opposite edge brings you back (the bottom again from behind).<br />Go to an entry: look at it and click. There, hold the left mouse button to brace it (your arms last a few seconds). Push the mouse to the same edge as before to run back to the desk.<br />At the desk, just start typing to talk to CHUD, Enter sends. Esc pauses. \` : dev panel.</p>
         <button id="go">Start night ${n}</button>`);
       $("go").addEventListener("click", () => {
         sound.unlock();
@@ -552,6 +602,7 @@ function setPaused(on: boolean): void {
   if (on === paused) return;
   if (on && engine.state.phase !== "PLAYING") return;
   paused = on;
+  scene.paused = on;
   // inert keeps Tab and Space from reaching the controls behind the overlay
   for (const id of ["terminal", "hold-panel"]) $(id).toggleAttribute("inert", on);
   if (on) {
@@ -644,44 +695,70 @@ function onKey(e: KeyboardEvent): void {
 
 function edgeTurn(t: number): void {
   const s = engine.state;
-  const enabled = !paused && s.phase === "PLAYING" && s.player.position.kind === "DESK";
+  const pos = s.player.position;
+  // At an entry (standing or bracing) only the return edge exists: it runs back to the desk.
+  const atEntry = pos.kind === "STANDING" || (pos.kind === "HOLDING" && !!pos.stay);
+  const enabled = !paused && s.phase === "PLAYING" && (pos.kind === "DESK" || atEntry);
   const from = s.player.view;
   const to = edges.update(from, enabled, t);
   if (!to) return;
+  if (atEntry) {
+    engine.returnToDesk();
+    return;
+  }
   engine.turn(to);
   sound.turn(from === "BALCONY" || to === "BALCONY");
 }
 
+// Click an entry view to go there, then hold the left button to brace (docs/CONTROLS_PROPOSAL.md).
 function wireBrace(): void {
   window.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     if (e.target instanceof Element && e.target.closest("button, input, #screen, #pause, #dev")) return;
     const s = engine.state;
-    if (paused || s.phase !== "PLAYING" || s.player.position.kind !== "DESK") return;
-    const v = s.player.view;
-    if (v === "DESK") return; // a hold only starts from that entry's own view
-    e.preventDefault(); // no text selection or focus change while bracing
+    if (paused || s.phase !== "PLAYING") return;
+    const pos = s.player.position;
+    if (pos.kind === "DESK" && s.player.view === "DESK") return; // the desk itself: no action
+    if (pos.kind === "RETURNING") return;
+    e.preventDefault(); // no text selection or focus change
     braceDown = true;
-    engine.startHold(v); // ignored while the arms rest (HOLD_COOLDOWN)
-    if (engine.state.player.position.kind === "TRAVELING") braceByMouse = true;
+    pressSpent = false;
+    if (pos.kind === "DESK") engine.goToEntry(s.player.view as Entry); // ignored during HOLD_COOLDOWN
+    reconcileBrace();
   });
   // on window, so letting go outside the stage (or the browser) still counts
+  const release = (): void => {
+    braceDown = false;
+    if (!paused) reconcileBrace();
+  };
   window.addEventListener("mouseup", (e) => {
-    if (e.button === 0) braceDown = false;
+    if (e.button === 0) release();
   });
   window.addEventListener("mousemove", (e) => {
-    if (braceDown && (e.buttons & 1) === 0) braceDown = false; // a mouseup we never saw
+    if (braceDown && (e.buttons & 1) === 0) release(); // a mouseup we never saw
   });
-  window.addEventListener("blur", () => (braceDown = false));
+  window.addEventListener("blur", release);
 }
 
-// Released during the dash out: the dash finishes, then the hold ends on its first frame (the engine has no
-// cancel for TRAVELING, and HOLD_COOLDOWN still applies). Called after each unpaused tick.
+// Makes the brace follow the button. A press during the dash (including the click that started it, if still
+// held) braces on arrival; letting go ends the brace and stays at the entry. When the arms give out (HOLD_MAX),
+// that press is spent: let go and press again after BRACE_REST. A press during the rest braces when it ends.
+// Called after each unpaused tick and on each press or release (not while paused: a release then applies on resume).
 function reconcileBrace(): void {
-  if (!braceByMouse) return;
-  if (engine.state.player.position.kind === "HOLDING" && !braceDown) engine.backToDesk();
-  const k = engine.state.player.position.kind;
-  if (k === "RETURNING" || k === "DESK") braceByMouse = false;
+  const p = engine.state.player.position;
+  if (wasBracing && p.kind === "STANDING" && braceDown) pressSpent = true; // ended by HOLD_MAX while still held
+  const want = braceDown && !pressSpent;
+  if (p.kind === "TRAVELING" && p.stay) {
+    if (want !== !!p.braceOnArrival) {
+      if (want) engine.startBrace();
+      else engine.endBrace();
+    }
+  } else if (p.kind === "STANDING" && want) {
+    engine.startBrace(); // ignored during BRACE_REST, retried next frame
+  } else if (p.kind === "HOLDING" && p.stay && !braceDown) {
+    engine.endBrace();
+  }
+  wasBracing = engine.state.player.position.kind === "HOLDING";
 }
 
 // ---------------------------------------------------------------------------

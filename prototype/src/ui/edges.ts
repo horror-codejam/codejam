@@ -24,7 +24,8 @@ export class EdgeTurner {
   private armed = true; // false after a turn until the mouse leaves every edge zone
   private since = 0;
   active: Edge | null = null; // the zone the dwell is running in
-  progress = 0; // 0..1 through the dwell, for the indicator
+  progress = 0; // 0..1 through the dwell, for the cursor ring
+  pointer = { x: W / 2, y: H / 2, inside: false }; // unclamped stage px, for the cursor ring
 
   constructor(stage: HTMLElement) {
     window.addEventListener("mousemove", (ev) => {
@@ -32,8 +33,12 @@ export class EdgeTurner {
       if (r.width === 0 || r.height === 0) return;
       this.x = clamp(((ev.clientX - r.left) / r.width) * W, 0, W);
       this.y = clamp(((ev.clientY - r.top) / r.height) * H, 0, H);
+      this.pointer.x = ((ev.clientX - r.left) / r.width) * W;
+      this.pointer.y = ((ev.clientY - r.top) / r.height) * H;
+      this.pointer.inside = this.pointer.x >= 0 && this.pointer.x <= W && this.pointer.y >= 0 && this.pointer.y <= H;
       this.overControl = ev.target instanceof Element && !!ev.target.closest("button, input");
     });
+    document.addEventListener("mouseleave", () => (this.pointer.inside = false));
   }
 
   private zoneFor(view: View): Edge | null {

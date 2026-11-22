@@ -8,6 +8,7 @@ Last updated: 2026-11-21. Owner: Siqi. Read this, then docs/GAME_LOGIC.md, then 
 Iterative, not waterfall: same stack as the final game, art and gameplay added a little at a time.
 
 ## Where things stand
+- Controls are adopted (2026-11-21, branch `proto/v3-controls-edge`, cut from this one): mouse edges to turn, click to go, hold to brace, edge to return, keyboard for chat only. See GAME_LOGIC.md section 6 and IMPLEMENTATION_NOTES.md "Controls (adopted)". Wherever this file mentions map-dot holds, desk hold buttons or the Behind button (below), those were replaced by the adopted controls.
 - Branch: `proto/v3-2.5d`, cut from `proto/playable-loop` (2fbb1b4, Prototype 2.0, already pushed).
 - `origin/main` is merged into it but the merge is NOT committed yet. Conflicts in docs/STATUS.md and docs/DECISIONS.md are resolved and staged. Do not commit or push without Siqi's OK (Siqi has always chosen "playtest first").
 - Done in this branch, uncommitted (steps 1 to 6 below are done):

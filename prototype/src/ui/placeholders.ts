@@ -122,11 +122,7 @@ export function holdView(entry: Entry): (g: Graphics) => void {
       g.rect(200, 30, 880, 660).fill(0x15191e).stroke({ width: 26, color: RIM });
       g.rect(520, 160, 240, 200).fill(NIGHT); // door glass
     }
-    // the player's forearms bracing it
-    g.roundRect(250, 470, 160, 300, 60).fill(0x5a4a40);
-    g.roundRect(870, 470, 160, 300, 60).fill(0x5a4a40);
-    g.roundRect(240, 430, 180, 90, 40).fill(0x6b584c);
-    g.roundRect(860, 430, 180, 90, 40).fill(0x6b584c);
+    // no arms here: the bracing arms are a separate overlay (braceArms below), shown only while bracing
   };
 }
 
@@ -230,4 +226,283 @@ export function onRenderHoldTell(entry: Entry): (g: Graphics) => void {
       g.circle(178, 162, 5).fill({ color: 0xd8e0e8, alpha: 0.7 });
     }
   };
+}
+
+// ---------------------------------------------------------------------------
+// The player's forearms and hands pressed on the entry, shown only while bracing (HOLDING). The hold renders
+// have no arms, so they are painted here on a 2D canvas (soft shading, contact shadow, a dark wool sleeve) in
+// plate px, and the scene grades them with the render. A `brace_arms_<entry>` file replaces the base layer.
+// Two layers per entry: `base` (arms) and `strain` (whitened knuckles and raised tendons, faded in as the arms tire).
+
+interface ArmPose {
+  wx: number; // wrist, plate px
+  wy: number;
+  ex: number; // elbow, off the bottom of the frame
+  ey: number;
+  side: -1 | 1; // -1 left arm, 1 right arm (the thumb points to the middle)
+  s: number; // scale (smaller on the hatch, which is further down)
+}
+
+const ARM_POSES: Record<Entry, ArmPose[]> = {
+  // hands flat on the lower sash, clear of the hand print on the left pane
+  WINDOW: [
+    { wx: 238, wy: 372, ex: 80, ey: 640, side: -1, s: 1.12 },
+    { wx: 682, wy: 352, ex: 860, ey: 640, side: 1, s: 1.12 },
+  ],
+  // pressing the lid down, away from Ram's fingers at the near seam (x 400 to 575)
+  HATCH: [
+    { wx: 285, wy: 360, ex: 110, ey: 620, side: -1, s: 1.0 },
+    { wx: 690, wy: 350, ex: 860, ey: 620, side: 1, s: 1.0 },
+  ],
+  // shoulder to the door, clear of the gap on the left edge
+  BALCONY: [
+    { wx: 392, wy: 375, ex: 290, ey: 640, side: -1, s: 1.2 },
+    { wx: 640, wy: 362, ex: 770, ey: 640, side: 1, s: 1.2 },
+  ],
+};
+
+const ARM_RES = 2; // canvas px per plate px
+
+export function braceArms(entry: Entry): { base: HTMLCanvasElement; strain: HTMLCanvasElement } {
+  const mk = (): [HTMLCanvasElement, CanvasRenderingContext2D] => {
+    const c = document.createElement("canvas");
+    c.width = PLATE_W * ARM_RES;
+    c.height = PLATE_H * ARM_RES;
+    const ctx = c.getContext("2d")!;
+    ctx.scale(ARM_RES, ARM_RES);
+    return [c, ctx];
+  };
+  const [base, b] = mk();
+  const [strain, st] = mk();
+  for (const p of ARM_POSES[entry]) {
+    paintArm(b, p);
+    paintStrain(st, p);
+  }
+  return { base, strain };
+}
+
+// Hand frame: origin at the wrist, -y toward the fingertips. The hand is bent back at the wrist, so it points
+// more upward than the forearm.
+function handFrame(p: ArmPose): { ang: number; fx: number; fy: number } {
+  let dx = p.wx - p.ex;
+  let dy = p.wy - p.ey;
+  const l = Math.hypot(dx, dy);
+  dx /= l;
+  dy /= l;
+  const hx = dx * 0.55;
+  const hy = dy * 0.55 - 1;
+  return { ang: Math.atan2(hx, -hy), fx: dx, fy: dy };
+}
+
+const FINGERS: [number, number, number][] = [
+  // x offset at the knuckles, length, spread angle (left hand; mirrored for the right)
+  [-19, 42, -0.09],
+  [-6.5, 52, -0.03],
+  [6.5, 49, 0.03],
+  [19, 39, 0.08],
+];
+
+function paintArm(ctx: CanvasRenderingContext2D, p: ArmPose): void {
+  const { s } = p;
+  const { ang, fx, fy } = handFrame(p);
+  const nx = -fy; // perpendicular to the forearm
+  const ny = fx;
+  const ww = 23 * s; // half width at the wrist
+  const ew = 50 * s; // half width at the elbow (nearer the camera)
+
+  // contact shadow on the door around the hand
+  ctx.save();
+  ctx.translate(p.wx, p.wy);
+  ctx.rotate(ang);
+  const sh = ctx.createRadialGradient(5 * s, -52 * s, 20 * s, 5 * s, -52 * s, 62 * s);
+  sh.addColorStop(0, "rgba(0,0,0,0.38)");
+  sh.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = sh;
+  ctx.beginPath();
+  ctx.ellipse(5 * s, -52 * s, 50 * s, 64 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // forearm: a tapered quad, lit from above (the lit edge is the upper one)
+  const quad = (): void => {
+    ctx.beginPath();
+    ctx.moveTo(p.wx + nx * ww, p.wy + ny * ww);
+    ctx.lineTo(p.ex + nx * ew, p.ey + ny * ew);
+    ctx.lineTo(p.ex - nx * ew, p.ey - ny * ew);
+    ctx.lineTo(p.wx - nx * ww, p.wy - ny * ww);
+    ctx.closePath();
+  };
+  const mx = (p.wx + p.ex) / 2;
+  const my = (p.wy + p.ey) / 2;
+  const across = ctx.createLinearGradient(mx - nx * ew, my - ny * ew, mx + nx * ew, my + ny * ew);
+  const litFirst = ny < 0; // which side faces up
+  const stops = ["#3a2c26", "#6e5a50", "#8f7868", "#5a463c", "#241a16"];
+  (litFirst ? [...stops].reverse() : stops).forEach((c, i) => across.addColorStop(i / 4, c));
+  ctx.fillStyle = across;
+  quad();
+  ctx.fill();
+  ctx.save();
+  quad();
+  ctx.clip();
+  const along = ctx.createLinearGradient(p.wx, p.wy, p.ex, p.ey);
+  along.addColorStop(0, "rgba(0,0,0,0)");
+  along.addColorStop(1, "rgba(0,0,0,0.6)");
+  ctx.fillStyle = along;
+  ctx.fillRect(0, 0, PLATE_W, PLATE_H);
+  ctx.restore();
+
+  // sleeve: dark wool pushed up the forearm, a cuff and a few folds
+  const t0 = 0.26;
+  const sx = p.wx + (p.ex - p.wx) * t0;
+  const sy = p.wy + (p.ey - p.wy) * t0;
+  const sw = (ww + (ew - ww) * t0) * 1.22;
+  const ew2 = ew * 1.25;
+  ctx.beginPath();
+  ctx.moveTo(sx + nx * sw, sy + ny * sw);
+  ctx.quadraticCurveTo(sx + fx * -6, sy + fy * -6, sx - nx * sw, sy - ny * sw);
+  ctx.lineTo(p.ex - nx * ew2, p.ey - ny * ew2);
+  ctx.lineTo(p.ex + nx * ew2, p.ey + ny * ew2);
+  ctx.closePath();
+  const wool = ctx.createLinearGradient(sx - nx * sw, sy - ny * sw, sx + nx * sw, sy + ny * sw);
+  const wstops = ["#121114", "#2a2729", "#36312f", "#1d1b1c", "#0b0a0c"];
+  (litFirst ? [...wstops].reverse() : wstops).forEach((c, i) => wool.addColorStop(i / 4, c));
+  ctx.fillStyle = wool;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.5)";
+  ctx.lineWidth = 2;
+  for (let i = 1; i <= 3; i++) {
+    const k = i * 0.12;
+    const fx0 = sx + (p.ex - sx) * k;
+    const fy0 = sy + (p.ey - sy) * k;
+    const w = sw * (0.55 + 0.1 * i);
+    ctx.beginPath();
+    ctx.moveTo(fx0 + nx * w, fy0 + ny * w);
+    ctx.quadraticCurveTo(fx0 + fx * 8, fy0 + fy * 8, fx0 - nx * w * 0.4, fy0 - ny * w * 0.4);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(150,140,130,0.35)"; // cuff edge catching the light
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(sx + nx * sw, sy + ny * sw);
+  ctx.quadraticCurveTo(sx + fx * -6, sy + fy * -6, sx - nx * sw, sy - ny * sw);
+  ctx.stroke();
+
+  // hand, seen from the back, flat on the surface
+  ctx.save();
+  ctx.translate(p.wx, p.wy);
+  ctx.rotate(ang);
+  ctx.scale(s * (p.side === 1 ? -1 : 1), s); // draw a left hand, mirror for the right
+  const skin = ctx.createLinearGradient(0, 4, 0, -100);
+  skin.addColorStop(0, "#5e4a40");
+  skin.addColorStop(0.5, "#7c665a");
+  skin.addColorStop(1, "#927a6a");
+  ctx.fillStyle = skin;
+  ctx.strokeStyle = "rgba(12,8,6,0.45)";
+  ctx.lineWidth = 1.2;
+  // thumb, toward the middle (+x for the left hand), pressed flat
+  ctx.save();
+  ctx.translate(18, -10);
+  ctx.rotate(0.5);
+  ctx.beginPath();
+  ctx.moveTo(-9, 6);
+  ctx.quadraticCurveTo(-8, -30, -5, -44);
+  ctx.quadraticCurveTo(0, -50, 5, -44);
+  ctx.quadraticCurveTo(9, -24, 10, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+  // fingers
+  for (const [x, len, a] of FINGERS) {
+    ctx.save();
+    ctx.translate(x, -54);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.moveTo(-6.5, 8);
+    ctx.lineTo(-5.2, -len + 6);
+    ctx.quadraticCurveTo(0, -len - 2, 5.2, -len + 6);
+    ctx.lineTo(6.5, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // joint creases and a nail
+    ctx.strokeStyle = "rgba(40,20,12,0.45)";
+    ctx.lineWidth = 1;
+    for (const k of [0.38, 0.7]) {
+      ctx.beginPath();
+      ctx.moveTo(-4, -len * k);
+      ctx.lineTo(4, -len * k);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(190,165,150,0.4)";
+    ctx.beginPath();
+    ctx.roundRect(-4, -len + 2, 8, 9, 3.5);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = skin;
+    ctx.strokeStyle = "rgba(12,8,6,0.45)";
+    ctx.lineWidth = 1.2;
+  }
+  // back of the hand (over the finger roots)
+  ctx.beginPath();
+  ctx.moveTo(-20, 4);
+  ctx.bezierCurveTo(-26, -20, -30, -40, -27, -58);
+  ctx.quadraticCurveTo(0, -66, 27, -58);
+  ctx.bezierCurveTo(30, -38, 26, -16, 20, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // knuckles
+  ctx.fillStyle = "rgba(190,165,150,0.3)";
+  for (const [x] of FINGERS) {
+    ctx.beginPath();
+    ctx.ellipse(x, -56, 5.5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // shadow side of the hand
+  const side = ctx.createLinearGradient(-28, 0, 28, 0);
+  side.addColorStop(0, "rgba(0,0,0,0.35)");
+  side.addColorStop(0.5, "rgba(0,0,0,0)");
+  side.addColorStop(1, "rgba(0,0,0,0.1)");
+  ctx.fillStyle = side;
+  ctx.beginPath();
+  ctx.moveTo(-20, 4);
+  ctx.bezierCurveTo(-26, -20, -30, -40, -27, -58);
+  ctx.quadraticCurveTo(0, -66, 27, -58);
+  ctx.bezierCurveTo(30, -38, 26, -16, 20, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function paintStrain(ctx: CanvasRenderingContext2D, p: ArmPose): void {
+  const { ang } = handFrame(p);
+  ctx.save();
+  ctx.translate(p.wx, p.wy);
+  ctx.rotate(ang);
+  ctx.scale(p.s * (p.side === 1 ? -1 : 1), p.s);
+  // tendons standing out from the wrist to each knuckle
+  ctx.strokeStyle = "rgba(200,175,160,0.22)";
+  ctx.lineWidth = 2.4;
+  for (const [x] of FINGERS) {
+    ctx.beginPath();
+    ctx.moveTo(x * 0.35, -4);
+    ctx.quadraticCurveTo(x * 0.8, -30, x, -52);
+    ctx.stroke();
+  }
+  // knuckles and fingertips going pale under the pressure
+  ctx.fillStyle = "rgba(225,200,188,0.45)";
+  for (const [x, len, a] of FINGERS) {
+    ctx.beginPath();
+    ctx.ellipse(x, -56, 6, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(x, -54);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.ellipse(0, -len + 7, 5, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 }

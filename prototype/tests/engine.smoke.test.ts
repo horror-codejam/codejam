@@ -241,3 +241,142 @@ describe("engine smoke", () => {
     expect(new Set(claims).size).toBe(1);
   });
 });
+
+// Edge-controls flow (docs/CONTROLS_PROPOSAL.md): click to go, hold to brace, edge to return.
+describe("edge-controls brace flow", () => {
+  // Visit 1: approach 10..16, attempt window 16..21. No silence ticks, so timing is fixed.
+  const config = cfgWith(1, { firstVisitDelay: 10, approachTime: 6, atEntryTime: 5 }, { SILENCE_LIMIT: 10000 });
+  const other = (e: Entry): Entry => (e === "HATCH" ? "WINDOW" : "HATCH");
+
+  // Walks to `entry` at `leaveAt` (TRAVELING until leaveAt + TRAVEL_TIME). Returns the engine and Ram's target.
+  function goAt(leaveAt: number, pick: (target: Entry) => Entry = (t) => t) {
+    const e = playing({ config });
+    runUntil(e, leaveAt);
+    if (leaveAt >= 10) expect(e.state.ram.state).toBe("APPROACHING");
+    const target = e.state.ram.target ?? "HATCH"; // before the visit, no target yet
+    const entry = pick(target);
+    e.turn(entry);
+    e.goToEntry(entry);
+    expect(e.state.player.position.kind).toBe("TRAVELING");
+    return { e, target, entry };
+  }
+
+  it("one click travels, then the player stands idle at the entry (not holding)", () => {
+    const e = playing({ config });
+    e.goToEntry("WINDOW"); // must look at it first
+    expect(e.state.player.position.kind).toBe("DESK");
+    e.turn("WINDOW");
+    e.goToEntry("WINDOW");
+    expect(e.state.player.position).toMatchObject({ kind: "TRAVELING", entry: "WINDOW", stay: true });
+    run(e, CONFIG.TRAVEL_TIME - T);
+    expect(e.state.player.position.kind).toBe("TRAVELING");
+    run(e, T);
+    expect(e.state.player.position).toMatchObject({ kind: "STANDING", entry: "WINDOW" });
+    expect(e.state.player.view).toBe("WINDOW");
+    expect(e.isDefended("WINDOW")).toBe(false);
+    // no typing, quick buttons or turning while away from the desk
+    expect(e.submitMessage("hello")).toEqual({ ok: false, reason: "NOT_AT_DESK" });
+    e.turn("HATCH");
+    expect(e.state.player.view).toBe("WINDOW");
+    e.pressQuick("LOCK_WINDOW");
+    expect(e.state.power.pending).toBeNull();
+  });
+
+  it("bracing defends; standing idle at the right entry breaches", () => {
+    const braced = goAt(12).e;
+    runUntil(braced, 17);
+    expect(braced.state.player.position.kind).toBe("STANDING");
+    braced.startBrace();
+    expect(braced.state.player.position).toMatchObject({ kind: "HOLDING", stay: true });
+    run(braced, 5, () => {}, () => braced.state.ram.state === "RETREATING");
+    expect(braced.state.phase).toBe("PLAYING");
+    expect(braced.state.ram.state).toBe("RETREATING");
+
+    const idle = goAt(12).e;
+    run(idle, 12);
+    expect(idle.state.phase).toBe("BREACH");
+    expect(idle.state.loss?.cause).toBe("UNLOCKED");
+  });
+
+  it("releasing ends the brace but stays at the entry, and the next brace waits for BRACE_REST", () => {
+    const { e, entry } = goAt(2, () => "WINDOW");
+    run(e, CONFIG.TRAVEL_TIME);
+    e.startBrace();
+    run(e, 1);
+    e.drainEvents();
+    e.endBrace();
+    expect(e.state.player.position).toMatchObject({ kind: "STANDING", entry });
+    expect(e.drainEvents()).toContainEqual({ type: "HOLD_ENDED", entry, reason: "manual" });
+    e.startBrace();
+    expect(e.state.player.position.kind).toBe("STANDING");
+    run(e, CONFIG.BRACE_REST - T);
+    e.startBrace();
+    expect(e.state.player.position.kind).toBe("STANDING");
+    run(e, T);
+    e.startBrace();
+    expect(e.state.player.position.kind).toBe("HOLDING");
+  });
+
+  it("HOLD_MAX ends a brace (armsGaveOut while he is there), the player stays and can re-brace after the rest", () => {
+    // pressed during the dash: the brace starts on arrival at 13.5, the arms give out at 19.5 (window 16..21)
+    const gaveOut = goAt(12).e;
+    gaveOut.startBrace();
+    run(gaveOut, CONFIG.TRAVEL_TIME);
+    expect(gaveOut.state.player.position).toMatchObject({ kind: "HOLDING", since: 12 + CONFIG.TRAVEL_TIME });
+    const ended: GameEvent[] = [];
+    run(gaveOut, CONFIG.HOLD_MAX + T, (ev) => ev.type === "HOLD_ENDED" && ended.push(ev));
+    expect(ended).toEqual([{ type: "HOLD_ENDED", entry: gaveOut.state.ram.target, reason: "arms" }]);
+    expect(gaveOut.state.player.position.kind).toBe("STANDING");
+    expect(gaveOut.state.log.visit.armsGaveOut).toBe(true);
+    run(gaveOut, 5);
+    expect(gaveOut.state.phase).toBe("BREACH");
+    expect(gaveOut.state.loss?.cause).toBe("ARMS_GAVE_OUT");
+
+    const rebrace = goAt(12).e;
+    rebrace.startBrace();
+    runUntil(rebrace, 12 + CONFIG.TRAVEL_TIME + CONFIG.HOLD_MAX + CONFIG.BRACE_REST);
+    rebrace.startBrace();
+    expect(rebrace.state.player.position.kind).toBe("HOLDING");
+    run(rebrace, 3);
+    expect(rebrace.state.phase).toBe("PLAYING");
+    expect(rebrace.state.ram.state).toBe("RETREATING");
+  });
+
+  it("a press during the dash that is released before arrival arrives idle", () => {
+    const { e } = goAt(2);
+    e.startBrace();
+    e.endBrace();
+    run(e, CONFIG.TRAVEL_TIME);
+    expect(e.state.player.position.kind).toBe("STANDING");
+  });
+
+  it("returnToDesk goes RETURNING then DESK, also mid-brace, and HOLD_COOLDOWN gates the next trip", () => {
+    const { e, entry } = goAt(2, () => "WINDOW");
+    run(e, CONFIG.TRAVEL_TIME);
+    e.startBrace();
+    run(e, 1);
+    const leftAt = e.state.clock.elapsed;
+    e.returnToDesk();
+    expect(e.state.player.position).toMatchObject({ kind: "RETURNING", from: entry });
+    run(e, CONFIG.TRAVEL_TIME);
+    expect(e.state.player.position.kind).toBe("DESK");
+    expect(e.state.player.view).toBe("DESK");
+    e.turn("WINDOW");
+    e.goToEntry("WINDOW");
+    expect(e.state.player.position.kind).toBe("DESK");
+    runUntil(e, leftAt + CONFIG.HOLD_COOLDOWN);
+    e.goToEntry("WINDOW");
+    expect(e.state.player.position.kind).toBe("TRAVELING");
+  });
+
+  it("standing or bracing at another entry loses with WRONG_HOLD", () => {
+    for (const brace of [false, true]) {
+      const { e, target, entry } = goAt(12, other);
+      runUntil(e, 17);
+      if (brace) e.startBrace();
+      run(e, 10);
+      expect(e.state.phase).toBe("BREACH");
+      expect(e.state.loss).toMatchObject({ cause: "WRONG_HOLD", entry: target, heldEntry: entry });
+    }
+  });
+});

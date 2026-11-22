@@ -11,7 +11,7 @@
 import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
-import { CONTROLS } from "../uiConfig";
+import { BRACE, CONTROLS } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
@@ -32,6 +32,8 @@ interface EntryLayers {
 interface HoldLayers {
   root: Container;
   tell: Container;
+  arms: Container; // the player's arms on the entry, only while bracing
+  strain: Sprite | null; // whitened knuckles over the coded arms, faded in with fatigue
   render: boolean;
 }
 
@@ -68,6 +70,13 @@ export class Scene {
   private turnDir = 1; // +1: the picture moves right (turning left), -1: moves left
   private turnDur = CONTROLS.TURN_TIME;
   private lastDashing = false;
+  private braceK = 0; // 0 standing at an entry, 1 bracing it (eased): the camera leans in while bracing
+  private armsK = 0; // 0 arms down out of frame, 1 arms on the entry (eased faster than braceK)
+  private fxT = 0; // effect clock: real seconds that stop while paused (brace shake, Ram's shoves)
+  private wasBracing = false;
+  private lungeAt = -10; // fxT of the last brace start (push-in)
+  private relaxAt = -10; // fxT of the last brace end (relax-back)
+  private pushIdx = -1; // index of Ram's current shove, to fire onRamPush once per shove
   private desk = new Container();
   private deskRender: boolean;
   private sweep = new Container();
@@ -93,6 +102,8 @@ export class Scene {
   speakingUntil = 0; // real seconds, set by the UI on CHUD_SAY (the DOM face reads it)
   jumpscare: Entry | null = null;
   onThunder: (() => void) | null = null;
+  onRamPush: ((entry: Entry) => void) | null = null; // once per shove while bracing an entry Ram is at
+  paused = false; // UI pause: the brace effects freeze
   fadeAlpha = 0; // how black the stage is right now (the DOM terminal follows it)
 
   constructor(app: Application) {
@@ -111,19 +122,20 @@ export class Scene {
       this.desk.addChild(new Graphics().rect(f.x, f.y, f.w, f.h).fill(0x020604));
     }
     const gl = DESK_GLAZING;
-    const glazingMask = new Graphics().rect(gl.x, gl.y, gl.w, gl.h).fill(0xffffff);
     this.sweepBand = new Sprite(makeBandTexture());
     this.sweepBand.width = SWEEP_W;
     this.sweepBand.height = gl.h;
     this.sweepBand.y = gl.y;
     this.sweepBand.blendMode = "add";
+    // No mask: the band is exactly the glazing height and the glazing spans the plate width, so it never leaves the
+    // glazing on screen. A rect mask turns into a stencil mask once the camera rolls (dash, bracing), and inside the
+    // RenderTexture that stencil state broke the frame (the glazing area showed a shifted copy of the plate).
     this.sweep.addChild(this.sweepBand);
-    this.sweep.mask = glazingMask;
     this.sweepWash.rect(0, 0, PLATE_W, PLATE_H).fill(0xffb050);
     this.sweepWash.blendMode = "add";
     this.lightning.rect(gl.x, gl.y, gl.w, gl.h).fill({ color: 0xcfe0ff, alpha: 1 });
     this.lightning.alpha = 0;
-    this.light.addChild(glazingMask, this.sweep, this.sweepWash, this.lightning);
+    this.light.addChild(this.sweep, this.sweepWash, this.lightning);
     this.cam.addChild(this.desk);
 
     for (const e of ENTRIES) {
@@ -150,10 +162,27 @@ export class Scene {
       const holdRender = hasArt(`hold_${k}`);
       const hold = new Container();
       const holdTell = holdRender ? slot(`hold_tell_${k}`, P.onRenderHoldTell(e), "plate") : slot(`hold_tell_${k}`, P.holdTell(e), "stage");
-      hold.addChild(slot(`hold_${k}`, P.holdView(e), "stage"), holdTell);
+      // the arms: `brace_arms_<entry>` art, else the painted overlay (P.braceArms). Placeholders are not graded,
+      // so the painted arms are darkened by a tint to sit with them.
+      const arms = new Container();
+      let strain: Sprite | null = null;
+      if (hasArt(`brace_arms_${k}`)) {
+        arms.addChild(slot(`brace_arms_${k}`, () => undefined, "plate"));
+      } else {
+        const painted = P.braceArms(e);
+        const base = new Sprite(Texture.from(painted.base));
+        strain = new Sprite(Texture.from(painted.strain));
+        for (const sp of [base, strain]) {
+          sp.scale.set(PLATE_W / painted.base.width);
+          if (!holdRender) sp.tint = 0x6a6a72;
+        }
+        arms.addChild(base, strain);
+      }
+      arms.visible = false;
+      hold.addChild(slot(`hold_${k}`, P.holdView(e), "stage"), holdTell, arms);
       hold.visible = false;
       this.cam.addChild(hold);
-      this.holds.set(e, { root: hold, tell: holdTell, render: holdRender });
+      this.holds.set(e, { root: hold, tell: holdTell, arms, strain, render: holdRender });
     }
 
     this.dashRender = hasArt("dash_floor");
@@ -227,9 +256,14 @@ export class Scene {
     const beam = s.power.slot === "BEAM";
     const dt = Math.min(0.1, Math.max(0, t - this.lastT));
     this.lastT = t;
+    const fdt = this.paused ? 0 : dt;
+    this.fxT += fdt;
+    const ft = this.fxT;
 
     // which picture is up
-    const holding = pos.kind === "HOLDING" ? pos.entry : null;
+    // the hold view shows while bracing (HOLDING) and while standing at the entry (edge controls, STANDING)
+    const holding = pos.kind === "HOLDING" || pos.kind === "STANDING" ? pos.entry : null;
+    const bracing = pos.kind === "HOLDING";
     const dashing = pos.kind === "TRAVELING" || pos.kind === "RETURNING";
     const view: View = s.player.view;
     if (view !== this.lastView) {
@@ -272,6 +306,15 @@ export class Scene {
       // hatch lid shudders while he is at it
       L.root.y = e === "HATCH" && L.tell.visible ? Math.sin(t * 60) * 1.5 : 0;
     }
+    // bracing: fatigue (0..1 over HOLD_MAX), push-in on press, relax-back on release, Ram's shoves
+    if (bracing !== this.wasBracing) {
+      if (bracing) this.lungeAt = ft;
+      else if (holding) this.relaxAt = ft;
+      this.wasBracing = bracing;
+    }
+    const fatigue = pos.kind === "HOLDING" ? clamp((s.clock.elapsed - pos.since) / CONFIG.HOLD_MAX, 0, 1) : 0;
+    this.armsK += ((bracing ? 1 : 0) - this.armsK) * (1 - Math.exp(-fdt * BRACE.ARMS_EASE));
+    let pushing = false;
     for (const [e, L] of this.holds) {
       L.root.visible = holding === e;
       if (holding !== e) continue;
@@ -279,7 +322,39 @@ export class Scene {
       const vis = engine.ramVisual(e);
       L.tell.visible = vis === "tell_faint" || vis === "tell_clear";
       L.tell.alpha = vis === "tell_clear" ? 1 : L.render ? 0.6 : 0.45;
-      L.root.y = L.tell.visible ? Math.sin(t * 50) * 2.5 : 0;
+      pushing = bracing && L.tell.visible;
+    }
+    // one shove per PUSH_PERIOD: a sharp knock then a slow give (0..1)
+    let push = 0;
+    let pushSide = 1;
+    if (pushing) {
+      const n = Math.floor(ft / BRACE.PUSH_PERIOD);
+      const ph = (ft / BRACE.PUSH_PERIOD) % 1;
+      push = ph < 0.1 ? ph / 0.1 : Math.exp(-(ph - 0.1) * 6);
+      pushSide = n % 2 === 0 ? 1 : -1;
+      if (n !== this.pushIdx) {
+        this.pushIdx = n;
+        if (!this.paused && holding) this.onRamPush?.(holding);
+      }
+    } else {
+      this.pushIdx = -1;
+    }
+    // tremor: three incommensurate sines (organic, not random jitter), -1..1
+    const tr = (ph: number): number =>
+      (Math.sin(ft * BRACE.TREMOR_HZ * 6.283 + ph) + 0.6 * Math.sin(ft * BRACE.TREMOR_HZ * 1.73 * 6.283 + ph * 2.1) + 0.35 * Math.sin(ft * BRACE.TREMOR_HZ * 2.91 * 6.283 + ph * 3.7)) / 1.95;
+    const strainK = this.braceK * (1 + BRACE.FATIGUE_GAIN * fatigue);
+    const tremorPx = BRACE.TREMOR_PX * strainK + BRACE.PUSH_TREMOR * push * this.braceK;
+    const shakeX = BRACE.SWAY_PX * strainK * Math.sin(ft * BRACE.SWAY_HZ * 6.283) + tremorPx * tr(0);
+    const shakeY = BRACE.SWAY_PX * 0.7 * strainK * Math.sin(ft * BRACE.SWAY_HZ * 0.77 * 6.283 + 1) + tremorPx * tr(1.3) - BRACE.PUSH_PX * push;
+    if (holding) {
+      const L = this.holds.get(holding)!;
+      L.arms.visible = this.armsK > 0.01;
+      L.arms.alpha = Math.min(1, this.armsK * 1.4);
+      L.arms.position.set(
+        BRACE.ARMS_TREMOR * tremorPx * tr(2.6),
+        (1 - this.armsK) * BRACE.ARMS_DROP + BRACE.ARMS_SLIP * fatigue + BRACE.ARMS_PUSH * push + BRACE.ARMS_TREMOR * tremorPx * tr(4.1),
+      );
+      if (L.strain) L.strain.alpha = Math.min(1, Math.max(0, (fatigue - 0.25) / 0.75) + 0.4 * push);
     }
     this.dash.visible = dashing;
     if (dashing && this.dashRender) grade = GRADE_DARK;
@@ -333,17 +408,34 @@ export class Scene {
       this.cam.rotation = Math.sin(t * 7) * 0.02;
       zoom = 1.05; // covers the corners while the camera rolls
     } else {
+      this.braceK += ((bracing ? 1 : 0) - this.braceK) * (1 - Math.exp(-fdt * 12));
+      if (holding) {
+        // standing: a step back from the entry, bracing: leaning into it, straining, shoved by Ram
+        const bump = (since: number, dur: number): number => {
+          const k = (ft - since) / dur;
+          return k < 0 || k >= 1 ? 0 : Math.sin(Math.PI * Math.pow(k, 0.6)); // fast attack, slower settle
+        };
+        const lunge = bump(this.lungeAt, BRACE.LUNGE_TIME);
+        const relax = bump(this.relaxAt, BRACE.RELAX_TIME);
+        zoom = 1 + BRACE.LEAN_ZOOM * this.braceK + BRACE.LUNGE_ZOOM * lunge + BRACE.RELAX_ZOOM * relax + BRACE.PUSH_ZOOM * push;
+        ox += shakeX;
+        oy += shakeY + BRACE.LUNGE_PX * lunge + BRACE.RELAX_PX * relax;
+        this.cam.rotation = BRACE.PUSH_ROT * push * pushSide + 0.002 * strainK * Math.sin(ft * BRACE.SWAY_HZ * 0.9 * 6.283 + 2);
+      }
       ox += Math.sin(t * 0.6) * 4;
       oy += Math.sin(t * 0.43) * 3;
     }
     // never pan past the plate edge
-    const mx = (PLATE_W * K * zoom - W) / 2;
-    const my = (PLATE_H * K * zoom - H) / 2;
+    // (a rolled camera needs a little more margin so the corners stay covered)
+    const roll = dashing ? 0 : Math.abs(this.cam.rotation) * W;
+    const mx = (PLATE_W * K * zoom - W) / 2 - roll;
+    const my = (PLATE_H * K * zoom - H) / 2 - roll;
     this.cam.scale.set(K * zoom);
     this.cam.position.set(W / 2 + clamp(ox, -mx, mx), H / 2 + clamp(oy, -my, my));
     this.light.position.copyFrom(this.cam.position);
     this.light.scale.copyFrom(this.cam.scale);
     this.light.rotation = this.cam.rotation;
+    this.light.visible = onDesk; // desk-only effects (sweep, lightning): nothing to draw anywhere else
 
     // turn: a fast slide with motion blur (edge controls), or the old fade from black after a dash
     const turnK = (t - this.turnStartedAt) / (this.turnSlide ? this.turnDur : 0.25);
