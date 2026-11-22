@@ -306,7 +306,7 @@ export class Scene {
     window.addEventListener("mousemove", (ev) => {
       const r = app.canvas.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) return;
-      this.overDeskControl = ev.target instanceof Element && !!ev.target.closest("#terminal button, #terminal input");
+      this.overDeskControl = ev.target instanceof Element && !!ev.target.closest("#terminal button, #terminal input, #artifacts button");
       this.mouse.x = clamp(((ev.clientX - r.left) / r.width) * 2 - 1, -1, 1);
       this.mouse.y = clamp(((ev.clientY - r.top) / r.height) * 2 - 1, -1, 1);
     });

@@ -50,6 +50,9 @@ import {
   type View,
 } from "./types";
 
+const NIGHT_ARTIFACTS = ["clipping", "calendar", "notebook"] as const;
+export type DeskArtifact = (typeof NIGHT_ARTIFACTS)[number];
+
 // ---------------------------------------------------------------------------
 // Rule constants (not tuning)
 // ---------------------------------------------------------------------------
@@ -758,9 +761,13 @@ export class GameEngine implements IGameEngine {
   }
 
   // Desk artifacts (section 6.6): reading is full-screen, the night keeps running, and nothing else can be done.
+  get deskArtifact(): DeskArtifact | undefined {
+    return this.isPracticing ? undefined : NIGHT_ARTIFACTS[this.state.run.night - 1];
+  }
+
   pickUpArtifact(id: string): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.reading !== null || !id) return;
+    if (s.phase !== "PLAYING" || s.player.reading !== null || id !== this.deskArtifact) return;
     if (s.player.position.kind !== "DESK" || s.player.view !== "DESK") return;
     s.player.reading = id;
     this.emit({ type: "ARTIFACT", id });

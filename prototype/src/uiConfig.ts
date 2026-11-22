@@ -1,6 +1,8 @@
 // UI-only tuning knobs for the edge controls (docs/CONTROLS_PROPOSAL.md, branch proto/v3-controls-edge).
 // Not game rules: nothing in src/sim reads this file. Game timers (TRAVEL_TIME, HOLD_MAX, HOLD_COOLDOWN, BRACE_REST) stay in config.ts.
 
+import type { DeskArtifact } from "./sim/engine";
+
 export const CHUD_SPEECH = {
   REQUEST_TIMEOUT_MS: 3000,
   HOSTED_TIMEOUT_MS: 32000, // a cold Python function may need to fetch the pinned model
@@ -60,16 +62,13 @@ export const BRACE = {
   ARMS_TREMOR: 0.6, // the arms shake this many times the camera tremor on top (in plate px), so they work against the door
 };
 
-// Desk artifacts (GAME_LOGIC 6.6): clickable papers on the desk, in plate px (960 x 480), drawn as small dim thumbnails
-// of their art. Placed for the final desk plate (final/webp/view_desk_off.webp): on the monitor's base slab either side
-// of the keyboard (slab y 372 to 428, keyboard from x 356), below the monitor, inside the centre view at any pan.
-export const ARTIFACTS_ENABLED = false;
-
-export const ARTIFACTS: { id: string; slot: string; label: string; rect: { x: number; y: number; w: number; h: number }; tilt: number }[] = [
-  { id: "clipping", slot: "artifact_clipping", label: "Newspaper clipping", rect: { x: 205, y: 380, w: 52, h: 38 }, tilt: -4 },
-  { id: "notebook", slot: "artifact_notebook", label: "Notebook", rect: { x: 272, y: 382, w: 50, h: 36 }, tilt: 3 },
-  { id: "calendar", slot: "artifact_calendar", label: "Calendar", rect: { x: 690, y: 376, w: 44, h: 42 }, tilt: 2 },
-];
+// In the final desk plate (960 x 480), the lower tabletop starts at y 431. The paper centers sit left of
+// the keyboard. Width and height describe the paper before foreshortening.
+export const ARTIFACTS = {
+  clipping: { slot: "artifact_clipping", label: "Newspaper clipping", paper: { x: 280, y: 447, w: 94, h: 103 }, tilt: -6 },
+  calendar: { slot: "artifact_calendar", label: "Leaving calendar", paper: { x: 279, y: 448, w: 100, h: 77 }, tilt: 5 },
+  notebook: { slot: "artifact_notebook", label: "Daniel Vale's diary", paper: { x: 282, y: 448, w: 76, h: 101 }, tilt: -3 },
+} satisfies Record<DeskArtifact, { slot: string; label: string; paper: { x: number; y: number; w: number; h: number }; tilt: number }>;
 
 // The silent breach scare (GAME_LOGIC 7.7 and 5.4), real seconds.
 export const SCARE = {

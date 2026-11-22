@@ -185,8 +185,8 @@ Positions: `DESK`, `TRAVELING(entry)`, `STANDING(entry)`, `HOLDING(entry)`, `RET
 Supply power stays on during the nights. The shared slot can be empty, power a light, or power one lock. CHUD can still cut the active lock or light through its existing behaviors.
 
 ### 6.6 Desk artifacts
-- Three papers lie on the sill above CHUD's screen in the `DESK` view: the newspaper clipping on CHUD's launch, Daniel Vale's notebook, and the leaving calendar. Their clickable rects are in plate px in one UI config (`ARTIFACTS` in `prototype/src/uiConfig.ts`).
-- Click one (only at the `DESK` position and view) to read it full-screen.
+- One paper lies flat on the tabletop next to the keyboard in the `DESK` view. Night 1 has the newspaper clipping, Night 2 the leaving calendar, and Night 3 Daniel Vale's diary entry. Practice and later nights have no desk paper.
+- Click the paper at the `DESK` position and view to open the original image in the center over the dimmed room. The paper and reader use no extra text.
 - **The night keeps running while you read.** While reading you cannot type, turn, press quick buttons or light anything.
 - Put it down with a click, a right-click or Space.
 - If Ram is `INSIDE` when you put it down, the scare fires at once (reason `ARTIFACT`, no flash).

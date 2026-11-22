@@ -67,7 +67,7 @@ Controls: the mouse moves you, Shift is the light, the rest of the keyboard is o
 1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it` and `unlock all` are clickable. ChudGPT can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
 2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
-4. Desk papers are disabled in the release UI. The paper mechanic in GAME_LOGIC.md is available for a later pass.
+4. Read one paper on the tabletop per night. The newspaper clipping, leaving calendar and Daniel Vale's diary appear on Nights 1, 2 and 3. Clicking the paper opens the image in the center while the night keeps running.
 
 The release uses final room plates and per-entry scare sequences. Missing run footage uses a dip to black with camera shake, and missing turn footage uses the still-plate slide. The Night 5 ending shows its text on black before credits.
 

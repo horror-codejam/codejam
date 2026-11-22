@@ -25,7 +25,7 @@ import { renderSafetyPause } from "./ui/screens/safety";
 import { clearSave, readSave, writeSave, type SavedRun } from "./ui/screens/save";
 import { GAME_TITLE, renderTitle } from "./ui/screens/title";
 import type { createArtifacts } from "./ui/artifacts";
-import { ARTIFACTS_ENABLED, MALICE, RING, SCARE } from "./uiConfig";
+import { MALICE, RING, SCARE } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -130,10 +130,8 @@ async function boot(): Promise<void> {
   fit();
   window.addEventListener("resize", fit);
   wireInput();
-  if (ARTIFACTS_ENABLED) {
-    const { createArtifacts } = await import("./ui/artifacts");
-    artifacts = createArtifacts($("ui"), scene, () => engine);
-  }
+  const { createArtifacts } = await import("./ui/artifacts");
+  artifacts = createArtifacts($("ui"), scene, () => engine);
   buildDevButtons();
   initDev();
   if (!deepNight) showTitle();
@@ -276,10 +274,8 @@ function onEvent(ev: GameEvent, t: number): void {
       if (ev.band === "JEALOUS" || ev.band === "FURIOUS") maliciousUntil = Math.max(maliciousUntil, t + MALICE.LIGHT_CUT_TIME);
       break;
     case "ARTIFACT":
-      if (artifacts) {
-        sound.paper();
-        artifacts.read(ev.id);
-      }
+      sound.paper();
+      artifacts?.read(ev.id);
       break;
     case "CHUD_ONLINE":
       powerFlicker = true;
@@ -414,6 +410,7 @@ function renderHud(t: number): void {
   ui.subtitle.classList.toggle("visible", !!caption);
 
   show(terminal.root, deskView);
+  terminal.root.inert = paused || s.player.reading !== null;
   if (deskView) {
     terminal.root.style.transform = scene.deskScreenTransform();
     terminal.root.style.opacity = String(scene.transitionVisible ? 0 : 1 - scene.fadeAlpha);
@@ -428,7 +425,7 @@ function renderHud(t: number): void {
     terminal.chat.blur();
   }
   powerFlicker = false;
-  artifacts?.render(deskView && s.player.reading === null);
+  artifacts?.render(deskView && s.player.reading === null && ui.screen.classList.contains("hidden") && !scene.transitionVisible);
   if (practicing && playing && !paused) tutorial.render(s);
   else tutorial.hide();
   renderRing();
@@ -489,6 +486,8 @@ function resetScreen(): void {
 
 function showTitle(): void {
   tutorial.hide();
+  artifacts?.read(null);
+  artifacts?.render(false);
   resetScreen();
   frontScreen = "title";
   scene.pauseMedia();
@@ -640,7 +639,7 @@ function setPaused(on: boolean): void {
   paused = on;
   scene.paused = on;
   // Keep Tab and Space from reaching the terminal or the desk papers behind the overlay.
-  terminal.root.inert = on;
+  terminal.root.inert = on || engine.state.player.reading !== null;
   artifacts?.pause(on);
   if (on) {
     tutorial.hide();
@@ -758,7 +757,7 @@ function onKey(e: KeyboardEvent): void {
     return;
   }
   if (paused) return;
-  if (ARTIFACTS_ENABLED && s.player.reading !== null) {
+  if (s.player.reading !== null) {
     if (e.code === "Space") {
       e.preventDefault();
       engine.putDownArtifact();
@@ -791,7 +790,7 @@ function edgeTurn(t: number): void {
   const pos = s.player.position;
   // At an entry (standing or bracing) only the return edge exists: it runs back to the desk.
   const atEntry = pos.kind === "STANDING" || (pos.kind === "HOLDING" && !!pos.stay);
-  const enabled = !paused && s.phase === "PLAYING" && (pos.kind === "DESK" || atEntry);
+  const enabled = !paused && s.phase === "PLAYING" && s.player.reading === null && (pos.kind === "DESK" || atEntry);
   const from = s.player.view;
   const to = edges.update(from, enabled, t);
   if (!to) return;
