@@ -33,6 +33,7 @@ Last updated: 2026-11-21 (late night)
 - Next: playtest Prototype 3.0 and tune the look (grade, tell placement, sweep), then ask the team before committing and pushing. Later: deploy the same Hono app as a Vercel function.
 
 ## Codex (art pre-production)
+- Audio: trimmed the first jumpscare (0:04.84 to 0:07.22) from the supplied CaseOh compilation to `prototype/public/audio/sfx/jumpscare.wav`. The clip includes the source reaction. Reuse rights are unverified.
 - Done: lighthouse style guide, two top-down watch-room schematics with a desk-side chair and braceable right floor hatch, and a catalog of 20 private reference targets.
 - Blockers: screenshot hosts were unreachable from the workspace. No reference images were saved locally.
 - Next: review the schematics, then prepare gameplay concepts in ChatGPT image generation.
