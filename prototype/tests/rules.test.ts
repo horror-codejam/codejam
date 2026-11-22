@@ -250,6 +250,28 @@ describe("a pending question blocks ChudGPT commands", () => {
     expect(e.state.power.slot).toBe("LOCK_WINDOW");
   });
 
+  it("a judge-only lock still runs when nothing newer happened", () => {
+    const e = playing();
+    const r = e.submitMessage("secure the hatch");
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.ticket.parsed.command).toBe("NONE"); // only the judge can read this one
+    e.applyJudge(r.ticket.id, judge({ command_hint: "LOCK", entry_hint: "HATCH" }));
+    wait(e, CONFIG.RELAY_DELAY + 0.1);
+    expect(e.state.power.slot).toBe("LOCK_HATCH");
+  });
+
+  it("a late judge-only lock never overrides a newer map lock", () => {
+    const e = playing();
+    const r = e.submitMessage("secure the hatch");
+    if (!r.ok) throw new Error(r.reason);
+    wait(e, 0.6);
+    e.pressQuick("LOCK_WINDOW");
+    wait(e, CONFIG.RELAY_DELAY + 0.1);
+    e.applyJudge(r.ticket.id, judge({ command_hint: "LOCK", entry_hint: "HATCH" }));
+    wait(e, CONFIG.RELAY_DELAY + 0.1);
+    expect(e.state.power.slot).toBe("LOCK_WINDOW");
+  });
+
   it("the generator switch is a player action and is not blocked", () => {
     const e = playing();
     pend(e);
