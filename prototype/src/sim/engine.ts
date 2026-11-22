@@ -688,9 +688,10 @@ export class GameEngine implements IGameEngine {
     const p = s.power;
     const v = s.player.view;
     const powered = p.generatorOn && p.rebootingUntil === null;
-    const want: PowerSlot | null = s.player.lightHeld && powered && v !== "DESK" && s.player.reading === null ? lightSlot(v) : null;
-    if (want) {
-      if (p.slot === want && !p.pending) return;
+    if (s.player.lightHeld && powered && v !== "DESK" && s.player.reading === null) {
+      const want = lightSlot(v);
+      const alreadyLit = p.slot === want;
+      if (alreadyLit && !p.pending) return;
       // PEEKED (section 11): a lock on Ram's entry dropped for a light while he is on his way or at it.
       const r = s.ram;
       const from = slotEntry(p.slot);
@@ -698,6 +699,10 @@ export class GameEngine implements IGameEngine {
       p.pending = null;
       p.slot = want;
       this.emit({ type: "POWER_CHANGED", slot: want, cause: "light" });
+      const pos = s.player.position.kind;
+      if (!alreadyLit && pos !== "TRAVELING" && pos !== "RETURNING" && this.ramVisual(v) === "tell_clear") {
+        this.emit({ type: "LIGHT_REVEAL", entry: v });
+      }
       this.rollLightCut();
     } else if (isLightSlot(p.slot)) {
       p.slot = "NONE";

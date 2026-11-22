@@ -260,6 +260,7 @@ export type GameEvent =
   | { type: "DECOY"; sound: DecoySound; pan: number } // pan -1 (left) .. 1 (right)
   | { type: "ARTIFACT"; id: string | null } // picked up (id) or put down (null)
   | { type: "LOCK_REFUSED"; entry: Entry } // CHUD hijacked a lock request: the malicious smile
+  | { type: "LIGHT_REVEAL"; entry: Entry } // the lamp just revealed Ram at the viewed entry
   | { type: "LIGHT_CUT"; entry: Entry; band: Band } // CHUD forced the light off: flicker, tick, smile in JEALOUS/FURIOUS
   | { type: "SILENCE_PULL"; newEndsAt: number | null }
   | { type: "POWER_REQUESTED"; target: PowerSlot; landsAt: number }

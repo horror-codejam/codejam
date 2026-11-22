@@ -3,7 +3,7 @@
 // (public/audio/sfx/jumpscare.wav). Synth stand-ins cover everything that has no recording yet.
 
 import type { Band, View } from "../sim/types";
-import { CHUD_SPEECH } from "../uiConfig";
+import { CHUD_SPEECH, LIGHT_REVEAL } from "../uiConfig";
 
 export class Sound {
   private ctx: AudioContext | null = null;
@@ -12,6 +12,8 @@ export class Sound {
   private loops = new Map<string, () => void>();
   private ambient: HTMLAudioElement | null = null;
   private jumpBuf: AudioBuffer | null = null;
+  private lightRevealBuf: AudioBuffer | null = null;
+  private lightRevealSource: AudioBufferSourceNode | null = null;
   private speechGain!: GainNode;
   private speechPan!: StereoPannerNode;
   private speechView: View = "DESK";
@@ -55,7 +57,8 @@ export class Sound {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.storm();
     this.startAmbient();
-    this.loadJumpscare();
+    void this.loadClip("jumpscare.wav").then((buffer) => { this.jumpBuf = buffer; });
+    void this.loadClip("ram-light-reveal.mp3").then((buffer) => { this.lightRevealBuf = buffer; });
   }
 
   private burst(dest: AudioNode, dur: number, type: BiquadFilterType, freq: number, gain: number, q = 1, freqEnd?: number, delay = 0): void {
@@ -108,6 +111,7 @@ export class Sound {
 
   stopCues(): void {
     for (const k of [...this.loops.keys()]) if (k !== "storm") this.stop(k);
+    this.stopLightReveal();
   }
 
   // --- ambience -------------------------------------------------------------
@@ -154,13 +158,16 @@ export class Sound {
     void a.play().catch(() => undefined); // unlock() runs inside a click, so this is allowed
   }
 
-  private loadJumpscare(): void {
+  private async loadClip(name: string): Promise<AudioBuffer | null> {
     const ctx = this.ctx!;
-    void fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare.wav`)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
-      .then((buf) => ctx.decodeAudioData(buf))
-      .then((b) => (this.jumpBuf = b))
-      .catch((err) => console.warn("jumpscare.wav failed to load, using the synth burst", err));
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}audio/sfx/${name}`);
+      if (!response.ok) throw new Error(String(response.status));
+      return await ctx.decodeAudioData(await response.arrayBuffer());
+    } catch (error) {
+      console.warn(`${name} failed to load, using the synthesized fallback`, error);
+      return null;
+    }
   }
 
   // --- Ram is silent (GAME_LOGIC 7.4). Decoys are the house settling, never him. ------
@@ -214,6 +221,35 @@ export class Sound {
     if (!this.ctx) return;
     this.burst(this.master, 0.025, "highpass", on ? 2600 : 1800, 0.12, 1.5);
     if (on) this.tone(this.master, 120, 0.3, "sawtooth", 0.012); // faint lamp hum
+  }
+
+  lightReveal(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (!this.lightRevealBuf) {
+      this.burst(this.master, 0.45, "lowpass", 300, 0.25, 0.7, 90);
+      return;
+    }
+
+    // A new reveal restarts the clap so rapid peeks cannot stack its thunder tail.
+    this.stopLightReveal();
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    gain.gain.value = LIGHT_REVEAL.GAIN;
+    source.buffer = this.lightRevealBuf;
+    source.connect(gain).connect(this.master);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+      if (this.lightRevealSource === source) this.lightRevealSource = null;
+    };
+    source.start(0, LIGHT_REVEAL.START_OFFSET);
+    this.lightRevealSource = source;
+  }
+
+  stopLightReveal(): void {
+    this.lightRevealSource?.stop();
+    this.lightRevealSource = null;
   }
 
   lightTick(): void {

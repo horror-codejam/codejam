@@ -31,6 +31,7 @@ Last updated: 2026-11-21 (late night)
 - Next: team playtest of the new loop (is night 1 tense rather than empty, are PEEKED and refusals fair, light cut rate), tune numbers in prototype/src/config.ts, then commit and PR with the team's go-ahead.
 
 ## Codex (art pre-production)
+- Audio: added the supplied thunder clap when turning on a lamp reveals Ram waiting at that entry. The cue is separate from the loss scare.
 - Audio: wired the local Piper service to CHUD's scripted and generated dialogue on `audio/chud-piper-playback`. It uses the line's mood, plays from the desk, and falls back to the existing subtitle and chime. Setup in `prototype/tools/chud-tts/README.md`.
 - Audio: extracted the full stereo ambience from the supplied `FNAF Ambience Extended.mp4` to `prototype/public/audio/amb/ambient-noise.m4a` without re-encoding. Reuse rights are unverified.
 - Audio: trimmed the first jumpscare (0:04.84 to 0:07.22) from the supplied CaseOh compilation to `prototype/public/audio/sfx/jumpscare.wav`. The clip includes the source reaction. Reuse rights are unverified.

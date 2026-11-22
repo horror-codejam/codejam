@@ -379,6 +379,66 @@ describe("Shift light (section 6.1), one power slot, locked = blind, PEEKED", ()
     }
   });
 
+  it.each(ENTRIES)("cues the reveal at %s once per light activation", (entry) => {
+    const e = playing({ startNight: 2 });
+    e.devSendRam(entry);
+    runUntil(e, e.state.ram.stateEndsAt + T);
+    expect(e.state.ram.state).toBe("AT_ENTRY");
+    e.turn(entry);
+    e.drainEvents();
+
+    e.setLight(true);
+    e.setLight(true);
+    expect(e.drainEvents().filter((event) => event.type === "LIGHT_REVEAL"))
+      .toEqual([{ type: "LIGHT_REVEAL", entry }]);
+
+    e.setLight(false);
+    expect(e.drainEvents().some((event) => event.type === "LIGHT_REVEAL")).toBe(false);
+    e.setLight(true);
+    expect(e.drainEvents().filter((event) => event.type === "LIGHT_REVEAL"))
+      .toEqual([{ type: "LIGHT_REVEAL", entry }]);
+  });
+
+  it("keeps the reveal cue quiet for an approach, an arrival under an already lit lamp, or the wrong entry", () => {
+    const e = playing({ startNight: 2 });
+    e.devSendRam("HATCH");
+    e.turn("HATCH");
+    e.setLight(true);
+    expect(e.ramVisual("HATCH")).toBe("approach_silhouette");
+    runUntil(e, e.state.ram.stateEndsAt + T);
+    expect(e.ramVisual("HATCH")).toBe("tell_clear");
+    e.turn("WINDOW");
+    e.setLight(false);
+    e.setLight(true);
+    expect(e.drainEvents().some((event) => event.type === "LIGHT_REVEAL")).toBe(false);
+  });
+
+  it("leaves an inside reveal to the existing jumpscare", () => {
+    const e = playing({ startNight: 2 });
+    e.devForceBreach("HATCH", "NONE");
+    e.turn("HATCH");
+    e.setLight(true);
+    e.tick(T);
+    const events = e.drainEvents();
+    expect(events.some((event) => event.type === "BREACH")).toBe(true);
+    expect(events.some((event) => event.type === "LIGHT_REVEAL")).toBe(false);
+  });
+
+  it("plays the cue when the held light moves to his entry, and stays quiet while the view is hidden by a dash", () => {
+    const e = playing({ startNight: 2 });
+    e.devSendRam("BALCONY");
+    runUntil(e, e.state.ram.stateEndsAt + T);
+    e.setLight(true);
+    e.turn("BALCONY");
+    expect(e.drainEvents()).toContainEqual({ type: "LIGHT_REVEAL", entry: "BALCONY" });
+
+    e.setLight(false);
+    e.goToEntry("BALCONY");
+    e.setLight(true);
+    expect(e.state.player.position.kind).toBe("TRAVELING");
+    expect(e.drainEvents().some((event) => event.type === "LIGHT_REVEAL")).toBe(false);
+  });
+
   it("PEEKED via Shift: dropping his entry's lock for a light, then the window ends before the lock is back", () => {
     const config = cfgWith(2, { atEntryTime: [8, 8], approachTime: 6 }, { ...quiet, LIGHT_CUT: { WARM: 0, HURT: 0, JEALOUS: 0, FURIOUS: 0 } });
     const e = playing({ startNight: 2, config });

@@ -221,15 +221,15 @@ any state but INSIDE --(6:00 AM)--> night won, visit cancelled
 - An `AWAY` gap can never drop below 4 s (or below its own rolled length, if that was shorter, as a quick return can be).
 
 ### 7.4 Cues
-Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, no lines. Everything below is visual, and the visuals depend on the light (6.1).
+Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, no lines. A thunder clap punctuates the moment the player lights the entry where Ram is already waiting outside. The lamp has to come on while he's there, and the player has to be able to see that entry.
 
 | Phase | Audio | Visual |
 |---|---|---|
 | AWAY | Storm, the ambient bed, decoys | Nothing |
 | APPROACHING | Same as AWAY | With his target entry lit: a hint of Ram in that view (a shape beyond the window glass, a shadow under the balcony door, movement at the hatch seam) |
-| AT_ENTRY, HATCH | Same as AWAY | Unlocked: the lid lifts a crack and his fingers curl over the rim. Faint in the dark, clear with the hatch light. Locked: nothing |
-| AT_ENTRY, WINDOW | Same as AWAY | A hand pressed flat on the glass in fogged condensation; in the hold view, part of his face. Faint in the dark, clear with the window light. Locked: nothing |
-| AT_ENTRY, BALCONY | Same as AWAY | The door pushed ajar, a head in the gap. Faint in the dark, clear with the balcony light. Locked: nothing |
+| AT_ENTRY, HATCH | Same as AWAY, plus the light reveal clap | Unlocked: the lid lifts a crack and his fingers curl over the rim. Faint in the dark, clear with the hatch light. Locked: nothing |
+| AT_ENTRY, WINDOW | Same as AWAY, plus the light reveal clap | A hand pressed flat on the glass in fogged condensation; in the hold view, part of his face. Faint in the dark, clear with the window light. Locked: nothing |
+| AT_ENTRY, BALCONY | Same as AWAY, plus the light reveal clap | The door pushed ajar, a head in the gap. Faint in the dark, clear with the balcony light. Locked: nothing |
 | RETREATING | Same as AWAY | Tell disappears |
 | INSIDE | Same as AWAY | Only with his entry lit and looked at: him, standing just inside. That sets off the scare (7.7) |
 

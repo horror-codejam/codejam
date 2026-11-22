@@ -224,6 +224,9 @@ function onEvent(ev: GameEvent, t: number): void {
     case "LOCK_REFUSED":
       maliciousUntil = t + MALICE.REFUSE_TIME;
       break;
+    case "LIGHT_REVEAL":
+      if (engine.state.phase === "PLAYING") sound.lightReveal();
+      break;
     case "LIGHT_CUT":
       sound.lightTick();
       lightCutUntil = t + 0.6;
@@ -289,6 +292,7 @@ function onEvent(ev: GameEvent, t: number): void {
       break;
     case "BREACH":
       stopChudSpeech();
+      sound.stopLightReveal();
       loss = ev.loss;
       showReader(null);
       startScare(ev.loss);
@@ -1069,7 +1073,7 @@ function devSkipClock(): void {
   const evs = engine.drainEvents();
   const mute = new Set<GameEvent["type"]>([
     "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "HINT", "SILENCE_PULL",
-    "DECOY", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
+    "DECOY", "LIGHT_REVEAL", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
   ]);
   for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
   sound.stopCues();

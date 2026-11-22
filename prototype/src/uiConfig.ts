@@ -10,6 +10,11 @@ export const CHUD_SPEECH = {
   BALCONY: { gain: 0.45, pan: 0 },
 };
 
+export const LIGHT_REVEAL = {
+  GAIN: 0.55, // keep the reveal quieter than the loss jumpscare
+  START_OFFSET: 0.54, // skip the silence at the start of ram-light-reveal.mp3
+};
+
 export const CONTROLS = {
   EDGE_DWELL: 0.3, // real seconds the mouse must stay in an edge zone before the turn fires
   EDGE_ZONE_SIDE: 70, // stage px (of 1280) from the left or right edge of the stage
