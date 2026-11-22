@@ -506,3 +506,34 @@ function paintStrain(ctx: CanvasRenderingContext2D, p: ArmPose): void {
   }
   ctx.restore();
 }
+
+// ---------------------------------------------------------------------------
+// Ram after a silent breach (GAME_LOGIC 7.7). Slots `ram_inside_<entry>` (plate px, 960 x 480, drawn over the entry
+// view with its light on) and `ram_jumpscare_<n>` (stage px, 1280 x 720, four frames). Art in scenes/04-ram/ wins.
+
+// He is in the room, just inside the entry he came through: a tall dark figure, pale face, too close.
+export function ramInside(entry: Entry): (g: Graphics) => void {
+  return (g) => {
+    const x = entry === "WINDOW" ? 330 : entry === "HATCH" ? 600 : 480;
+    g.rect(0, 0, PLATE_W, PLATE_H).fill({ color: 0x000000, alpha: 0.25 });
+    g.roundRect(x - 70, 110, 140, 420, 50).fill(0x040404); // body
+    g.ellipse(x, 120, 46, 58).fill(0xb8b0a4); // face
+    g.ellipse(x - 17, 112, 9, 6).fill(0x000000);
+    g.ellipse(x + 17, 112, 9, 6).fill(0x000000);
+    g.ellipse(x, 150, 16, 5).fill(0x2a0a0a); // mouth
+  };
+}
+
+// Four frames, each closer and redder. Frame 4 fills the screen.
+export function ramJumpscare(n: number): (g: Graphics) => void {
+  return (g) => {
+    const k = 0.7 + n * 0.25;
+    g.rect(0, 0, W, H).fill(n % 2 ? 0x1a0000 : 0x050000);
+    g.ellipse(640, 380, 260 * k, 330 * k).fill(0xa89c8e);
+    g.ellipse(640 - 95 * k, 320, 42 * k, 30 * k).fill(0x000000);
+    g.ellipse(640 + 95 * k, 320, 42 * k, 30 * k).fill(0x000000);
+    g.circle(640 - 95 * k, 320, 6 * k).fill(0xe8e8e8);
+    g.circle(640 + 95 * k, 320, 6 * k).fill(0xe8e8e8);
+    g.ellipse(640, 520, 110 * k, 60 * k).fill(0x1a0000);
+  };
+}

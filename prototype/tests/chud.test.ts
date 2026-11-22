@@ -7,7 +7,6 @@ import {
   NIGHT_ONE_HINTS,
   RADIO_LINES,
   RADIO_TOPIC,
-  ramShout,
   SEED_TOPICS,
   STAY_QUESTIONS,
   voiceLog,
@@ -19,7 +18,7 @@ const BANDS: Band[] = ["WARM", "HURT", "JEALOUS", "FURIOUS"];
 const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
 
 function q(type: QuestionType, factKey: string | null, text = "Question?"): PendingQuestion {
-  return { id: 1, origin: "SCHEDULED", type, factKey, text, askedAt: 0, gateFor: null };
+  return { id: 1, origin: "SCHEDULED", type, factKey, text, askedAt: 0 };
 }
 function judge(text: string, pendingQuestion: PendingQuestion | null = null, facts: Facts = {}): ReturnType<typeof offlineJudge> {
   const input: JudgeInput = { text, pendingQuestion, facts, band: "WARM" };
@@ -45,13 +44,23 @@ describe("parser", () => {
     ["lock the window right now", "LOCK", "WINDOW"],
     ["lock it", "NONE", null],
     ["where is he", "ASK_LOCATION", null],
-    ["turn on the lamp", "BEAM", null],
+    // Lights are the player's (Shift), never CHUD's: no light request parses to a command.
+    ["turn on the lamp", "NONE", null],
+    ["light the window", "NONE", null],
+    ["turn on the hatch light", "NONE", null],
+    ["lights on the balcony please", "NONE", null],
+    ["light up the left", "NONE", null],
+    ["is he gone?", "ASK_LOCATION", null],
+    ["still there?", "ASK_LOCATION", null],
+    ["is he still there", "ASK_LOCATION", null],
+    ["has he left yet", "ASK_LOCATION", null],
+    ["is anyone out there", "ASK_LOCATION", null],
     ["Lock the HATCH!", "LOCK", "HATCH"],
     ["lock the trapdoor", "LOCK", "HATCH"],
     ["lock left", "LOCK", "WINDOW"],
     ["seal the balcony", "LOCK", "BALCONY"],
     ["lock behind me", "LOCK", "BALCONY"],
-    ["beam please", "BEAM", null],
+    ["beam please", "NONE", null],
     ["power off", "POWER_OFF", null],
     ["can you see him?", "ASK_LOCATION", null],
     ["hello chud", "NONE", null],
@@ -82,7 +91,8 @@ describe("offline judge: schema and safety", () => {
   it("passes command hints from the parser", () => {
     expect(judge("lock the hatch")).toMatchObject({ command_hint: "LOCK", entry_hint: "HATCH" });
     expect(judge("where is he?")).toMatchObject({ command_hint: "ASK_LOCATION", entry_hint: null });
-    expect(judge("turn on the lamp")).toMatchObject({ command_hint: "BEAM", entry_hint: null });
+    expect(judge("turn on the lamp")).toMatchObject({ command_hint: "NONE", entry_hint: null });
+    expect(judge("light the hatch")).toMatchObject({ command_hint: "NONE", entry_hint: null });
     expect(judge("nice weather")).toMatchObject({ command_hint: "NONE", entry_hint: null });
   });
 
@@ -327,10 +337,20 @@ describe("canned lines", () => {
   it("location_claim NONE says no one is there and names no entry", () => {
     for (const band of BANDS) {
       for (const line of sweep({ kind: "location_claim", entry: "NONE" }, band)) {
-        expect(line, line).toMatch(/\b(no one|nobody|no-one)\b/i);
+        expect(line, line).toMatch(/\b(no one|nobody|no-one|nothing)\b/i);
         for (const e of ENTRIES) expect(line, line).not.toMatch(ENTRY_WORDS[e]);
       }
     }
+  });
+
+  it("location_claim INSIDE says someone is in the room and names no entry; WARM says it plainly", () => {
+    for (const band of BANDS) {
+      for (const line of sweep({ kind: "location_claim", entry: "INSIDE" }, band)) {
+        expect(line, line).toMatch(/\b(in the room|inside)\b/i);
+        for (const e of ENTRIES) expect(line, line).not.toMatch(ENTRY_WORDS[e]);
+      }
+    }
+    expect(sweep({ kind: "location_claim", entry: "INSIDE" }, "WARM")).toContain("Someone's in the room, keeper.");
   });
 
   it("entry outcomes name the entry", () => {
@@ -339,10 +359,8 @@ describe("canned lines", () => {
         for (const kind of ["locked", "lock_already"] as const) {
           for (const line of sweep({ kind, entry }, band)) expect(line, line).toMatch(entry === "WINDOW" ? /left window/i : new RegExp(entry, "i"));
         }
-        for (const line of sweep({ kind: "approach_warning", entry }, band)) expect(line, line).toMatch(ENTRY_WORDS[entry]);
       }
     }
-    expect(sweep({ kind: "approach_warning", entry: "HATCH" }, "WARM").some((l) => l.includes("Someone on the ladder!"))).toBe(true);
   });
 
   it("fixed lines from the spec", () => {
@@ -350,7 +368,6 @@ describe("canned lines", () => {
       for (const l of sweep({ kind: "furious_cut" }, band)) expect(l).toBe("If I can't keep you, nobody will. Hold it yourself.");
       for (const l of sweep({ kind: "sabotage" }, band)) expect(l).toMatch(/^Oops|generator's acting up/);
       for (const l of sweep({ kind: "sabotage" }, band)) expect(l).toMatch(/The generator's acting up/);
-      for (const l of sweep({ kind: "gate_timeout", entry: "HATCH" }, band)) expect(l).toMatch(/Fine\. Do it yourself/);
       for (const l of sweep({ kind: "silence" }, band)) expect(l).toMatch(/^You've gone quiet/);
     }
     expect(sweep({ kind: "night_opener", night: 3 }, "WARM")).toEqual(["You talk about home in your sleep, keeper."]);
@@ -359,11 +376,20 @@ describe("canned lines", () => {
     expect(sweep({ kind: "morning" }, "WARM")).toContain("Good morning, keeper. Same time tonight?");
   });
 
-  it("question and gate_question carry the question text", () => {
+  it("question carries the question text", () => {
     const text = "What was your ship called?";
-    for (const band of BANDS) {
-      expect(sweep({ kind: "question", question: text, type: "SEED" }, band)).toEqual([text]);
-      for (const l of sweep({ kind: "gate_question", entry: "HATCH", question: text }, band)) expect(l.endsWith(text)).toBe(true);
+    for (const band of BANDS) expect(sweep({ kind: "question", question: text, type: "SEED" }, band)).toEqual([text]);
+  });
+
+  it("lock_refused and light_cut lines exist, are short and never name an entry wrongly or the threat", () => {
+    for (const band of ["HURT", "JEALOUS", "FURIOUS"] as Band[]) {
+      const cuts = sweep({ kind: "light_cut" }, band);
+      expect(cuts.length).toBeGreaterThan(0);
+      for (const l of cuts) expect(l).not.toMatch(/\bram\b|\bhim\b|\bhe\b/i);
+    }
+    expect(sweep({ kind: "light_cut" }, "JEALOUS")).toContain("Why look out there? Look at me.");
+    for (const band of ["HURT", "JEALOUS"] as Band[]) {
+      for (const l of sweep({ kind: "lock_refused", entry: "HATCH" }, band)) expect(l).not.toMatch(/\bram\b/i);
     }
   });
 
@@ -380,17 +406,14 @@ describe("canned lines", () => {
       ...ENTRIES.flatMap((entry): Outcome[] => [
         { kind: "locked", entry },
         { kind: "lock_already", entry },
-        { kind: "gate_question", entry, question: SEED_TOPICS[7].question },
-        { kind: "gate_failed", entry },
-        { kind: "gate_timeout", entry },
+        { kind: "lock_refused", entry },
         { kind: "location_claim", entry },
-        { kind: "approach_warning", entry },
       ]),
-      { kind: "beam_on" },
+      { kind: "light_cut" },
       { kind: "power_off" },
       { kind: "refuse_furious", request: "LOCK" },
-      { kind: "refuse_furious", request: "BEAM" },
       { kind: "location_claim", entry: "NONE" },
+      { kind: "location_claim", entry: "INSIDE" },
       ...(["SEED", "STAY", "MEMORY"] as QuestionType[]).flatMap((type): Outcome[] => [
         { kind: "question", question: STAY_QUESTIONS[0], type },
         { kind: "answer_ack", pass: true, type },
@@ -439,7 +462,7 @@ describe("canned lines", () => {
   });
 });
 
-describe("banks, shouts, logs", () => {
+describe("banks, logs", () => {
   it("seed topics", () => {
     expect(SEED_TOPICS.length).toBeGreaterThanOrEqual(8);
     expect(SEED_TOPICS.length).toBeLessThanOrEqual(10);
@@ -454,30 +477,55 @@ describe("banks, shouts, logs", () => {
     expect(RADIO_TOPIC.key).toBe("radio_contact");
   });
 
-  it("stay questions and shouts", () => {
+  it("stay questions", () => {
     expect(STAY_QUESTIONS.length).toBeGreaterThanOrEqual(8);
-    const shouts = new Set<string>();
-    for (let i = 0; i < 100; i++) shouts.add(ramShout(() => i / 100));
-    expect(shouts.size).toBeGreaterThanOrEqual(10);
-    for (const s of shouts) expect(words(s)).toBeLessThanOrEqual(12);
-    expect(ramShout(() => 0.999999)).toBeTruthy();
-    expect(ramShout(() => 1)).toBeTruthy();
+  });
+
+  it("CHUD never mentions Ram: no canned line or question names him, even when the player is called Ram", async () => {
+    const voice = new Set([1, 2, 3, 4, 5].map(voiceLog)); // the previous keeper's tapes, not CHUD
+    const ram = /\b(ram|altman)\b/i;
+    for (const t of allLineTemplates()) if (!voice.has(t)) expect(t, t).not.toMatch(ram);
+    for (const t of [...SEED_TOPICS, RADIO_TOPIC]) for (const line of [t.question, t.memoryQuestion]) expect(line).not.toMatch(ram);
+    for (const line of STAY_QUESTIONS) expect(line).not.toMatch(ram);
+    for (const band of BANDS) {
+      for (const o of [{ kind: "name_ack" }, { kind: "silence" }, { kind: "night_opener", night: 1 }, { kind: "location_claim", entry: "INSIDE" }] as Outcome[]) {
+        for (const name of ["Ram", "ram altman", "Altman"]) for (const line of sweep(o, band, name)) expect(line, line).not.toMatch(ram);
+      }
+    }
+    const { voiceUser, mentionsForbiddenName } = await import("../server/prompts");
+    const prompt = voiceUser({ kind: "small_talk", canned: "Mm.", band: "WARM", name: "Ram", night: 1, recent: [] });
+    expect(prompt).toContain("The keeper's name: Keeper.");
+    expect(mentionsForbiddenName("Ram is outside")).toBe(true);
+    expect(mentionsForbiddenName("the ramp is wet")).toBe(false);
+  });
+
+  it("night 1 opener only warns of danger at night, vaguely", () => {
+    for (const l of sweep({ kind: "night_opener", night: 1 }, "WARM")) {
+      expect(l).toMatch(/danger|careful/i);
+      expect(l).not.toMatch(/\b(lock|light|hatch|window|balcony)\b/i);
+    }
+  });
+
+  it("Ram never speaks on CHUD's screen: no shout bank, no Ram line among the canned lines", async () => {
+    const lines = await import("../src/chud/lines");
+    expect("ramShout" in lines).toBe(false);
+    for (const t of allLineTemplates()) expect(t, t).not.toMatch(/^RAM:/);
   });
 
   it("voice logs cover the tutorial rules", () => {
     const l1 = voiceLog(1).toLowerCase();
-    for (const k of ["tide", "lock", "one thing at a time", "beam", "leave"]) expect(l1).toContain(k);
+    for (const k of ["tide", "lock", "one thing at a time", "light", "not hear", "leave"]) expect(l1).toContain(k);
     expect(voiceLog(2).toLowerCase()).toMatch(/questions/);
     expect(voiceLog(2).toLowerCase()).toMatch(/radio/);
     expect(voiceLog(3)).toContain("It lies now.");
-    expect(voiceLog(3).toLowerCase()).toContain("beam never lies");
+    expect(voiceLog(3).toLowerCase()).toContain("light never lies");
     expect(voiceLog(4).toLowerCase()).toMatch(/jealous.*power|power.*jealous/);
     expect(voiceLog(5).toLowerCase()).toContain("kill switch");
     expect(voiceLog(5).toLowerCase()).toContain("opens everything");
     expect(voiceLog(9)).toBeTruthy();
     expect(RADIO_LINES[2]).toBe("Coast guard, pickup in 3 days.");
     expect(RADIO_LINES[5]).toBe("Helicopter at first light.");
-    expect(NIGHT_ONE_HINTS).toEqual({ approach: "Ask CHUD where he is", atEntry: "Lock that entry" });
+    expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask CHUD where he is", "Lock it or hold it"]);
   });
 });
 
@@ -493,7 +541,9 @@ describe("parser false-positive regressions", () => {
     ["lock the back", "LOCK", "BALCONY"],
     ["close the balcony door", "LOCK", "BALCONY"],
     ["which door is he at", "ASK_LOCATION", null],
-    ["lamp please", "BEAM", null],
+    ["lamp please", "NONE", null],
+    ["the window light is nice tonight", "NONE", null],
+    ["I'm gone for good", "NONE", null],
   ];
   for (const [text, command, entry] of cases) {
     it(`"${text}" -> ${command}${entry ? " " + entry : ""}`, () => {

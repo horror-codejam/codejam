@@ -43,15 +43,13 @@ export function parseEntry(text: string): Entry | null {
   return findEntry(n, ENTRY_NOUNS) ?? findEntry(n.replace(DIRECTION_IDIOMS, " "), ENTRY_DIRECTIONS);
 }
 
-const wordCount = (n: string) => (n ? n.split(" ").length : 0);
 
 const POWER_OFF_RE =
   /\bunlock(s|ed)?\b|\b(turn|switch|shut|cut|power|kill)( \w+){0,3} off\b|\boff (the |all )?(lock|locks|lamp|lamps|beam|light|lights|power)\b|\b(power|locks|lock|lamps?|beams?|lights?) off\b/;
 const LOCK_RE = /\block(s|ed)?\b|\bshut\b|\bseal\b|\bclose\b/;
-const BEAM_NOUN_RE = /\b(beam|lamp|light|lights|spotlight|searchlight)\b/;
-const BEAM_VERB_RE = /\b(turn|switch|put|use|need|give|shine|flash|light up|lights up|power|hit)\b|\b(beam|lamp|lights) on\b|\bon the (beam|lamp)\b/;
+// "is he gone?", "still there?" and "has he left?" are location questions too (GAME_LOGIC 9 step 3).
 const LOCATION_RE =
-  /\bwhere (is|s|are|was|d)\b|\bwhere he\b|\bwhere ram\b|\blocation\b|\bsee him\b|\bwhich (door|entry|one|way|side)\b|\bis he (here|there|close|coming)\b|^where\b/;
+  /\bwhere (is|s|are|was|d)\b|\bwhere he\b|\bwhere ram\b|\blocation\b|\bsee him\b|\bwhich (door|entry|one|way|side)\b|\bis he (here|there|close|coming|in|inside|gone|still)\b|^where\b|\b(he|hes|he s|ram|ram s|is it|someone|anyone) (still )?(gone|still there|still here|still out there)\b|\b(has|did) (he|ram) (gone|left|go|leave)\b|^(still there|gone|is he gone|he gone)\b|\banyone (there|out there)\b/;
 
 export function parseCommand(text: string): ParsedCommand {
   const n = normalize(text);
@@ -60,7 +58,6 @@ export function parseCommand(text: string): ParsedCommand {
     const entry = parseEntry(n);
     if (entry) return { command: "LOCK", entry };
   }
-  if (BEAM_NOUN_RE.test(n) && (BEAM_VERB_RE.test(n) || wordCount(n) <= 3)) return { command: "BEAM", entry: null };
   if (LOCATION_RE.test(n)) return { command: "ASK_LOCATION", entry: null };
   return { command: "NONE", entry: null };
 }

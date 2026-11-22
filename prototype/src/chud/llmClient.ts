@@ -54,12 +54,17 @@ export interface VoiceAsk {
   recent: string[];
 }
 
+// CHUD never names Ram (GAME_LOGIC 8.10). Checked again here so no server reply can slip it onto the screen.
+const FORBIDDEN_NAME_RE = /\bram\b|\baltman\b/i;
+
 export async function voiceRemote(ask: VoiceAsk): Promise<string | null> {
-  const r = await post<{ text: string }>("/api/voice", ask);
-  return r?.text ?? null;
+  const safe: VoiceAsk = { ...ask, name: FORBIDDEN_NAME_RE.test(ask.name) ? "" : ask.name };
+  const r = await post<{ text: string }>("/api/voice", safe);
+  const text = r?.text ?? null;
+  return text && !FORBIDDEN_NAME_RE.test(text) ? text : null;
 }
 
-// Outcomes CHUD words with the LLM. Everything urgent (locks, beam, location claims, sabotage,
+// Outcomes CHUD words with the LLM. Everything urgent (locks, lights, location claims, sabotage,
 // questions) stays canned so it shows instantly.
 export const VOICED = new Set([
   "small_talk",

@@ -15,6 +15,10 @@ const sceneFiles = import.meta.glob(
     "../../../scenes/03-watch-room/render_hold_*.png",
     "../../../scenes/03-watch-room/render_dash_floor.png",
     "../../../scenes/03-watch-room/chud_smiley_four_moods.png",
+    "../../../scenes/03-watch-room/chud_launch_newspaper_clipping_v2.png",
+    "../../../scenes/03-watch-room/daniel_vale_notebook.jpg",
+    "../../../scenes/03-watch-room/leaving_calendar_aged_pen.png",
+    "../../../scenes/04-ram/*.png",
     "../../../scenes/99-final-cage-hall/render_*.png",
     "../../../scenes/01-shipwreck/render_blockout.png",
   ],
@@ -32,6 +36,18 @@ const SCENE_ART: Record<string, string> = {
   hold_balcony: "03-watch-room/render_hold_balcony.png",
   dash_floor: "03-watch-room/render_dash_floor.png",
   chud_faces: "03-watch-room/chud_smiley_four_moods.png",
+  // desk artifacts (DOM only: the hotspot thumbnail and the reading view)
+  artifact_clipping: "03-watch-room/chud_launch_newspaper_clipping_v2.png",
+  artifact_notebook: "03-watch-room/daniel_vale_notebook.jpg",
+  artifact_calendar: "03-watch-room/leaving_calendar_aged_pen.png",
+  // Ram after a silent breach: the creepy flash (960 x 480 plates from the entry cameras) and the jumpscare (1280 x 720)
+  ram_inside_window: "04-ram/ram_inside_window.png",
+  ram_inside_hatch: "04-ram/ram_inside_hatch.png",
+  ram_inside_balcony: "04-ram/ram_inside_balcony.png",
+  ram_jumpscare_1: "04-ram/ram_jumpscare_1.png",
+  ram_jumpscare_2: "04-ram/ram_jumpscare_2.png",
+  ram_jumpscare_3: "04-ram/ram_jumpscare_3.png",
+  ram_jumpscare_4: "04-ram/ram_jumpscare_4.png",
   ending_lose: "99-final-cage-hall/render_lose_in_cage.png",
   ending_win: "99-final-cage-hall/render_win_outside.png",
   intro: "01-shipwreck/render_blockout.png",
@@ -47,6 +63,7 @@ for (const [path, url] of Object.entries(overrides)) {
 }
 
 const textures = new Map<string, Texture>();
+const DOM_ONLY = /^artifact_/; // used as <img> only, never loaded as a texture (the notebook photo is 4032 x 3024)
 
 // URL of a slot for DOM use (faces, ending backgrounds). Null if the slot has no art yet.
 export function artUrl(slotName: string): string | null {
@@ -56,7 +73,7 @@ export function artUrl(slotName: string): string | null {
 export async function loadArt(): Promise<string[]> {
   const loaded: string[] = [];
   await Promise.all(
-    [...urlBySlot].map(async ([slotName, url]) => {
+    [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName)).map(async ([slotName, url]) => {
       try {
         textures.set(slotName, await Assets.load<Texture>(url));
         loaded.push(slotName);
@@ -94,6 +111,26 @@ export function slot(name: string, placeholder: (g: Graphics) => void, placehold
       g.scale.set(k);
       g.y = (PLATE_H - H * k) / 2;
     }
+    c.addChild(g);
+  }
+  return c;
+}
+
+// A stage-sized container (1280 x 720): the art scaled to cover the stage, centered, or the placeholder drawn in stage px.
+export function stageSlot(name: string, placeholder: (g: Graphics) => void): Container {
+  const c = new Container();
+  c.label = name;
+  const tex = textures.get(name);
+  if (tex) {
+    const s = new Sprite(tex);
+    const k = Math.max(W / tex.width, H / tex.height);
+    s.scale.set(k);
+    s.x = (W - tex.width * k) / 2;
+    s.y = (H - tex.height * k) / 2;
+    c.addChild(s);
+  } else {
+    const g = new Graphics();
+    placeholder(g);
     c.addChild(g);
   }
   return c;

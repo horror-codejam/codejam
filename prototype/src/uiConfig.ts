@@ -49,3 +49,26 @@ export const BRACE = {
   ARMS_PUSH: 7, // plate px the arms are shoved down by each push
   ARMS_TREMOR: 0.6, // the arms shake this many times the camera tremor on top (in plate px), so they work against the door
 };
+
+// Desk artifacts (GAME_LOGIC 6.6): clickable papers on the sill between the glazing and CHUD's screen, in plate px
+// (960 x 480), drawn as small dim thumbnails of their art. The terminal covers almost the whole desk width, so they sit
+// above it (DESK_GLAZING ends at y 216, DESK_SCREEN starts at y 266) and inside the centre view at any pan.
+export const ARTIFACTS: { id: string; slot: string; label: string; rect: { x: number; y: number; w: number; h: number }; tilt: number }[] = [
+  { id: "clipping", slot: "artifact_clipping", label: "Newspaper clipping", rect: { x: 196, y: 222, w: 52, h: 38 }, tilt: -4 },
+  { id: "notebook", slot: "artifact_notebook", label: "Notebook", rect: { x: 262, y: 226, w: 50, h: 36 }, tilt: 3 },
+  { id: "calendar", slot: "artifact_calendar", label: "Calendar", rect: { x: 712, y: 220, w: 44, h: 42 }, tilt: 2 },
+];
+
+// The silent breach scare (GAME_LOGIC 7.7 and 5.4), real seconds.
+export const SCARE = {
+  FLASH_TIME: 0.4, // the creepy full-frame flash of Ram inside the lit entry, before the jumpscare (0.3 to 0.5)
+  FRAME_TIME: 0.11, // each of the four jumpscare frames; the last one holds
+  HOLD_TIME: 0.75, // the last frame stays up this long before the loss screen
+};
+
+// CHUD's malicious smile (lock refusals, sabotage, forced light cuts in JEALOUS and FURIOUS), real seconds.
+export const MALICE = {
+  REFUSE_TIME: 1.5,
+  SABOTAGE_TIME: 1.0,
+  LIGHT_CUT_TIME: 0.9,
+};

@@ -1,12 +1,12 @@
 // Core game engine. Rules: docs/GAME_LOGIC.md sections 3 to 13. Gap fills: prototype/IMPLEMENTATION_NOTES.md.
-// Pure TypeScript: no DOM, no wall-clock, no Math.random. All randomness goes through one seeded Rng.
+// Pure TypeScript: no DOM, no wall-clock, no Math.random. All randomness goes through seeded Rngs: one for the game,
+// and a separate stream for the decoy noises so they can never depend on Ram (GAME_LOGIC 7.4).
 // Every tuning number comes from the Config. The few constants below are rule constants, not tuning knobs.
 
 import { CONFIG, nightLength, type Config, type NightParams } from "../config";
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
-  ramShout,
   voiceLog,
   RADIO_LINES,
   SEED_TOPICS,
@@ -18,14 +18,21 @@ import {
 import { Rng } from "./rng";
 import {
   NEUTRAL_JUDGE,
+  isLightSlot,
+  isLockSlot,
+  lightSlot,
   lockSlot,
+  slotEntry,
   type Band,
+  type DecoySound,
   type EngineOptions,
   type Entry,
   type Facts,
   type GameEvent,
   type GameState,
   type IGameEngine,
+  type InsideTrigger,
+  type LocationClaim,
   type JudgeResult,
   type LossCause,
   type MessageTicket,
@@ -39,6 +46,7 @@ import {
   type QuickCommand,
   type RamVisual,
   type RejectReason,
+  type ScareReason,
   type SubmitResult,
   type View,
 } from "./types";
@@ -54,6 +62,9 @@ const SUSPICION_MAX = 100; // section 8.1
 const RECENT_MESSAGES_KEPT = 10; // section 3 log: last 10 player messages
 const FACT_VALUE_MAX = 60; // IMPLEMENTATION_NOTES Questions: raw-text fact fallback
 const NO_REPEAT_TARGET_NIGHT = 1; // section 7.2
+const DECOY_SOUNDS: DecoySound[] = ["creak", "knock", "metal", "glass"];
+const INSIDE_TRIGGERS: InsideTrigger[] = ["TIMER", "NONE", "MOVE"];
+const DECOY_SEED_SALT = 0x5bd1e995; // the decoy stream is seeded apart from the game stream
 
 // Section 10 radio beats. The text comes from RADIO_LINES.
 const RADIO_BEATS: { night: number; hour: number; asksQuestion: boolean }[] = [
@@ -77,7 +88,7 @@ interface Ticket {
 }
 
 function freshVisitLog(): GameState["log"]["visit"] {
-  return { sabotaged: false, furiousCut: false, armsGaveOut: false, claimThisVisit: null };
+  return { sabotaged: false, furiousCut: false, armsGaveOut: false, claimThisVisit: null, peekedFrom: null, refusedEntry: null };
 }
 
 export class GameEngine implements IGameEngine {
@@ -86,6 +97,10 @@ export class GameEngine implements IGameEngine {
   private readonly cfg: Config;
   private readonly seed: number;
   private readonly rng: Rng;
+  // Decoy noises only (GAME_LOGIC 7.4). Reseeded at every night start from the seed and a start counter, never from
+  // the game stream, and read only by stepDecoys, which never looks at Ram.
+  private decoyRng: Rng;
+  private nightStarts = 0;
   private events: GameEvent[] = [];
 
   // Engine bookkeeping that is not game state (tickets in flight, ids, the fixed-step accumulator).
@@ -103,6 +118,7 @@ export class GameEngine implements IGameEngine {
     this.cfg = opts.config ?? CONFIG;
     this.seed = opts.seed ?? DEFAULT_SEED;
     this.rng = new Rng(this.seed);
+    this.decoyRng = new Rng(this.seed ^ DECOY_SEED_SALT);
     this.state = {} as GameState;
     const night = this.clampNight(opts.startNight ?? 1);
     const facts: Facts = { ...(opts.facts ?? {}) };
@@ -130,12 +146,19 @@ export class GameEngine implements IGameEngine {
     return (s.power.slot === lockSlot(entry) && s.power.chudOnline) || (p.kind === "HOLDING" && p.entry === entry);
   }
 
+  // Section 7.4. A light only lights its own entry view. Locked = blind: the locked entry shows nothing at all.
+  // Without its light an entry's tell is faint. The desk is lit only by CHUD's screen.
   ramVisual(view: View): RamVisual {
     if (view === "DESK") return "none";
     const r = this.state.ram;
-    const beam = this.state.power.slot === "BEAM";
-    if (r.state === "AT_ENTRY" && r.target === view) return beam ? "tell_clear" : "tell_faint";
-    if (r.state === "APPROACHING" && r.target === view && beam) return "approach_silhouette";
+    const slot = this.state.power.slot;
+    const lit = slot === lightSlot(view);
+    if (r.state === "INSIDE") return r.inside?.entry === view && lit ? "inside" : "none";
+    if (r.state === "AT_ENTRY" && r.target === view) {
+      if (lit) return "tell_clear";
+      return slot === lockSlot(view) ? "none" : "tell_faint";
+    }
+    if (r.state === "APPROACHING" && r.target === view && lit) return "approach_silhouette";
     return "none";
   }
 
@@ -221,11 +244,39 @@ export class GameEngine implements IGameEngine {
     if (s.chud.furiousActive && s.chud.furiousVisitId === r.visitId && r.state !== "AWAY") this.endFurious(false);
     r.state = "AWAY";
     r.target = null;
+    r.inside = null;
     r.fakeOutAt = null;
     r.pendingPull = 0;
     r.stateEndsAt = this.now + this.np.awayGap[0];
     this.awayStartedAt = this.now;
     this.emit({ type: "RAM_AWAY", nextVisitAt: r.stateEndsAt });
+  }
+
+  // Forces a silent breach now (dev panel, to test the scare): Ram is INSIDE at `entry` (his current target, else a
+  // random active entry) with the given extra trigger, or a rolled one. Returns false if not PLAYING or already inside.
+  devForceBreach(entry?: Entry, trigger?: InsideTrigger): boolean {
+    const s = this.state;
+    const r = s.ram;
+    if (s.phase !== "PLAYING" || r.state === "INSIDE") return false;
+    const at = entry ?? r.target ?? this.rng.pick(this.np.activeEntries);
+    if (r.state === "AWAY") {
+      r.visitId++;
+      s.log.visit = freshVisitLog();
+    }
+    r.target = at;
+    r.lastTarget = at;
+    r.fakeOutAt = null;
+    this.goInside(at, trigger);
+    return true;
+  }
+
+  // Sets the power slot at once (dev panel): no relay delay, no CHUD rules.
+  devSetPower(slot: PowerSlot): void {
+    const p = this.state.power;
+    if (this.state.phase !== "PLAYING" || !p.generatorOn) return;
+    p.pending = null;
+    p.slot = slot;
+    this.emit({ type: "POWER_CHANGED", slot, cause: "player" });
   }
 
   // Sets suspicion (clamped) and refreshes the band. Setting it below the Furious threshold ends an active episode.
@@ -248,6 +299,9 @@ export class GameEngine implements IGameEngine {
     this.awayStartedAt = 0;
     this.pendingPowerCause = "player";
     this.memoryChecked = [];
+    this.nightStarts++;
+    this.decoyRng = new Rng((this.seed ^ DECOY_SEED_SALT) + this.nightStarts * 7919);
+    this.state.decoy = { nextAt: this.rollDecoyInterval(), count: 0 };
     this.emit({ type: "NIGHT_CARD", night, voiceLog: voiceLog(night) });
   }
 
@@ -264,8 +318,11 @@ export class GameEngine implements IGameEngine {
         holdCooldownUntil: 0,
         lastMessageAt: -Infinity,
         lastQuickAt: -Infinity,
+        reading: null,
+        lightHeld: false,
       },
-      power: { slot: "BEAM", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null },
+      // Night start: dark. Nothing powered (GAME_LOGIC 5.1).
+      power: { slot: "NONE", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null, lightCutAt: null },
       ram: {
         state: "AWAY",
         target: null,
@@ -275,12 +332,14 @@ export class GameEngine implements IGameEngine {
         fakeOutAt: null,
         pendingPull: 0,
         lastTarget: null,
+        attemptLength: 0,
+        lastGap: { length: np.firstVisitDelay, kind: "first" },
+        inside: null,
       },
       chud: {
         suspicion,
         band: this.bandFor(suspicion, false),
         pendingQuestion: null,
-        suspendedQuestion: null,
         queuedScriptQuestion: null,
         facts: { ...checkpoint },
         lastLocationClaim: null,
@@ -289,12 +348,14 @@ export class GameEngine implements IGameEngine {
         sabotageRolledVisit: null,
         furiousActive: false,
         furiousCutDone: false,
+        lastLightCutLineAt: -1e9,
         furiousVisitId: null,
         questionPlan: this.planQuestions(np),
         usedSeedKeys: [],
       },
       timers: { lastRealMessageAt: 0, lastWarmBonusAt: -Infinity, silenceTicks: 0 },
-      log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [], nightOneHintsShown: false },
+      log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [], nightOneHintsShown: 0 },
+      decoy: { nextAt: Infinity, count: 0 }, // set by startNight from the decoy stream
       loss: null,
     };
   }
@@ -306,6 +367,8 @@ export class GameEngine implements IGameEngine {
     // The tide wins: any visit in progress is cancelled with no breach.
     s.ram.state = "AWAY";
     s.ram.target = null;
+    s.ram.inside = null;
+    s.player.reading = null;
     this.say({ kind: "morning" });
     if (s.run.night >= this.cfg.nights.length) {
       s.phase = "GAME_WON";
@@ -316,8 +379,11 @@ export class GameEngine implements IGameEngine {
     }
   }
 
-  private breach(entry: Entry): void {
+  // Section 7.5 / 7.7: the attempt ended undefended. Ram is now INSIDE, silent. The loss cause is decided now
+  // (it describes this moment), the extra scare trigger is rolled now, and the scare itself comes later.
+  private goInside(entry: Entry, forced?: InsideTrigger): void {
     const s = this.state;
+    const r = s.ram;
     const p = s.player.position;
     // STANDING at another entry (edge-controls flow) also counts: the player was away from E, at another entry.
     const heldOther =
@@ -328,24 +394,96 @@ export class GameEngine implements IGameEngine {
         : p.kind === "RETURNING" && p.from !== entry
           ? p.from
           : null;
-    const claim = s.log.visit.claimThisVisit;
+    const v = s.log.visit;
+    const claim = v.claimThisVisit;
     let cause: LossCause;
     if (!s.power.generatorOn || s.power.rebootingUntil !== null) cause = "POWER_OFF";
-    else if (s.log.visit.furiousCut) cause = "FURIOUS";
-    else if (s.log.visit.sabotaged) cause = "SABOTAGE";
-    else if (s.log.visit.armsGaveOut) cause = "ARMS_GAVE_OUT";
+    else if (v.furiousCut) cause = "FURIOUS";
+    else if (v.sabotaged) cause = "SABOTAGE";
+    else if (v.peekedFrom === entry) cause = "PEEKED";
+    else if (v.armsGaveOut) cause = "ARMS_GAVE_OUT";
     else if (heldOther) cause = "WRONG_HOLD";
+    else if (v.refusedEntry === entry) cause = "REFUSED";
     else if (claim !== null && claim !== entry) cause = "LIED";
     else cause = "UNLOCKED";
+    const trigger = forced ?? this.rollInsideTrigger();
+    const [lo, hi] = this.cfg.INSIDE_TIMER;
+    r.state = "INSIDE";
+    r.target = entry;
+    r.stateEndsAt = Infinity;
+    r.inside = {
+      entry,
+      since: this.now,
+      trigger,
+      timerAt: trigger === "TIMER" ? this.now + this.rng.range(lo, hi) : null,
+      cause,
+      heldEntry: cause === "WRONG_HOLD" ? heldOther : null,
+      lastClaim: s.chud.lastLocationClaim,
+    };
+    this.emit({ type: "RAM_INSIDE", entry, trigger });
+  }
+
+  private rollInsideTrigger(): InsideTrigger {
+    const w = this.cfg.INSIDE_TRIGGER_WEIGHTS;
+    const total = INSIDE_TRIGGERS.reduce((sum, k) => sum + Math.max(0, w[k]), 0);
+    if (total <= 0) return "NONE";
+    let x = this.rng.next() * total;
+    for (const k of INSIDE_TRIGGERS) {
+      x -= Math.max(0, w[k]);
+      if (x < 0) return k;
+    }
+    return "NONE";
+  }
+
+  // The scare: the night is lost now (section 5 step 4). Decided only by code.
+  private scare(reason: ScareReason, flash: boolean): void {
+    const s = this.state;
+    const inside = s.ram.inside;
+    if (!inside || s.phase !== "PLAYING") return;
     s.phase = "BREACH";
+    s.player.reading = null;
     s.loss = {
       night: s.run.night,
-      entry,
-      cause,
-      lastClaim: s.chud.lastLocationClaim,
-      heldEntry: cause === "WRONG_HOLD" ? heldOther : null,
+      entry: inside.entry,
+      cause: inside.cause,
+      lastClaim: inside.lastClaim,
+      heldEntry: inside.heldEntry,
+      reason,
+      flash,
+      insideFor: Math.max(0, this.now - inside.since),
     };
     this.emit({ type: "BREACH", loss: { ...s.loss } });
+  }
+
+  // Looking at his entry with its light on: at the desk, not reading, facing that entry, its light landed.
+  private lookingAtLit(entry: Entry): boolean {
+    const s = this.state;
+    return (
+      s.player.reading === null && s.player.position.kind === "DESK" && s.player.view === entry && s.power.slot === lightSlot(entry)
+    );
+  }
+
+  // Always-on scare triggers while he is inside, checked every step (section 7.7).
+  private stepInside(): void {
+    const s = this.state;
+    const inside = s.ram.state === "INSIDE" ? s.ram.inside : null;
+    if (!inside) return;
+    const p = s.player.position;
+    if ((p.kind === "STANDING" || p.kind === "HOLDING") && p.entry === inside.entry) {
+      this.scare("ARRIVED", s.power.slot === lightSlot(inside.entry));
+    } else if (this.lookingAtLit(inside.entry)) {
+      this.scare("LOOK", true);
+    } else if (inside.timerAt !== null && this.due(inside.timerAt)) {
+      this.scare("TIMER", false);
+    }
+  }
+
+  // The rolled MOVE trigger: the player's next turn of view or trip from or to the desk.
+  private onPlayerMove(): void {
+    const inside = this.state.ram.state === "INSIDE" ? this.state.ram.inside : null;
+    if (!inside) return;
+    if (this.lookingAtLit(inside.entry)) this.scare("LOOK", true);
+    else if (inside.trigger === "MOVE") this.scare("MOVE", false);
   }
 
   // =========================================================================
@@ -391,19 +529,49 @@ export class GameEngine implements IGameEngine {
     this.stepHour();
 
     // Section 13 order.
-    if (s.ram.state === "AT_ENTRY" && this.due(s.ram.stateEndsAt)) {
-      this.resolveAttempt();
-      if (s.phase !== "PLAYING") return;
-    }
+    if (s.ram.state === "AT_ENTRY" && this.due(s.ram.stateEndsAt)) this.resolveAttempt();
+    this.stepInside();
+    if (s.phase !== "PLAYING") return;
+    this.stepLightCut();
     if (this.now >= nightLength(this.cfg) - EPS) {
-      this.winNight();
+      // 6:00 AM wins, unless he is inside: then the scare comes instead (section 5 step 3).
+      if (s.ram.state === "INSIDE") this.scare("DAWN", false);
+      else this.winNight();
       return;
     }
+    this.stepHints();
+    this.stepDecoys();
     this.stepQuestionTimeouts();
     this.stepSilence();
     this.stepQuestions();
     this.tryFuriousCut();
     this.stepSabotage();
+  }
+
+  // Night 1 tutorial hints at fixed times before the first visit (section 10). Never tied to Ram.
+  private stepHints(): void {
+    const s = this.state;
+    const times = this.cfg.NIGHT_ONE_HINT_TIMES;
+    if (s.run.night !== 1) return;
+    while (s.log.nightOneHintsShown < Math.min(times.length, NIGHT_ONE_HINTS.length) && this.due(times[s.log.nightOneHintsShown])) {
+      this.emit({ type: "HINT", text: NIGHT_ONE_HINTS[s.log.nightOneHintsShown] });
+      s.log.nightOneHintsShown++;
+    }
+  }
+
+  // Decoy noises (section 7.4). Reads only the clock, the night's interval and the decoy stream. Never Ram.
+  private stepDecoys(): void {
+    const d = this.state.decoy;
+    for (let guard = 0; guard < 8 && this.due(d.nextAt); guard++) {
+      this.emit({ type: "DECOY", sound: this.decoyRng.pick(DECOY_SOUNDS), pan: this.decoyRng.range(-1, 1) });
+      d.count++;
+      d.nextAt += this.rollDecoyInterval();
+    }
+  }
+
+  private rollDecoyInterval(): number {
+    const [lo, hi] = this.np.decoyInterval;
+    return this.decoyRng.range(lo, hi);
   }
 
   private stepHour(): void {
@@ -439,6 +607,7 @@ export class GameEngine implements IGameEngine {
     if (p.pending && this.due(p.pending.landsAt)) {
       p.slot = p.pending.target;
       p.pending = null;
+      if (isLockSlot(p.slot)) this.state.player.lightHeld = false; // a landed lock wins; press Shift again to look
       this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: this.pendingPowerCause });
     }
   }
@@ -452,7 +621,7 @@ export class GameEngine implements IGameEngine {
 
   toggleGenerator(): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK") return;
+    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK" || s.player.reading !== null) return;
     if (s.power.generatorOn) {
       s.power.generatorOn = false;
       s.power.rebootingUntil = null;
@@ -462,12 +631,10 @@ export class GameEngine implements IGameEngine {
         s.power.chudOnline = false;
         this.emit({ type: "CHUD_ONLINE", online: false });
         this.tickets.clear();
-        for (const slot of ["pendingQuestion", "suspendedQuestion"] as const) {
-          const q = s.chud[slot];
-          if (q) {
-            s.chud[slot] = null;
-            this.emit({ type: "QUESTION_RESOLVED", questionId: q.id, result: "cancelled" });
-          }
+        const q = s.chud.pendingQuestion;
+        if (q) {
+          s.chud.pendingQuestion = null;
+          this.emit({ type: "QUESTION_RESOLVED", questionId: q.id, result: "cancelled" });
         }
         if (s.chud.furiousActive) this.endFurious(false);
       }
@@ -475,6 +642,7 @@ export class GameEngine implements IGameEngine {
       s.power.generatorOn = true;
       s.power.rebootingUntil = this.now + this.cfg.REBOOT_TIME;
       this.emit({ type: "GENERATOR", on: true });
+      this.syncLight();
     }
   }
 
@@ -484,6 +652,7 @@ export class GameEngine implements IGameEngine {
     s.power.rebootingUntil = null;
     s.power.chudOnline = true;
     this.emit({ type: "CHUD_ONLINE", online: true });
+    this.syncLight();
     const floor = Math.max(s.chud.suspicion, this.cfg.REBOOT_SUSPICION_FLOOR);
     this.changeSuspicion(floor - s.chud.suspicion, ["reboot_floor"]);
     this.say({ kind: "reboot_back" });
@@ -496,15 +665,93 @@ export class GameEngine implements IGameEngine {
 
   turn(view: View): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK") return;
+    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK" || s.player.reading !== null) return;
     if (s.player.view === view) return;
     s.player.view = view;
     this.emit({ type: "VIEW", view });
+    this.syncLight();
+    this.onPlayerMove();
+  }
+
+  // Lights (section 6.1): the player's, never CHUD's. Hold Shift: the light of the entry you are looking at is on,
+  // instantly, and it takes the one power slot (any lock drops at once). Release: the slot goes to NONE.
+  setLight(on: boolean): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING") return;
+    s.player.lightHeld = on;
+    this.syncLight();
+  }
+
+  // Keeps the slot in line with the held light: on the viewed entry while held and powered, off otherwise.
+  private syncLight(): void {
+    const s = this.state;
+    const p = s.power;
+    const v = s.player.view;
+    const powered = p.generatorOn && p.rebootingUntil === null;
+    const want: PowerSlot | null = s.player.lightHeld && powered && v !== "DESK" && s.player.reading === null ? lightSlot(v) : null;
+    if (want) {
+      if (p.slot === want && !p.pending) return;
+      // PEEKED (section 11): a lock on Ram's entry dropped for a light while he is on his way or at it.
+      const r = s.ram;
+      const from = slotEntry(p.slot);
+      if (isLockSlot(p.slot) && (r.state === "APPROACHING" || r.state === "AT_ENTRY") && r.target === from) s.log.visit.peekedFrom = from;
+      p.pending = null;
+      p.slot = want;
+      this.emit({ type: "POWER_CHANGED", slot: want, cause: "light" });
+      this.rollLightCut();
+    } else if (isLightSlot(p.slot)) {
+      p.slot = "NONE";
+      p.lightCutAt = null;
+      this.emit({ type: "POWER_CHANGED", slot: "NONE", cause: "light" });
+    }
+  }
+
+  // CHUD can never stop a light coming on, but it can force it off (section 6.1). One roll per light-on, by band.
+  private rollLightCut(): void {
+    const s = this.state;
+    const chance = this.cfg.LIGHT_CUT[s.chud.band];
+    const online = s.power.chudOnline && s.power.rebootingUntil === null;
+    s.power.lightCutAt = online && chance > 0 && this.rng.chance(chance) ? this.now + this.rng.range(...this.cfg.LIGHT_CUT_DELAY) : null;
+  }
+
+  private stepLightCut(): void {
+    const s = this.state;
+    const p = s.power;
+    if (p.lightCutAt === null || !this.due(p.lightCutAt)) return;
+    p.lightCutAt = null;
+    if (!isLightSlot(p.slot) || !p.chudOnline || p.rebootingUntil !== null || s.chud.band === "WARM") return;
+    const entry = slotEntry(p.slot)!;
+    p.slot = "NONE";
+    // Holding Shift through the cut stays dark: the player has to release and press again.
+    s.player.lightHeld = false;
+    this.emit({ type: "POWER_CHANGED", slot: "NONE", cause: "light_cut" });
+    this.emit({ type: "LIGHT_CUT", entry, band: s.chud.band });
+    if (this.now - s.chud.lastLightCutLineAt >= this.cfg.LIGHT_CUT_LINE_GAP - EPS) {
+      s.chud.lastLightCutLineAt = this.now;
+      this.say({ kind: "light_cut" });
+    }
+  }
+
+  // Desk artifacts (section 6.6): reading is full-screen, the night keeps running, and nothing else can be done.
+  pickUpArtifact(id: string): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING" || s.player.reading !== null || !id) return;
+    if (s.player.position.kind !== "DESK" || s.player.view !== "DESK") return;
+    s.player.reading = id;
+    this.emit({ type: "ARTIFACT", id });
+  }
+
+  putDownArtifact(): void {
+    const s = this.state;
+    if (s.phase !== "PLAYING" || s.player.reading === null) return;
+    s.player.reading = null;
+    this.emit({ type: "ARTIFACT", id: null });
+    if (s.ram.state === "INSIDE") this.scare("ARTIFACT", false);
   }
 
   startHold(entry: Entry): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK") return;
+    if (s.phase !== "PLAYING" || s.player.position.kind !== "DESK" || s.player.reading !== null) return;
     if (this.now < s.player.holdCooldownUntil - EPS) return;
     if (s.player.view !== "DESK" && s.player.view !== entry) return;
     s.player.position = { kind: "TRAVELING", entry, until: this.now + this.cfg.TRAVEL_TIME };
@@ -545,6 +792,7 @@ export class GameEngine implements IGameEngine {
     if (s.player.view !== entry) return; // look first, then go
     s.player.position = { kind: "TRAVELING", entry, until: this.now + this.cfg.TRAVEL_TIME, stay: true, braceOnArrival: false };
     this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+    this.onPlayerMove();
   }
 
   startBrace(): void {
@@ -578,6 +826,7 @@ export class GameEngine implements IGameEngine {
     s.player.holdCooldownUntil = this.now + this.cfg.HOLD_COOLDOWN;
     s.player.position = { kind: "RETURNING", from: q.entry, until: this.now + this.cfg.TRAVEL_TIME };
     this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+    this.onPlayerMove();
   }
 
   private stepPlayer(): void {
@@ -595,6 +844,7 @@ export class GameEngine implements IGameEngine {
       if (s.player.view !== "DESK") {
         s.player.view = "DESK";
         this.emit({ type: "VIEW", view: "DESK" });
+        this.syncLight();
       }
     }
   }
@@ -635,15 +885,6 @@ export class GameEngine implements IGameEngine {
     r.stateEndsAt = base + np.approachTime;
     s.log.visit = freshVisitLog();
     this.emit({ type: "RAM_APPROACH", visitId: r.visitId });
-
-    if (s.run.night === 1 && !s.log.nightOneHintsShown) this.emit({ type: "HINT", text: NIGHT_ONE_HINTS.approach });
-
-    if (np.autoWarnAtApproach && s.power.chudOnline && s.chud.band === "WARM") {
-      s.chud.visitDecision = { visitId: r.visitId, lie: false, entry: target, rolledAfterFake: false };
-      s.chud.lastLocationClaim = target;
-      s.log.visit.claimThisVisit = target;
-      this.say({ kind: "approach_warning", entry: target });
-    }
   }
 
   private fakeOut(): void {
@@ -660,13 +901,12 @@ export class GameEngine implements IGameEngine {
   private arriveAtEntry(): void {
     const s = this.state;
     const r = s.ram;
+    const [lo, hi] = this.np.atEntryTime;
     r.state = "AT_ENTRY";
-    r.stateEndsAt = r.stateEndsAt + this.np.atEntryTime;
+    r.attemptLength = this.rng.range(lo, hi); // random per visit, so the end moment cannot be counted (section 4)
+    r.stateEndsAt = r.stateEndsAt + r.attemptLength;
     this.emit({ type: "RAM_AT_ENTRY", visitId: r.visitId, entry: r.target! });
-    if (s.run.night === 1 && !s.log.nightOneHintsShown) {
-      this.emit({ type: "HINT", text: NIGHT_ONE_HINTS.atEntry });
-      s.log.nightOneHintsShown = true;
-    }
+    if (s.phase !== "PLAYING") return;
     this.tryFuriousCut();
   }
 
@@ -675,20 +915,34 @@ export class GameEngine implements IGameEngine {
     const r = s.ram;
     const entry = r.target!;
     if (!this.isDefended(entry)) {
-      this.breach(entry);
+      this.goInside(entry);
       return;
     }
     r.state = "RETREATING";
     r.stateEndsAt = r.stateEndsAt + this.cfg.RETREAT_TIME;
-    this.emit({ type: "RAM_RETREAT", visitId: r.visitId, entry, shout: ramShout(() => this.rng.next()) });
+    this.emit({ type: "RAM_RETREAT", visitId: r.visitId, entry });
     if (s.chud.furiousActive && s.chud.furiousVisitId === r.visitId) this.endFurious(true);
   }
 
+  // Section 7.6: quick return first; else the base range times the hour ramp, then the lull roll; then silence pulls.
   private goAway(): void {
     const r = this.state.ram;
     const c = this.cfg;
+    const np = this.np;
     const base = r.stateEndsAt;
-    const original = this.rng.range(this.np.awayGap[0], this.np.awayGap[1]);
+    let kind: "normal" | "lull" | "quick" = "normal";
+    let original: number;
+    if (np.quickReturnChance > 0 && this.rng.chance(np.quickReturnChance)) {
+      kind = "quick";
+      original = this.rng.range(c.QUICK_RETURN_GAP[0], c.QUICK_RETURN_GAP[1]);
+    } else {
+      const hour = clamp(Math.floor((base + EPS) / c.HOUR_LENGTH), 0, c.HOUR_RAMP.length - 1);
+      original = this.rng.range(np.awayGap[0], np.awayGap[1]) * (c.HOUR_RAMP[hour] ?? 1);
+      if (np.lullChance > 0 && this.rng.chance(np.lullChance)) {
+        kind = "lull";
+        original *= c.LULL_MULT;
+      }
+    }
     let gap = original;
     for (let i = 0; i < r.pendingPull; i++) gap *= 1 - c.SILENCE_PULL;
     gap = Math.max(gap, Math.min(c.MIN_AWAY_GAP, original));
@@ -696,6 +950,7 @@ export class GameEngine implements IGameEngine {
     r.state = "AWAY";
     r.target = null;
     r.stateEndsAt = base + gap;
+    r.lastGap = { length: gap, kind };
     this.awayStartedAt = base;
     this.emit({ type: "RAM_AWAY", nextVisitAt: r.stateEndsAt });
   }
@@ -777,8 +1032,14 @@ export class GameEngine implements IGameEngine {
     if (r.state !== "AT_ENTRY" || s.chud.furiousVisitId !== r.visitId) return;
     if (this.windowLeft() < this.cutMargin() - EPS) return;
     s.chud.furiousCutDone = true;
-    this.cutPower("furious");
-    s.log.visit.furiousCut = true;
+    // The cut only hits a lock (engaged or on its way). The player's light is not CHUD's to cut.
+    const p = s.power;
+    if (isLockSlot(p.slot) || (p.pending && isLockSlot(p.pending.target))) {
+      p.pending = null;
+      if (isLockSlot(p.slot)) p.slot = "NONE";
+      this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: "furious" });
+      s.log.visit.furiousCut = true;
+    }
     this.emit({ type: "FURIOUS_CUT", entry: r.target! });
     this.say({ kind: "furious_cut" });
   }
@@ -875,7 +1136,7 @@ export class GameEngine implements IGameEngine {
     return this.rng.pick(fresh.length ? fresh : known);
   }
 
-  private makeQuestion(type: QuestionType, origin: PendingQuestion["origin"], gateFor: Entry | null): PendingQuestion {
+  private makeQuestion(type: QuestionType, origin: PendingQuestion["origin"]): PendingQuestion {
     const c = this.state.chud;
     const q = (t: QuestionType, factKey: string | null, text: string): PendingQuestion => ({
       id: this.nextQuestionId++,
@@ -884,7 +1145,6 @@ export class GameEngine implements IGameEngine {
       factKey,
       text,
       askedAt: this.now,
-      gateFor,
     });
     if (type === "MEMORY") {
       const topic = this.pickMemoryTopic();
@@ -924,33 +1184,25 @@ export class GameEngine implements IGameEngine {
     if (!item) return;
     if (!this.np.questionsMayLandDuringAttempt && s.ram.state === "AT_ENTRY") return;
     item.asked = true;
-    this.askQuestion(this.makeQuestion(item.type, "SCHEDULED", null), true);
+    this.askQuestion(this.makeQuestion(item.type, "SCHEDULED"), true);
   }
 
   private stepQuestionTimeouts(): void {
     const c = this.state.chud;
     const limit = this.cfg.QUESTION_TIMEOUT;
     if (c.pendingQuestion && this.due(c.pendingQuestion.askedAt + limit)) this.timeoutQuestion(c.pendingQuestion);
-    if (c.suspendedQuestion && this.due(c.suspendedQuestion.askedAt + limit)) this.timeoutQuestion(c.suspendedQuestion);
   }
 
   private timeoutQuestion(q: PendingQuestion): void {
     this.removeQuestion(q);
     this.changeSuspicion(this.cfg.suspicion.questionTimeout, ["question_timeout"]);
     this.emit({ type: "QUESTION_RESOLVED", questionId: q.id, result: "timeout" });
-    if (q.origin === "GATE" && q.gateFor) this.say({ kind: "gate_timeout", entry: q.gateFor });
-    else this.say({ kind: "question_timeout" });
+    this.say({ kind: "question_timeout" });
   }
 
-  // Clears q from whichever slot holds it. If the pending one goes, a suspended question comes back.
   private removeQuestion(q: PendingQuestion): void {
     const c = this.state.chud;
-    if (c.pendingQuestion?.id === q.id) {
-      c.pendingQuestion = c.suspendedQuestion ?? null;
-      c.suspendedQuestion = null;
-    } else if (c.suspendedQuestion?.id === q.id) {
-      c.suspendedQuestion = null;
-    }
+    if (c.pendingQuestion?.id === q.id) c.pendingQuestion = null;
   }
 
   private storeFact(key: string, value: string): void {
@@ -980,7 +1232,6 @@ export class GameEngine implements IGameEngine {
       factKey: RADIO_TOPIC.key,
       text: RADIO_TOPIC.question,
       askedAt: this.now,
-      gateFor: null,
     };
     if (s.power.chudOnline && !s.chud.pendingQuestion) this.askQuestion(q, true);
     else s.chud.queuedScriptQuestion = q;
@@ -992,15 +1243,14 @@ export class GameEngine implements IGameEngine {
 
   pressQuick(cmd: QuickCommand): void {
     const s = this.state;
-    if (s.phase !== "PLAYING" || !s.power.chudOnline) return;
+    if (s.phase !== "PLAYING" || !s.power.chudOnline || s.player.reading !== null) return;
     if (s.player.position.kind !== "DESK" || s.player.view !== "DESK") return;
     if (this.now - s.player.lastQuickAt < this.cfg.QUICK_BUTTON_COOLDOWN - EPS) return;
     s.player.lastQuickAt = this.now;
     let parsed: ParsedCommand;
-    if (cmd === "LOCK_WINDOW") parsed = { command: "LOCK", entry: "WINDOW" };
-    else if (cmd === "LOCK_HATCH") parsed = { command: "LOCK", entry: "HATCH" };
-    else if (cmd === "LOCK_BALCONY") parsed = { command: "LOCK", entry: "BALCONY" };
-    else parsed = { command: cmd, entry: null };
+    if (cmd === "ASK_LOCATION" || cmd === "POWER_OFF") parsed = { command: cmd, entry: null };
+    else if (isLockSlot(cmd)) parsed = { command: "LOCK", entry: slotEntry(cmd) };
+    else return; // there are no light buttons: lights are the player's own (Shift)
     this.say(this.resolveCommand(parsed));
   }
 
@@ -1011,74 +1261,71 @@ export class GameEngine implements IGameEngine {
       case "POWER_OFF":
         if (this.effectiveSlot() !== "NONE") this.requestPower("NONE", "player");
         return { kind: "power_off" };
-      case "BEAM":
-        if (band === "FURIOUS") return { kind: "refuse_furious", request: "BEAM" };
-        if (this.effectiveSlot() !== "BEAM") this.requestPower("BEAM", "player");
-        return { kind: "beam_on" };
       case "ASK_LOCATION":
         return { kind: "location_claim", entry: this.locationClaim() };
       case "LOCK": {
+        // Section 8.3: a lock request is never gated. CHUD rolls a refusal by its band at this moment (the hijack:
+        // a malicious smile and no lock). Re-locking the entry already locked is always confirmed.
         const entry = p.entry!;
-        if (band === "FURIOUS") return { kind: "refuse_furious", request: "LOCK" };
-        if (this.effectiveSlot() === lockSlot(entry)) return { kind: "lock_already", entry };
-        if (band === "WARM") {
-          this.requestPower(lockSlot(entry), "player");
-          return { kind: "locked", entry };
+        if (this.effectiveSlot() === lockSlot(entry) && band !== "FURIOUS") return { kind: "lock_already", entry };
+        const chance = band === "FURIOUS" ? 1 : this.cfg.LOCK_REFUSAL[band];
+        if (chance > 0 && (chance >= 1 || this.rng.chance(chance))) {
+          this.refuseLock(entry);
+          return band === "FURIOUS" ? { kind: "refuse_furious", request: "LOCK" } : { kind: "lock_refused", entry };
         }
-        return this.gateLock(entry);
+        this.requestPower(lockSlot(entry), "player");
+        return { kind: "locked", entry };
       }
       default:
         return { kind: "small_talk" };
     }
   }
 
-  private gateLock(entry: Entry): Outcome {
-    const c = this.state.chud;
-    const pending = c.pendingQuestion;
-    if (pending && pending.origin === "GATE") {
-      pending.gateFor = entry; // replaces the waiting request, same question and timer
-      return { kind: "gate_question", entry, question: pending.text };
-    }
-    const q = this.makeQuestion(c.band === "JEALOUS" ? "MEMORY" : "SEED", "GATE", entry);
-    if (pending) c.suspendedQuestion = pending;
-    this.askQuestion(q, false);
-    return { kind: "gate_question", entry, question: q.text };
+  private refuseLock(entry: Entry): void {
+    const s = this.state;
+    const r = s.ram;
+    if ((r.state === "APPROACHING" || r.state === "AT_ENTRY") && r.target === entry) s.log.visit.refusedEntry = entry;
+    this.emit({ type: "LOCK_REFUSED", entry });
   }
 
-  private gatePassed(entry: Entry): Outcome {
-    if (this.state.chud.band === "FURIOUS") return { kind: "refuse_furious", request: "LOCK" };
-    if (this.effectiveSlot() === lockSlot(entry)) return { kind: "lock_already", entry };
-    this.requestPower(lockSlot(entry), "gate_pass");
-    return { kind: "locked", entry };
-  }
-
-  private locationClaim(): Entry | "NONE" {
+  // Section 8.7. One truth-or-lie decision per visit, re-rolled once after a fake-out and once when he gets inside.
+  // A lie names another active entry or "no one" (so "he's gone" can be a lie). WARM never lies.
+  private locationClaim(): LocationClaim {
     const s = this.state;
     const r = s.ram;
     const band = s.chud.band;
     const active = this.np.activeEntries;
     if (r.state === "AWAY" || r.state === "RETREATING" || !r.target) {
-      const claim: Entry | "NONE" = band === "FURIOUS" ? this.rng.pick(active) : "NONE";
+      const claim: LocationClaim = band === "FURIOUS" ? this.rng.pick(active) : "NONE";
       s.chud.lastLocationClaim = claim;
       return claim;
     }
-    const target = r.target;
+    const inside = r.state === "INSIDE";
+    const truth: LocationClaim = inside ? "INSIDE" : r.target;
     let d = s.chud.visitDecision;
     const reusable =
       d !== null &&
       d.visitId === r.visitId &&
       (!r.fakedThisVisit || d.rolledAfterFake) &&
-      !(band === "FURIOUS" && !d.lie);
+      (!inside || d.rolledInside) &&
+      !(band === "FURIOUS" && !d.lie) &&
+      !(band === "WARM" && d.lie);
     if (!reusable) {
       const np = this.np;
       const chance = band === "WARM" ? 0 : band === "HURT" ? np.lieChanceHurt : band === "JEALOUS" ? np.lieChanceJealous : 1;
-      const others = active.filter((e) => e !== target);
-      const lie = chance > 0 && others.length > 0 && this.rng.chance(chance);
-      d = { visitId: r.visitId, lie, entry: lie ? this.rng.pick(others) : target, rolledAfterFake: r.fakedThisVisit };
+      const others: LocationClaim[] = [...active.filter((e) => e !== truth), "NONE"];
+      const lie = chance > 0 && this.rng.chance(chance);
+      d = {
+        visitId: r.visitId,
+        lie,
+        entry: lie ? this.rng.pick(others) : truth,
+        rolledAfterFake: r.fakedThisVisit,
+        rolledInside: inside,
+      };
       s.chud.visitDecision = d;
     }
     s.chud.lastLocationClaim = d!.entry;
-    s.log.visit.claimThisVisit = d!.entry;
+    if (!inside) s.log.visit.claimThisVisit = d!.entry;
     return d!.entry;
   }
 
@@ -1095,6 +1342,7 @@ export class GameEngine implements IGameEngine {
     };
     // Step 1: gate checks.
     if (s.phase !== "PLAYING") return reject("NOT_PLAYING");
+    if (s.player.reading !== null) return reject("READING");
     if (!s.power.chudOnline) return reject("CHUD_OFFLINE");
     if (s.player.position.kind !== "DESK" || s.player.view !== "DESK") return reject("NOT_AT_DESK");
     if (this.now - s.player.lastMessageAt < c.MESSAGE_RATE_LIMIT - EPS) return reject("RATE_LIMIT");
@@ -1158,7 +1406,6 @@ export class GameEngine implements IGameEngine {
     let pq: PendingQuestion | null = null;
     if (t.questionId !== null) {
       if (s.chud.pendingQuestion?.id === t.questionId) pq = s.chud.pendingQuestion;
-      else if (s.chud.suspendedQuestion?.id === t.questionId) pq = s.chud.suspendedQuestion ?? null;
     }
 
     // Gibberish: no social effects, not a real message. A code-parsed command still runs.
@@ -1198,7 +1445,7 @@ export class GameEngine implements IGameEngine {
     add(r.contradiction, S.contradiction, "contradiction");
     add(r.rude, S.rude, "rude");
     add(r.offensive, S.offensive, "offensive");
-    if (pq && qResult === "fail") add(pq.origin === "GATE" || pq.type === "MEMORY", S.answerFailed, "answer_failed");
+    if (pq && qResult === "fail") add(pq.type === "MEMORY", S.answerFailed, "answer_failed");
     if (pq && qResult === "pass") {
       if (pq.type === "MEMORY") add(true, S.memoryPassed, "memory_passed");
       else add(!r.contradiction, S.answered, "answered");
@@ -1219,11 +1466,7 @@ export class GameEngine implements IGameEngine {
       if (seedPassed && pq.factKey) {
         this.storeFact(pq.factKey, r.new_fact?.value ?? t.text.trim().slice(0, FACT_VALUE_MAX));
       }
-      if (pq.origin === "GATE" && pq.gateFor) {
-        commandOutcome = qResult === "pass" ? this.gatePassed(pq.gateFor) : { kind: "gate_failed", entry: pq.gateFor };
-      } else {
-        answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type };
-      }
+      answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type };
     }
     if (r.new_fact && !seedPassed) this.storeFact(r.new_fact.key, r.new_fact.value);
 

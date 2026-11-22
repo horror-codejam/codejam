@@ -1,6 +1,6 @@
 # Sound plan (proposal)
 
-Status: PROPOSAL from a research pass on 2026-11-21. Can start in parallel with the visuals. Items marked UNVERIFIED must be checked before use. Licenses were checked from the linked pages on that date; re-check before shipping.
+Status: PROPOSAL from a research pass on 2026-11-21. Update 2026-11-21 (new loop, GAME_LOGIC 7.4): Ram makes no sound at all. The entry cues, Ram's lines and his shoves are gone. What the player hears instead: the ambient bed, decoy creaks, knocks, metal and glass from the house (stereo panned, from a random stream that never knows where Ram is), the player, CHUD, the light click and CHUD's tick when it cuts the light, and the jumpscare at the scare. Can start in parallel with the visuals. Items marked UNVERIFIED must be checked before use. Licenses were checked from the linked pages on that date; re-check before shipping.
 
 ## Recommended stack
 - **Engine:** Howler.js (MIT, https://github.com/goldfire/howler.js) for one-shots and loops. Raw Web Audio only for the positional entry cues and CHUD's voice chain.
@@ -66,7 +66,8 @@ Shipping edited Sonniss audio inside the web build is part of the game; keep the
 | C, engineer | `audio.ts`: load, play(name, opts), panners and listener, voice chain, mixer | 4 to 5 h |
 
 - Folder: `public/audio/{amb,sfx,voice,ui}/`. Names `domain_event_variant.ogg`, e.g. `sfx_hatch_knock_02.ogg`, `voice_chud_night1_lie_03.ogg`. Manifest `audio.json` maps event IDs to files.
-- **Must-have:** storm and wave bed, room hum bed, rain on glass, key clicks, head-turn whoosh and chair creak, the three entry cues (window tap, ladder rungs and hatch knock, door handle rattle), jumpscare, thunder, CHUD canned voice.
-- **Nice-to-have:** dash footsteps and breathing, radio static and coast-guard lines, generator relay clunk, beacon motor, Ram's lines through the door.
+- **Must-have:** storm and wave bed, room hum bed, rain on glass, key clicks, head-turn whoosh and chair creak, decoy house noises (3 to 5 variants each of creak, knock, metal, glass; never tied to Ram), light switch click and an electrical tick for CHUD's cut, jumpscare, thunder, CHUD canned voice.
+- **Nice-to-have:** dash footsteps and breathing, radio static and coast-guard lines, generator relay clunk, beacon motor, paper rustle for the desk papers.
+- **Never:** any sound from Ram (approach, entry, push, retreat, voice).
 - **Risks:** Sonniss download size (grab only needed packs), Safari formats (test early), Kokoro install on Windows (test run first), loudness mismatch (check on headphones).
 - **Fallbacks:** if HRTF sounds weak, `StereoPannerNode` plus a low-pass for "behind"; if Kokoro fails, one ElevenLabs free-tier batch after reading the terms.

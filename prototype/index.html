@@ -41,16 +41,12 @@
             <div id="chat-note"></div>
             <div id="quick">
               <button data-quick="ASK_LOCATION">Where is he?</button>
-              <button data-quick="LOCK_WINDOW">Lock window</button>
-              <button data-quick="LOCK_HATCH">Lock hatch</button>
-              <button data-quick="LOCK_BALCONY">Lock balcony</button>
-              <button data-quick="BEAM">Beam</button>
               <button data-quick="POWER_OFF">Power off</button>
             </div>
           </div>
           <div id="t-right">
             <div id="t-clock">12:00</div>
-            <!-- Top-down map of the watch room. Entries and lock state only: never Ram. -->
+            <!-- Top-down map of the watch room. Entries and lock state only: never Ram. Lights are not here: hold Shift. -->
             <svg id="t-map" viewBox="0 0 100 100" aria-label="Watch room map">
               <circle cx="50" cy="50" r="46" class="wall" />
               <circle cx="50" cy="50" r="11" class="core" />
@@ -60,12 +56,23 @@
               <g class="entry" data-entry="HATCH"><circle cx="93" cy="50" r="6" /><text x="78" y="53">H</text></g>
               <g class="entry" data-entry="BALCONY"><rect x="44" y="84" width="12" height="12" /><text x="47" y="80">B</text></g>
             </svg>
+            <!-- Lock buttons by the map. CHUD can refuse them (the hijack): then run and brace it yourself. -->
+            <div id="locks">
+              <button data-quick="LOCK_WINDOW">Lock W</button>
+              <button data-quick="LOCK_HATCH">Lock H</button>
+              <button data-quick="LOCK_BALCONY">Lock B</button>
+            </div>
             <div id="t-power-label">POWER</div>
             <div id="t-power">
-              <i data-cell="LOCK_WINDOW">W</i><i data-cell="LOCK_HATCH">H</i><i data-cell="LOCK_BALCONY">B</i><i data-cell="BEAM">BEAM</i>
+              <i data-cell="LOCK_WINDOW">W</i><i data-cell="LOCK_HATCH">H</i><i data-cell="LOCK_BALCONY">B</i><i data-cell="LIGHT">LIGHT</i>
             </div>
           </div>
         </div>
+
+        <!-- Desk artifacts: clickable spots on the desk render (ARTIFACTS in uiConfig.ts), positioned by main.ts. -->
+        <div id="artifacts" class="hidden"></div>
+        <!-- Reading an artifact: full screen, the night keeps running. Click, right-click or Space puts it down. -->
+        <div id="reader" class="hidden"><img id="reader-img" alt="" /><div id="reader-hint">Click, right-click or Space to put it down</div></div>
 
         <div id="brace-hint" class="hidden"></div>
 
