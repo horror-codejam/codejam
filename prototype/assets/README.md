@@ -18,7 +18,7 @@ node tools/convert_renders.mjs
 
 - Stills `png/<job>/<job>.png` become `final/webp/<job>.webp` (1920 x 960, quality 85).
 - Sequences `png/<job>/<job>_0001.png ...` become `final/webp/<job>/<job>_0001.webp ...`.
-- Idempotent: up-to-date files are skipped. A sequence whose newest frame is under 15 s old is skipped as still rendering; run again later.
+- Idempotent: up-to-date files are skipped. A sequence is converted only once `final/render_log.txt` shows its final render ended (without the log: once its newest frame is 15 s old); until then it is reported as pending, run again later.
 - Renders in another checkout: `--src <path to final/png>` (or `RENDERS_SRC`). `--force` re-encodes everything.
 - Then commit `scenes/03-watch-room/final/webp/`. The game only uses a sequence when its frames are numbered from 0001 with no gaps.
 

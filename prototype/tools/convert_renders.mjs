@@ -7,11 +7,11 @@
 // Usage (from prototype/):
 //   node tools/convert_renders.mjs [--src <png folder>] [--out <webp folder>] [--quality 85] [--force]
 // Defaults: --src <repo>/scenes/03-watch-room/final/png (or $RENDERS_SRC), --out <repo>/scenes/03-watch-room/final/webp.
-// Idempotent: a file is skipped when its WebP is newer than the PNG. Sequences whose newest frame changed less than
-// 15 s ago are skipped (Blender is probably still writing them); run again later. Needs ffmpeg on PATH.
+// Idempotent: a file is skipped when its WebP is newer than the PNG. A sequence is converted only once the render
+// queue logged its END in final/render_log.txt (without the log: once its newest frame is 15 s old). Needs ffmpeg.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +37,20 @@ if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status !== 0) {
 }
 
 const stats = { converted: 0, skipped: 0, failed: 0, pending: 0 };
+
+// The render queue logs "START <job> (... final)" and "END <job>" to final/render_log.txt next to the png folder.
+// When the log exists a sequence is converted only once its last final START has an END after it.
+const logPath = join(dirname(SRC), "render_log.txt");
+const renderLog = existsSync(logPath) ? readFileSync(logPath, "utf8").split(/\r?\n/) : null;
+function finishedInLog(job) {
+  let started = -1;
+  let ended = -1;
+  renderLog.forEach((line, i) => {
+    if (new RegExp(`\\sSTART ${job} \\(.*final\\)`).test(line)) started = i;
+    if (new RegExp(`\\sEND ${job}(\\s|$)`).test(line)) ended = i;
+  });
+  return started >= 0 && ended > started;
+}
 
 function upToDate(src, dst) {
   return !FORCE && existsSync(dst) && statSync(dst).mtimeMs >= statSync(src).mtimeMs;
@@ -75,7 +89,7 @@ for (const job of readdirSync(SRC).sort()) {
   const frames = readdirSync(dir).filter((f) => frameRe.test(f)).sort();
   if (!frames.length) continue; // empty folder: still rendering
   const newest = Math.max(...frames.map((f) => statSync(join(dir, f)).mtimeMs));
-  if (Date.now() - newest < SETTLE_MS) {
+  if (renderLog ? !finishedInLog(job) : Date.now() - newest < SETTLE_MS) {
     stats.pending++;
     console.log(`pending ${job} (${frames.length} frames so far, still being written)`);
     continue;
