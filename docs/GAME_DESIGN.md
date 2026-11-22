@@ -208,7 +208,7 @@ ChudGPT's face: 4 pixel-art mood sprites on the PC screen (warm, hurt, jealous, 
 In the browser:
 - Perspective shader on each view, slight mouse pan and camera sway.
 - Future ideas (no art yet): a wider desk panorama the mouse pans across, and clickable desk objects (logbook, radio) with close-ups for clues and hints.
-- Audio (headphones): storm and waves, the ambient bed, stereo-panned decoy creaks, knocks and metal from the house (never Ram), ChudGPT's chime, the light switch and ChudGPT's electrical tick when it cuts the light, radio static, the jumpscare, helicopter.
+- Audio (headphones): title drone, storm and generator beds, stereo-panned house decoys, player foley, power cues, ChudGPT's chime and dialogue, and scripted radio calls. Ram stays silent through entry. The entry impact plays with the jumpscare, followed by static at the cut to black.
 - The title shows New Game and Continue when a checkpoint exists. Preload the art and sampled audio before the title.
 
 Workflow:

@@ -108,8 +108,8 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 4. **On the scare (the loss):**
    - If the scare was set off by looking (reason `LOOK`, or `ARRIVED` with the entry's light on): a creepy full-frame flash of Ram standing inside the lit entry, about 0.4 s (0.3 to 0.5), then the jumpscare.
    - Otherwise straight to the jumpscare.
-   - The jumpscare: four frames (`ram_jumpscare_1..4`, each closer) with `jumpscare.wav`. The burst happens at the scare moment, never at the silent breach itself.
-   - Then cut to black and offer "Title" (section 11). The highest unlocked night stays saved.
+   - Play `jumpscare.wav` and the entry-specific impact as the jumpscare frames start. The `INSIDE` transition stays silent.
+   - Then cut to black with a short static burst and offer "Title" (section 11). The highest unlocked night stays saved.
 
 ## 6. The player
 
@@ -233,7 +233,7 @@ Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, 
 | RETREATING | Same as AWAY | Tell disappears |
 | INSIDE | Same as AWAY | Only with his entry lit and looked at: him, standing just inside. That sets off the scare (7.7) |
 
-**Decoy noises:** creaks, knocks, metal and glass, stereo panned (-1 left to 1 right), at the night's decoy interval. They come from a separate seeded random stream (reseeded per night) that never reads Ram's state, so they are provably uncorrelated with him: the same seed gives the same decoys whatever Ram and the player do, and decoys land during an attempt only as often as attempts take up the night. They keep coming while he is inside. The ambient bed (`public/audio/amb/ambient-noise.m4a`) loops under everything.
+**Decoy noises:** creaks, knocks, metal and glass, stereo panned (-1 left to 1 right), at the night's decoy interval. A separate seeded random stream controls each event's timing, sound category and pan without reading Ram's state. The audio layer picks a recording from the category. Decoys continue while he is inside. The storm and generator room-tone recordings loop during play. Switching the generator off stops the room tone.
 
 ### 7.5 Resolving an attempt
 At the exact moment `AT_ENTRY` ends, the entry E counts as **defended** if either of these is true:
@@ -429,7 +429,7 @@ Quick buttons skip steps 2, 4, 6 and 7, and go straight to step 8 with a fixed c
 | 5 | 5:00 AM | Radio: "Helicopter at first light." +20 (pushes toward Furious for the final hour) |
 
 ## 11. Win and loss screens
-- **Night won:** show the clock tick from 5:59 AM to 6:00 AM, then automatically show the next midnight card. After night 5, go to the ending and credits instead.
+- **Night won:** show the clock tick from 5:59 AM to 6:00 AM, play the dawn sting and fade the storm, then automatically show the next midnight card. After night 5, go to the ending and credits instead.
 - **Loss:** play the flash when applicable and the four-frame jumpscare with sound. Cut to black, then reveal the single option "Title" after about 1.5 seconds. Continue from the highest unlocked night and its facts checkpoint on the title screen.
 - **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority is unchanged: `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `PEEKED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
 
