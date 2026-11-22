@@ -1,5 +1,5 @@
 import { getRequestListener } from "@hono/node-server";
-import { createApi } from "../server/app";
+import { createApi } from "../server/app.js";
 
 declare const process: { env: { ANTHROPIC_API_KEY?: string } };
 
