@@ -529,7 +529,8 @@ describe("scripted lines", () => {
     }
     const { voiceUser, mentionsForbiddenName } = await import("../server/prompts");
     const prompt = voiceUser({ kind: "small_talk", canned: "Mm.", band: "WARM", name: "Ram", night: 1, recent: [] });
-    expect(prompt).toContain("The keeper's name: Keeper.");
+    expect(prompt).toContain("The keeper's name: Keeper");
+    expect(prompt).not.toMatch(/ram/i);
     expect(mentionsForbiddenName("Ram is outside")).toBe(true);
     expect(mentionsForbiddenName("the ramp is wet")).toBe(false);
   });

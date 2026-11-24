@@ -643,13 +643,13 @@ export function allLineTemplates(): string[] {
   return out.filter((s) => s.length > 0);
 }
 
-// Every distinct line text a band can show for scripted pools, with {n} filled as "keeper" and entries expanded.
-// Used by the clip generator (tools/chud-tts) and the audio lookup test. Lines with {v} are skipped.
+// Every distinct line text a band can show for scripted pools, with entries expanded.
+// Used by the clip generator (tools/chud-tts). Lines with {v} or {n} are skipped: they depend on what the keeper said or is called.
 export function clipLines(): { band: Band; text: string }[] {
   const out: { band: Band; text: string }[] = [];
   const seen = new Set<string>();
   const add = (band: Band, template: string, entry?: Entry) => {
-    if (template.includes("{v}")) return;
+    if (template.includes("{v}") || template.includes("{n}")) return;
     const text = fill(template, { band, name: null, rand: () => 0 }, entry);
     const key = `${band}|${text}`;
     if (!text || seen.has(key)) return;
@@ -680,7 +680,7 @@ export function clipLines(): { band: Band; text: string }[] {
     for (const q of LIGHT_QUESTIONS[band]) add(band, q);
     for (const t of [ENTRY_REPELLED, "If I can't keep you, nobody will. Hold it yourself."]) add(band, t);
   }
-  for (const e of entries) for (const t of ENTRY_WARNINGS[e]) add("WARM", t, e);
+  for (const e of entries) for (const t of ENTRY_WARNINGS[e]) for (const band of bands) add(band, t, e);
   for (const t of Object.values(PRACTICE_LINES)) add("WARM", t);
   for (const t of STAY_QUESTIONS) for (const band of bands) add(band, t);
   for (const topic of [...SEED_TOPICS, RADIO_TOPIC]) for (const band of bands) add(band, topic.question), add(band, topic.memoryQuestion);
