@@ -1,7 +1,7 @@
 // Every tuning knob from docs/GAME_LOGIC.md section 14. Times are in seconds of game time.
 // Change numbers here only. Rule changes go in docs/GAME_LOGIC.md and docs/DECISIONS.md.
 
-import type { Band, Entry, InsideTrigger, QuestionType } from "./sim/types";
+import type { Band, Entry, InsideTrigger, QuestionType, View } from "./sim/types";
 
 
 export interface NightParams {
@@ -66,9 +66,23 @@ export interface Config {
   LOCATION_SPAM_PENALTIES: [number, number]; // suspicion for the 2nd request, and for the 3rd and later
   LOCATION_REFUSE_TIME: number; // seconds ChudGPT refuses location answers after the 3rd request
   LOCK_REFUSAL: Record<Band, number>; // chance CHUD hijacks a lock request, by band (section 8.3)
-  LIGHT_CUT: Record<Band, number>; // chance CHUD forces a light off, rolled once per light-on (section 6.1)
-  LIGHT_CUT_DELAY: [number, number]; // seconds after the light came on that the cut lands
+  LIGHT_CUT: Record<Band, number>; // chance CHUD cuts the rotating ceiling lamp when the player looks at an entry (section 6.1)
+  LIGHT_CUT_DELAY: [number, number]; // seconds after turning to an entry before the cut lands
+  LIGHT_CUT_DURATION: number; // seconds the ceiling lamp stays off after CHUD cuts it
   LIGHT_CUT_LINE_GAP: number; // min seconds between CHUD's possessive lines on cuts (cuts themselves are not limited)
+  BEAM_PERIOD: number; // seconds per full rotation of the ceiling lamp (right to left)
+  BEAM_START_ANGLE: number; // radians, starting azimuth at t = 0 (manifest phaseAzimuth: 12 deg)
+  BEAM_DIRECTION: 1 | -1; // +1 = increasing azimuth (right-to-left across watch room)
+  BEAM_WIDTH: number; // radians, horizontal cone width (18 deg)
+  BEAM_HEIGHT: number; // radians, vertical cone height (50 deg)
+  BEAM_TILT: number; // radians, downward tilt (-31 deg)
+  BEAM_SOFTNESS: number; // 0..1 smoothstep edge softness (0.8)
+  BEAM_GAIN: number; // linear radiance multiplier (1.0)
+  BEAM_DARK_GAIN: number; // linear ambient multiplier between passes (0.6 = 40% darker)
+  BEAM_HAZE: number; // haze strength multiplier (1.0)
+  BEAM_REVEAL_THRESHOLD: number; // beam intensity (0..1) at an entry's tell azimuth that counts as lit
+  BEAM_ENTRY_AZIMUTHS: Record<Entry, number>; // radians, copied from scenes/03-watch-room/final_beam/manifest.json
+  BEAM_VIEW_AZIMUTHS: Record<View, number>; // radians, view centers for audio hum swell
   SABOTAGE_CHANCE: number;
   SABOTAGE_MARGIN: number; // seconds needed beyond TRAVEL_TIME
   FURIOUS_RESET: number;
@@ -217,7 +231,30 @@ export const CONFIG: Config = {
   LOCK_REFUSAL: { WARM: 0, HURT: 0.25, JEALOUS: 0.55, FURIOUS: 1 },
   LIGHT_CUT: { WARM: 0, HURT: 0.25, JEALOUS: 0.5, FURIOUS: 0.85 },
   LIGHT_CUT_DELAY: [1.0, 2.5],
+  LIGHT_CUT_DURATION: 5,
   LIGHT_CUT_LINE_GAP: 5,
+  BEAM_PERIOD: 16,
+  BEAM_START_ANGLE: (12 * Math.PI) / 180,
+  BEAM_DIRECTION: 1,
+  BEAM_WIDTH: (18 * Math.PI) / 180,
+  BEAM_HEIGHT: (50 * Math.PI) / 180,
+  BEAM_TILT: (-31 * Math.PI) / 180,
+  BEAM_SOFTNESS: 0.8,
+  BEAM_GAIN: 1,
+  BEAM_DARK_GAIN: 0.6,
+  BEAM_HAZE: 1,
+  BEAM_REVEAL_THRESHOLD: 0.25,
+  BEAM_ENTRY_AZIMUTHS: {
+    WINDOW: (189.40797939952267 * Math.PI) / 180,
+    HATCH: (359.78857681408135 * Math.PI) / 180,
+    BALCONY: (270 * Math.PI) / 180,
+  },
+  BEAM_VIEW_AZIMUTHS: {
+    DESK: (118 * Math.PI) / 180,
+    WINDOW: (189.40797939952267 * Math.PI) / 180,
+    HATCH: (359.78857681408135 * Math.PI) / 180,
+    BALCONY: (270 * Math.PI) / 180,
+  },
   SABOTAGE_CHANCE: 0.5,
   SABOTAGE_MARGIN: 1.0,
   FURIOUS_RESET: 80,

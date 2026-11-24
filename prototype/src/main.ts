@@ -8,8 +8,9 @@ import { offlineJudge } from "./chud/offlineJudge";
 import { CONFIG } from "./config";
 import { LONG_LINE_WORDS } from "./chud/lines";
 import { GameEngine } from "./sim/engine";
+import { defaultBeamParams, normalizeAngle } from "./sim/beam";
 import { slotEntry, type Band, type Entry, type GameEvent, type InsideTrigger, type LossInfo, type Phase, type PowerSlot, type QuickCommand } from "./sim/types";
-import { loadArt } from "./ui/art";
+import { loadArt, preloadAllHoldBeams } from "./ui/art";
 import type { Sound, SpeechPlayback } from "./ui/audio";
 import { EdgeTurner } from "./ui/edges";
 import { playIntro } from "./ui/intro";
@@ -90,8 +91,6 @@ let powerAlarmEntry: Entry | null = null;
 let previousPowerSlot: PowerSlot = "NONE";
 let powerFlicker = false;
 let maliciousUntil = 0; // real seconds: CHUD's malicious smile is up
-let lightCutUntil = 0; // real seconds: the LIGHT cell flashes red after CHUD forced the light off
-let shiftDown = false; // Shift held (the player's light)
 let scareTimers: number[] = []; // the running flash and jumpscare sequence
 let speed = 1;
 let devOn = false; // dev mode: badge visible, shortcuts live (default on)
@@ -126,6 +125,7 @@ async function boot(): Promise<void> {
   const audio = import("./ui/audio");
   await app.init({
     width: W, height: H, background: "#000000", antialias: false,
+    preference: "webgl", preferWebGLVersion: 2,
     resolution: Math.min(window.devicePixelRatio || 1, 2), autoStart: false,
   });
   const { Sound } = await audio;
@@ -133,6 +133,7 @@ async function boot(): Promise<void> {
   $("stage").appendChild(app.canvas);
   const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
+  window.setTimeout(() => void preloadAllHoldBeams(), 1500);
   sound.warmSpeech();
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);
@@ -187,6 +188,7 @@ function frame(dt: number): void {
   }
   if (frontScreen || previewing) {
     scene.pauseMedia();
+    sound.setLampHum(false, 0);
     app.ticker.stop();
     return;
   }
@@ -224,6 +226,8 @@ function frame(dt: number): void {
     tutorial.update(engine, t, (line) => showChud(line.text, line.band, t), clearPracticeSpeech);
   }
   const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
+  const lampActive = phase === "PLAYING" && !paused && engine.isLampOn();
+  sound.setLampHum(lampActive, lampActive ? engine.beamViewIntensity(engine.state.player.view, engine.visualTime) : 0);
   reportTyping(t);
   const typing = document.activeElement === terminal.chat && t - lastTypedAt < TYPING_TAIL;
   if (!paused && animateStage) scene.update(engine, t, typing);
@@ -257,7 +261,6 @@ function onEvent(ev: GameEvent, t: number): void {
       endScare();
       artifacts?.read(null);
       maliciousUntil = 0;
-      lightCutUntil = 0;
       powerAlarmUntil = 0;
       powerAlarmEntry = null;
       previousPowerSlot = "NONE";
@@ -289,17 +292,16 @@ function onEvent(ev: GameEvent, t: number): void {
       if (ev.cause === "sabotage") maliciousUntil = Math.max(maliciousUntil, t + MALICE.SABOTAGE_TIME);
       break;
     }
-    case "LIGHT_CHANGED":
-      sound.lightClick(ev.entry !== null);
-      break;
     case "LOCK_REFUSED":
       maliciousUntil = t + MALICE.REFUSE_TIME;
       break;
     case "LIGHT_CUT":
       sound.lightTick();
-      lightCutUntil = t + 0.9;
       scene.lightFlickerUntil = t + 0.18;
       if (ev.band === "JEALOUS" || ev.band === "FURIOUS") maliciousUntil = Math.max(maliciousUntil, t + MALICE.LIGHT_CUT_TIME);
+      break;
+    case "LAMP_RESTORED":
+      sound.lightClick(true);
       break;
     case "ARTIFACT":
       sound.paper();
@@ -476,7 +478,6 @@ function renderHud(t: number): void {
       flicker: powerFlicker,
       alertEntry: powerAlarmEntry,
       alert: t < powerAlarmUntil,
-      lightCut: t < lightCutUntil,
     });
   } else if (document.activeElement === terminal.chat) {
     terminal.chat.blur();
@@ -567,6 +568,7 @@ function showTitle(): void {
   app.ticker.stop();
   stopChudSpeech();
   sound.stopCues();
+  sound.setLampHum(false, 0);
   sound.setAmbientPlaying(false);
   sound.fadeStorm(0, 0.9);
   sound.setTitlePlaying(true);
@@ -624,7 +626,7 @@ function finishPractice(): void {
   practiceControls.hidden = true;
   terminal.chat.value = "";
   lastTypedAt = -Infinity;
-  shiftDown = braceDown = pressSpent = wasBracing = false;
+  braceDown = pressSpent = wasBracing = false;
   wake();
 }
 
@@ -731,7 +733,6 @@ function setPaused(on: boolean): void {
     show(ui.ring, false);
   } else {
     skipDt = true;
-    if (!shiftDown) engine.setLight(false);
     sound.resume();
     wake();
   }
@@ -808,26 +809,9 @@ function wireInput(): void {
     if (document.hidden) setPaused(true); // the player resumes manually
   });
   window.addEventListener("keydown", onKey);
-  // The player's light: hold Shift (GAME_LOGIC 6.1). Never typed into the chat; key repeats are ignored, so holding
-  // through a forced cut stays dark until Shift is released and pressed again.
-  window.addEventListener("keyup", (e) => {
-    if (e.key === "Shift") setShift(false);
-  });
-  window.addEventListener("blur", () => setShift(false));
-}
-
-function setShift(down: boolean): void {
-  if (down === shiftDown) return;
-  shiftDown = down;
-  if (paused || frontScreen || previewing) return;
-  engine.setLight(down);
 }
 
 function onKey(e: KeyboardEvent): void {
-  if (e.key === "Shift") {
-    if (!e.repeat) setShift(true);
-    return; // Shift alone never reaches the chat
-  }
   // Dev mode shortcuts work everywhere, including in the chat and name inputs (Backquote is not typed there).
   if (e.code === "Backquote" || (e.code === "KeyD" && e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey)) {
     e.preventDefault();
@@ -1024,7 +1008,7 @@ function devSkipClock(): void {
   const evs = engine.drainEvents();
   const mute = new Set<GameEvent["type"]>([
     "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_REPELLED", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "SILENCE_PULL",
-    "DECOY", "LIGHT_CHANGED", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
+    "DECOY", "LIGHT_CUT", "LAMP_RESTORED", "LOCK_REFUSED", "POWER_CHANGED",
   ]);
   sound.stopCues();
   for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
@@ -1123,12 +1107,100 @@ function buildDevButtons(): void {
   add(screens, "Kill code end", () => devPreview("GAME_WON", "KILL_CODE"));
   add(screens, "Trapped end", () => devPreview("TRAPPED"));
   add(screens, "Close preview", endPreview);
+
+  const beamGroup = group("Beam");
+  const beamControls: { input: HTMLInputElement; output: HTMLOutputElement; reset: () => void }[] = [];
+  const sliders = document.createElement("div");
+  sliders.className = "dev-sliders";
+  beamGroup.appendChild(sliders);
+  const rad = Math.PI / 180;
+  const addSlider = (
+    label: string,
+    initial: number,
+    min: number,
+    max: number,
+    step: number,
+    unit: string,
+    apply: (value: number) => void,
+  ): void => {
+    const row = document.createElement("label");
+    row.className = "dev-slider";
+    const head = document.createElement("span");
+    const name = document.createElement("span");
+    name.textContent = label;
+    const out = document.createElement("output");
+    out.value = `${initial}${unit}`;
+    head.append(name, out);
+    const input = document.createElement("input");
+    input.type = "range";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step);
+    input.value = String(initial);
+    const sync = (): void => {
+      out.value = `${input.value}${unit}`;
+      apply(input.valueAsNumber);
+      wake();
+    };
+    input.addEventListener("input", sync);
+    row.append(head, input);
+    sliders.appendChild(row);
+    beamControls.push({
+      input,
+      output: out,
+      reset: () => {
+        input.value = String(initial);
+        out.value = `${initial}${unit}`;
+      },
+    });
+  };
+  const defaults = defaultBeamParams(CONFIG);
+  addSlider("Period", defaults.period, 4, 40, 0.5, " s", (v) => {
+    if (scene.beamParams) scene.beamParams.period = v;
+    engine.devSetBeam({ period: v });
+  });
+  addSlider("Width", Math.round(defaults.width / rad), 3, 70, 1, "°", (v) => {
+    if (scene.beamParams) scene.beamParams.width = v * rad;
+    engine.devSetBeam({ width: v * rad });
+  });
+  addSlider("Height", Math.round(defaults.height / rad), 8, 110, 1, "°", (v) => {
+    if (scene.beamParams) scene.beamParams.height = v * rad;
+  });
+  addSlider("Tilt", Math.round(defaults.tilt / rad), -75, 20, 1, "°", (v) => {
+    if (scene.beamParams) scene.beamParams.tilt = v * rad;
+  });
+  addSlider("Softness", Math.round(defaults.softness * 100), 5, 100, 1, "%", (v) => {
+    if (scene.beamParams) scene.beamParams.softness = v / 100;
+    engine.devSetBeam({ softness: v / 100 });
+  });
+  addSlider("Gain", defaults.gain, 0, 3, 0.05, "x", (v) => {
+    if (scene.beamParams) scene.beamParams.gain = v;
+  });
+  addSlider("Darkness", Math.round((1 - defaults.darkGain) * 100), 0, 100, 1, "%", (v) => {
+    if (scene.beamParams) scene.beamParams.darkGain = 1 - v / 100;
+  });
+  addSlider("Haze", defaults.haze, 0, 2, 0.05, "x", (v) => {
+    if (scene.beamParams) scene.beamParams.haze = v;
+  });
+  add(beamGroup, "Reset beam", () => {
+    if (scene.beamParams) Object.assign(scene.beamParams, defaultBeamParams(CONFIG));
+    engine.devSetBeam({ reset: true });
+    for (const c of beamControls) c.reset();
+  });
 }
 
 function renderDev(): void {
   const s = engine.state;
   const r = s.ram;
   const q = s.chud.pendingQuestion;
+  const beamDeg = (normalizeAngle(engine.beamAngle(engine.visualTime)) * 180) / Math.PI;
+  const lampLabel = !s.power.generatorOn
+    ? "off"
+    : s.power.rebootingUntil !== null
+      ? `reboot ${s.power.rebootingUntil.toFixed(1)}`
+      : s.power.lampCutUntil !== null
+        ? `CUT until ${s.power.lampCutUntil.toFixed(1)}`
+        : "on";
   const lines = [
     `kill code ${s.run.killCode}  papers ${engine.papersOnDesk().length}  on floor ${JSON.stringify(engine.floorPaper())}`,
     `phase ${s.phase}  night ${s.run.night}  speed x${speed}  skip card ${devSkipCard ? "on" : "off"}${previewing ? "  PREVIEW" : ""}`,
@@ -1138,7 +1210,7 @@ function renderDev(): void {
     `    visit ${r.visitId} fake ${r.fakedThisVisit ? "yes" : r.fakeOutAt !== null ? "planned" : "no"} pulls ${r.pendingPull}`,
     `SUSPICION ${s.chud.suspicion}  band ${s.chud.band}${s.chud.furiousActive ? " (episode)" : ""}`,
     `POWER ${s.power.slot}${s.power.pending ? " -> " + s.power.pending.target : ""}  online ${s.power.chudOnline}`,
-    `LIGHT ${s.player.lightEntry ? "ON " + s.player.lightEntry : "off"}  shift ${s.player.lightHeld ? "held" : "-"}  cut at ${s.power.lightCutAt === null ? "-" : s.power.lightCutAt.toFixed(1)}`,
+    `BEAM ${beamDeg.toFixed(1)} deg  lamp ${lampLabel}  cut at ${s.power.lightCutAt === null ? "-" : s.power.lightCutAt.toFixed(1)}  W:${engine.beamIntensity("WINDOW").toFixed(2)} H:${engine.beamIntensity("HATCH").toFixed(2)} B:${engine.beamIntensity("BALCONY").toFixed(2)}`,
     `CHUD odds (${s.chud.band}): refuse lock ${Math.round((s.chud.band === "FURIOUS" ? 1 : CONFIG.LOCK_REFUSAL[s.chud.band]) * 100)}%  cut light ${Math.round(CONFIG.LIGHT_CUT[s.chud.band] * 100)}%  refused this visit ${s.log.visit.refusedEntry ?? "-"}`,
     `LOSS ${s.loss ? s.loss.cause + " / " + s.loss.reason : "-"}`,
     `INSIDE ${r.inside ? `${r.inside.entry} since ${r.inside.since.toFixed(1)} cause ${r.inside.cause} trigger ${r.inside.trigger}${r.inside.timerAt !== null ? " at " + r.inside.timerAt.toFixed(1) : ""}` : "-"}`,

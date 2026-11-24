@@ -3,7 +3,6 @@
   --dim-green: #558363;
   --trace: #2b563d;
   --alert: #ff6257;
-  --light: #e4ae65;
   --glass: #07130d;
   position: absolute;
   inset: 0 auto auto 0;
@@ -170,14 +169,12 @@
 #t-map [data-entry="WINDOW"] { left: 11%; top: 50%; }
 #t-map [data-entry="HATCH"] { left: 89%; top: 50%; }
 #t-map [data-entry="BALCONY"] { left: 50%; top: 89%; }
-#t-map button.lit { color: var(--light); border-color: currentColor; text-shadow: 0 0 5px currentColor; }
 #t-map button.locked { color: var(--green); border-color: currentColor; text-shadow: 0 0 5px currentColor; }
 #t-map button.alert { color: var(--alert); border-color: currentColor; }
 #t-map button.pending, #t-power .pending { border-style: dashed; }
-#t-power { display: grid; grid-template-columns: repeat(3, 1fr) 1.7fr; width: 100%; gap: 4px; font-size: 19px; }
+#t-power { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; gap: 4px; font-size: 19px; }
 #t-power span { padding: 4px 0; border: 1px solid var(--trace); color: var(--dim-green); text-align: center; }
 #t-power .on { background: #183b23; color: var(--green); }
-#t-power [data-cell="LIGHT"].on { background: #372510; color: var(--light); }
 #t-power .alert { background: #351611; color: var(--alert); border-color: currentColor; }
 
 #terminal[inert] #t-face,

@@ -1,15 +1,75 @@
-// Art slots. Each slot resolves, in order, to:
-//   1. a final render in scenes/03-watch-room/final/webp/, by job name (`tell_window_on`) or through FINAL_ALIASES
-//      for the older slot names (`view_window` -> `view_window_off`). Made by tools/convert_renders.mjs.
-//   2. prototype/assets/<slot>.(png|webp|jpg)   if the final is missing, see prototype/assets/README.md
-//   3. the team's earlier render in scenes/ listed in SCENE_ART below
-//   4. a coded placeholder
-// Plates are 2:1 stills. Only jumpscares are loaded as ordered frame textures. Other sequences are videos.
+// Art slots and rotating-beam asset pipeline.
+// Watch-room views load from scenes/03-watch-room/final_beam/ (manifest.json + dark/beam/bounce/angles/hazeDepth).
+// Title, dash floor, jumpscare sequences, UI sprites and fallbacks resolve from final/webp/, assets/, and scenes/.
 
-import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
-import { ENTRIES } from "../sim/types";
+import { Assets, Container, Graphics, ImageSource, Sprite, Texture } from "pixi.js";
+import rawBeamManifest from "../../../scenes/03-watch-room/final_beam/manifest.json";
+import { ENTRIES, type Entry } from "../sim/types";
 import { H, PLATE_H, PLATE_W, W } from "./layout";
-import { entryPlate, FINAL_ALIASES, holdPlate, JUMPSCARE_MIN_FRAMES, jumpscareJob } from "./plates";
+import { beamSlot, FINAL_ALIASES, holdBeamSlot, JUMPSCARE_MIN_FRAMES, jumpscareJob } from "./plates";
+
+export interface BeamSlotMeta {
+  slot: string;
+  state: string;
+  entry: string | null;
+  camera: string;
+  darkBase: string;
+  width: number;
+  height: number;
+  previewAzimuth: number;
+  position: [number, number, number];
+  rayOrigin: [number, number, number];
+  rayAcross: [number, number, number];
+  rayDown: [number, number, number];
+  bounce?: { azimuth: number; gain: number };
+  files: {
+    dark: string;
+    beam: string;
+    angles: string;
+    hazeDepth: string;
+    bounce?: string;
+  };
+}
+
+export interface BeamManifest {
+  version: number;
+  lamp: {
+    position: [number, number, number];
+    tilt: number;
+    width: number;
+    height: number;
+    softness: number;
+    periodSeconds: number;
+    phaseAzimuth: number;
+    entryTellAzimuths: { window: number; hatch: number; balcony: number };
+  };
+  darkGain: number;
+  colorShaper: number;
+  haze: {
+    linearColor: [number, number, number];
+    samples: number;
+    rangeMeters: number;
+  };
+  grade: { lut: string; vignette: string };
+  slots: Record<string, BeamSlotMeta>;
+}
+
+export interface BeamSlotTextures {
+  dark: Texture;
+  darkEmpty: Texture;
+  beam: Texture;
+  angles: Texture;
+  hazeDepth: Texture;
+  bounce?: Texture;
+  meta: BeamSlotMeta;
+}
+
+export interface BeamGradeTextures {
+  grade: Texture;
+  vignette: Texture;
+}
+
+export const beamManifest = rawBeamManifest as unknown as BeamManifest;
 
 const overrides = import.meta.glob("../../assets/*.{png,webp,jpg,jpeg}", { eager: true, import: "default" }) as Record<string, string>;
 
@@ -23,6 +83,7 @@ const sceneFiles = import.meta.glob(
   ],
   { eager: true, import: "default" },
 ) as Record<string, string>;
+
 const videoFiles = import.meta.glob([
   "../../../scenes/03-watch-room/final/title_loop.webm",
   "../../../scenes/03-watch-room/final/webm/*.webm",
@@ -31,6 +92,18 @@ const videoFiles = import.meta.glob([
   import: "default",
   query: "?url",
 }) as Record<string, string>;
+
+// Rotating-beam final assets (excluding the 3.4 MB review contact sheet).
+const beamFiles = import.meta.glob([
+  "../../../scenes/03-watch-room/final_beam/*.{webp,png}",
+  "!../../../scenes/03-watch-room/final_beam/contact.png",
+], { eager: true, import: "default" }) as Record<string, string>;
+
+const beamFileUrls = new Map<string, string>();
+for (const [path, url] of Object.entries(beamFiles)) {
+  const name = path.split("/").pop();
+  if (name) beamFileUrls.set(name, url);
+}
 
 // slot -> file in scenes/ (path suffix)
 const SCENE_ART: Record<string, string> = {
@@ -43,7 +116,6 @@ const SCENE_ART: Record<string, string> = {
   hold_balcony: "03-watch-room/render_hold_balcony.png",
   title_bg: "03-watch-room/final/png/title_bg/title_bg.png",
   chud_faces: "03-watch-room/chud_smiley_four_moods.png",
-  // Ram after a silent breach: the creepy flash (960 x 480 plates from the entry cameras) and the jumpscare (1280 x 720)
   ram_inside_window: "04-ram/ram_inside_window.png",
   ram_inside_hatch: "04-ram/ram_inside_hatch.png",
   ram_inside_balcony: "04-ram/ram_inside_balcony.png",
@@ -53,14 +125,13 @@ const SCENE_ART: Record<string, string> = {
   ram_jumpscare_4: "04-ram/ram_jumpscare_4.png",
 };
 
-// Final renders (WebP, committed). Stills: final/webp/<job>.webp. Sequences: final/webp/<job>/<job>_0001.webp ...
-// Eager glob of URLs only (nothing is fetched until loadArt): new files are picked up on the next dev reload or build.
+// Final renders still used for title, dash floor, jumpscares, and fallback stills.
 const finalFiles = import.meta.glob([
   "../../../scenes/03-watch-room/final/webp/*.webp",
   "../../../scenes/03-watch-room/final/webp/jumpscare_{window,hatch,balcony}/*.webp",
 ], { eager: true, import: "default" }) as Record<string, string>;
-const finalStills = new Map<string, string>(); // job -> url
-const finalSeqs = new Map<string, string[]>(); // job -> frame urls in order (only sequences numbered 0001.. without gaps)
+const finalStills = new Map<string, string>();
+const finalSeqs = new Map<string, string[]>();
 {
   const frames = new Map<string, { n: number; url: string }[]>();
   for (const [path, url] of Object.entries(finalFiles)) {
@@ -87,7 +158,7 @@ const finalSeqs = new Map<string, string[]>(); // job -> frame urls in order (on
 }
 
 const urlBySlot = new Map<string, string>();
-const finalSlots = new Set<string>(); // slots that resolved to a final render (already graded: no night grade on top)
+const finalSlots = new Set<string>();
 for (const [slotName, suffix] of Object.entries(SCENE_ART)) {
   const hit = Object.entries(sceneFiles).find(([p]) => p.endsWith(suffix));
   if (hit) urlBySlot.set(slotName, hit[1]);
@@ -112,8 +183,106 @@ const videos = new Map(Object.entries(videoFiles).map(([path, url]) => [
 
 const textures = new Map<string, Texture>();
 const frameTextures = new Map<string, Texture[]>();
+const beamTexCache = new Map<string, Promise<Texture>>();
+const beamSlots = new Map<string, BeamSlotTextures>();
+const beamSlotPending = new Map<string, Promise<BeamSlotTextures | null>>();
+let beamGrade: BeamGradeTextures | null = null;
+
 const DOM_ONLY = /^artifact_/;
 const LEGACY_SCARE = /^ram_jumpscare_[1-4]$/;
+const BEAM_SUPERSEDED = /^(view|tell|approach|inside|hold|ram_inside)_/;
+const SEATED_BEAM_SLOTS = [
+  "desk",
+  ...ENTRIES.flatMap((e) => (["empty", "tell", "approach", "inside"] as const).map((s) => beamSlot(e, s))),
+];
+
+function loadRawBeamTexture(fileName: string, linear = false): Promise<Texture> {
+  const key = `${linear ? "L" : "N"}:${fileName}`;
+  const cached = beamTexCache.get(key);
+  if (cached) return cached;
+  const url = beamFileUrls.get(fileName);
+  if (!url) return Promise.reject(new Error(`Missing beam asset ${fileName}`));
+  const promise = fetch(url)
+    .then((response) => {
+      if (!response.ok) throw new Error(`Could not load ${fileName} (${response.status})`);
+      return response.blob();
+    })
+    .then((blob) => createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" }))
+    .then((bitmap) => new Texture({
+      source: new ImageSource({ resource: bitmap, scaleMode: linear ? "linear" : "nearest" }),
+    }));
+  beamTexCache.set(key, promise);
+  return promise;
+}
+
+function loadBeamSlot(slotName: string, onFileDone?: () => void): Promise<BeamSlotTextures | null> {
+  const existing = beamSlots.get(slotName);
+  if (existing) return Promise.resolve(existing);
+  const inflight = beamSlotPending.get(slotName);
+  if (inflight) return inflight;
+  const meta = beamManifest.slots[slotName];
+  if (!meta) return Promise.resolve(null);
+  const baseMeta = beamManifest.slots[meta.darkBase] ?? meta;
+  const files = meta.files;
+  const load = (fileName: string) =>
+    loadRawBeamTexture(fileName, false).finally(() => onFileDone?.());
+
+  const req = Promise.all([
+    load(files.dark),
+    meta.darkBase === slotName ? Promise.resolve<Texture | null>(null) : loadRawBeamTexture(baseMeta.files.dark, false),
+    load(files.beam),
+    load(files.angles),
+    load(files.hazeDepth),
+    files.bounce ? load(files.bounce) : Promise.resolve<Texture | undefined>(undefined),
+  ])
+    .then(([dark, darkBase, beam, angles, hazeDepth, bounce]) => {
+      const entry: BeamSlotTextures = {
+        dark,
+        darkEmpty: darkBase ?? dark,
+        beam,
+        angles,
+        hazeDepth,
+        bounce,
+        meta,
+      };
+      beamSlots.set(slotName, entry);
+      return entry;
+    })
+    .catch((err) => {
+      console.warn(`beam slot ${slotName} failed to load`, err);
+      return null;
+    })
+    .finally(() => {
+      beamSlotPending.delete(slotName);
+    });
+  beamSlotPending.set(slotName, req);
+  return req;
+}
+
+export function hasBeamArt(): boolean {
+  return beamGrade !== null && beamSlots.has("desk");
+}
+
+export function getBeamGrade(): BeamGradeTextures | null {
+  return beamGrade;
+}
+
+export function getBeamSlot(slotName: string): BeamSlotTextures | null {
+  return beamSlots.get(slotName) ?? null;
+}
+
+// Lazy-load the 4 hold beam states for an entry (stand/brace x empty/tell). Safe to call repeatedly.
+export async function preloadHoldBeam(entry: Entry): Promise<void> {
+  if (!beamFileUrls.size) return;
+  const names = [false, true].flatMap((brace) => [false, true].map((tell) => holdBeamSlot(entry, brace, tell)));
+  await Promise.all(names.map((name) => loadBeamSlot(name)));
+}
+
+// Background prefetch of all hold views after boot so dashes hit already-warm textures.
+export async function preloadAllHoldBeams(): Promise<void> {
+  if (!beamFileUrls.size) return;
+  for (const entry of ENTRIES) await preloadHoldBeam(entry);
+}
 
 // URL of a slot for DOM use. Null if the slot has no art yet.
 export function artUrl(slotName: string): string | null {
@@ -128,21 +297,36 @@ export function artVideoUrl(job: string): string | null {
 // Preload progress for a loading screen: files done (loaded or failed) out of total. Updated by loadArt.
 export const artProgress = { done: 0, total: 0 };
 
-// Preload stills and jumpscares for instant plate changes. Videos are loaded on demand.
+// Preload seated beam plates, essential stills, and jumpscares. Hold beam plates and videos load on demand.
 export async function loadArt(onProgress?: (done: number, total: number) => void): Promise<string[]> {
   const loaded: string[] = [];
+  const beamAvailable = beamFileUrls.has(beamManifest.grade.lut) && beamFileUrls.has(beamManifest.grade.vignette);
   const allStills = [...urlBySlot].filter(([slotName]) => !DOM_ONLY.test(slotName));
   const legacyScares = allStills.filter(([slotName]) => LEGACY_SCARE.test(slotName));
   const haveAllScares = finalSeqs.size === 3;
-  const stills = haveAllScares ? allStills.filter(([slotName]) => !LEGACY_SCARE.test(slotName)) : allStills;
+  const stills = allStills.filter(([slotName]) => {
+    if (haveAllScares && LEGACY_SCARE.test(slotName)) return false;
+    // Skip legacy watch-room stills superseded by final_beam/ (keep title_bg, view_desk_off, dash_floor, chud_faces).
+    if (beamAvailable && BEAM_SUPERSEDED.test(slotName) && slotName !== "view_desk_off") return false;
+    return true;
+  });
   const seqs = [...finalSeqs];
+  const seatedBeamFiles = beamAvailable
+    ? 2 + SEATED_BEAM_SLOTS.reduce((n, name) => {
+        const meta = beamManifest.slots[name];
+        if (!meta) return n;
+        return n + 4 + (meta.files.bounce ? 1 : 0);
+      }, 0)
+    : 0;
+
   artProgress.done = 0;
-  artProgress.total = stills.length + seqs.reduce((n, [, urls]) => n + urls.length, 0);
+  artProgress.total = stills.length + seqs.reduce((n, [, urls]) => n + urls.length, 0) + seatedBeamFiles;
   onProgress?.(0, artProgress.total);
   const tick = (): void => {
     artProgress.done++;
     onProgress?.(artProgress.done, artProgress.total);
   };
+
   const loadStill = async ([slotName, url]: [string, string]): Promise<void> => {
     try {
       textures.set(slotName, await Assets.load<Texture>(url));
@@ -171,7 +355,31 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
       loaded.push(`${job}[${list.length}]`);
     }
   });
-  await Promise.all([...stills.map(loadStill), ...seqJobs]);
+
+  const beamJobs: Promise<void>[] = [];
+  if (beamAvailable) {
+    beamJobs.push(
+      Promise.all([
+        loadRawBeamTexture(beamManifest.grade.lut, true).finally(tick),
+        loadRawBeamTexture(beamManifest.grade.vignette, true).finally(tick),
+      ])
+        .then(([grade, vignette]) => {
+          beamGrade = { grade, vignette };
+          loaded.push("beam_grade");
+        })
+        .catch((err) => console.warn("beam grade failed to load", err)),
+    );
+    // Load empty base slots first so shared darkBase textures resolve from the cache cleanly.
+    for (const name of SEATED_BEAM_SLOTS) {
+      beamJobs.push(
+        loadBeamSlot(name, tick).then((res) => {
+          if (res) loaded.push(`beam:${name}`);
+        }),
+      );
+    }
+  }
+
+  await Promise.all([...stills.map(loadStill), ...seqJobs, ...beamJobs]);
   if (haveAllScares && frameTextures.size < finalSeqs.size) {
     artProgress.total += legacyScares.length;
     onProgress?.(artProgress.done, artProgress.total);
@@ -182,12 +390,8 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
 }
 
 function warnPrototypeFallbacks(): void {
-  const fallback = ["view_desk_off", ...ENTRIES.flatMap((entry) => [
-    entryPlate(entry, false, "none"), entryPlate(entry, true, "none"),
-    entryPlate(entry, false, "tell_faint"), entryPlate(entry, true, "tell_clear"),
-    entryPlate(entry, true, "approach_silhouette"), entryPlate(entry, true, "inside"),
-    ...[false, true].flatMap((brace) => [false, true].flatMap((tell) => [false, true].map((lit) => holdPlate(entry, brace, tell, lit)))),
-  ])].filter((name) => !isFinal(name));
+  const fallback: string[] = [];
+  if (!hasBeamArt()) fallback.push("final_beam");
   for (const entry of ENTRIES) {
     const job = jumpscareJob(entry);
     if (!frameTextures.has(job)) fallback.push(job);
@@ -196,7 +400,6 @@ function warnPrototypeFallbacks(): void {
       if (!artVideoUrl(turn)) fallback.push(turn);
     }
   }
-  if (!artVideoUrl("ambient_desk")) fallback.push("ambient_desk");
   if (!hasArt("chud_faces")) {
     fallback.push("chud_faces");
     if (!hasArt("chud_face_malicious")) fallback.push("chud_face_malicious");
@@ -229,8 +432,6 @@ export function coverSprite(tex: Texture, w: number, h: number): Sprite {
 }
 
 // A plate-sized container: the render fitted to the plate, or the placeholder.
-// `placeholderSpace`: "stage" placeholders are drawn for 1280 x 720 and scaled into the plate,
-// "plate" placeholders (overlays) are drawn directly in plate px.
 export function slot(name: string, placeholder: (g: Graphics) => void, placeholderSpace: "stage" | "plate" = "plate"): Container {
   const c = new Container();
   c.label = name;

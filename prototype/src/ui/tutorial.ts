@@ -215,7 +215,7 @@ export class EveningTutorial {
         return { chip: back || (next ? edgeChip("DESK", next) : "") };
       }
       case "light":
-        return { chip: view === "WINDOW" ? "HOLD SHIFT" : back || edgeChip("DESK", "WINDOW") };
+        return { chip: view === "WINDOW" ? "WAIT FOR THE LIGHT" : back || edgeChip("DESK", "WINDOW") };
       case "lock":
         return back ? { chip: back } : { chip: "CLICK W", target: "LOCK_WINDOW" };
       case "hatch":

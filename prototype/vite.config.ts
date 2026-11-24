@@ -47,6 +47,7 @@ export default defineConfig(({ mode }) => {
         name: "watch-final-renders",
         configureServer(server) {
           server.watcher.add(fileURLToPath(new URL("../scenes/03-watch-room/final", import.meta.url)));
+          server.watcher.add(fileURLToPath(new URL("../scenes/03-watch-room/final_beam", import.meta.url)));
         },
       },
     ],

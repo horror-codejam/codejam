@@ -76,9 +76,9 @@ export class Terminal {
     state: GameState,
     clock: string,
     t: number,
-    effects: { malicious: boolean; flicker: boolean; alertEntry: Entry | null; alert: boolean; lightCut: boolean },
+    effects: { malicious: boolean; flicker: boolean; alertEntry: Entry | null; alert: boolean },
   ): void {
-    const { power, chud, player } = state;
+    const { power, chud } = state;
     this.chat.disabled = !power.chudOnline;
     for (const button of this.quick) button.disabled = !power.chudOnline;
     this.root.classList.toggle("offline", !power.chudOnline);
@@ -107,17 +107,15 @@ export class Terminal {
       const entry = marker.dataset.entry!;
       const locked = power.slot === `LOCK_${entry}`;
       marker.classList.toggle("locked", locked);
-      marker.classList.toggle("lit", player.lightEntry === entry);
       marker.classList.toggle("pending", power.pending?.target === `LOCK_${entry}`);
       marker.classList.toggle("alert", alert && entry === effects.alertEntry);
       marker.setAttribute("aria-pressed", String(locked));
     }
     for (const cell of this.cells) {
       const key = cell.dataset.cell!;
-      const light = key === "LIGHT";
-      cell.classList.toggle("on", light ? player.lightEntry !== null : power.slot === key);
+      cell.classList.toggle("on", power.slot === key);
       cell.classList.toggle("pending", power.pending?.target === key);
-      cell.classList.toggle("alert", light ? effects.lightCut && flash : alert && `LOCK_${effects.alertEntry}` === key);
+      cell.classList.toggle("alert", alert && `LOCK_${effects.alertEntry}` === key);
     }
   }
 

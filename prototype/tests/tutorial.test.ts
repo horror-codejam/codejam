@@ -36,11 +36,7 @@ describe("the practice evening", () => {
     expect(engine.state.power.slot).toBe("LOCK_HATCH");
 
     engine.turn("HATCH");
-    engine.setLight(true);
-    expect(engine.state.player.lightEntry).toBe("HATCH");
-    expect(engine.state.power.slot).toBe("LOCK_HATCH");
-    engine.setLight(false);
-    expect(engine.state.player.lightEntry).toBeNull();
+    expect(engine.isLampOn()).toBe(true);
     expect(engine.state.power.slot).toBe("LOCK_HATCH");
 
     engine.goToEntry("HATCH");
@@ -87,9 +83,11 @@ describe("the practice evening", () => {
     expect(engine.drainEvents()).toEqual([{ type: "RAM_AT_ENTRY", entry: "WINDOW", visitId: 1 }]);
     engine.turn("WINDOW");
     expect(engine.ramVisual("WINDOW")).toBe("none");
-    engine.setLight(true);
+    // Advance until the rotating beam crosses the window tell azimuth.
+    for (let i = 0; i < Math.ceil(CONFIG.BEAM_PERIOD / CONFIG.TICK) && engine.ramVisual("WINDOW") !== "tell_clear"; i++) {
+      engine.tick(CONFIG.TICK);
+    }
     expect(engine.ramVisual("WINDOW")).toBe("tell_clear");
-    engine.setLight(false);
     engine.tick(600);
     expect(engine.state.ram.state).toBe("AT_ENTRY");
     expect(engine.state.phase).toBe("PLAYING");
@@ -130,7 +128,6 @@ describe("the practice evening", () => {
     engine.turn("HATCH");
     engine.goToEntry("HATCH");
     engine.tick(CONFIG.TRAVEL_TIME + repelTime);
-    expect(engine.ramVisual("HATCH")).toBe("tell_faint");
     expect(engine.state.ram.state).toBe("AT_ENTRY");
     engine.startBrace();
     engine.tick(repelTime - CONFIG.TICK);
@@ -258,18 +255,18 @@ describe("ChudGPT's practice lessons", () => {
     expect(engine.state.ram.target).toBe("WINDOW");
     expect(tutorial.allowsQuick("LOCK_WINDOW")).toBe(false);
     engine.turn("HATCH");
-    engine.setLight(true);
     step();
     expect(tutorial.step).toBe("light");
     waitForNudge("nudgeLight");
-    engine.setLight(false);
     engine.turn("DESK");
     engine.turn("WINDOW");
     step();
-    expect(tutorial.prompt(engine.state).chip).toBe("HOLD SHIFT");
+    expect(tutorial.prompt(engine.state).chip).toBe("WAIT FOR THE LIGHT");
     const beforeLighting = interruptions();
-    engine.setLight(true);
-    step();
+    for (let i = 0; i < Math.ceil(CONFIG.BEAM_PERIOD / CONFIG.TICK) && tutorial.step === "light"; i++) {
+      engine.tick(CONFIG.TICK);
+      step();
+    }
 
     expect(tutorial.step).toBe("lock");
     expect(tutorial.prompt(engine.state).chip).toBe("MOUSE TO THE RIGHT EDGE");

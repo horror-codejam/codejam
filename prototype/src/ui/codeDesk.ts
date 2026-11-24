@@ -1,5 +1,6 @@
 // Kill-code papers (desk, reader and the slip at an entry). HTML overlays only; all rules live in the engine.
 import "./codeDesk.css";
+import { CONFIG } from "../config";
 import type { GameEngine } from "../sim/engine";
 import type { Entry } from "../sim/types";
 import { CODE_PAPERS, FLOOR_PAPER } from "../uiConfig";
@@ -132,7 +133,7 @@ export function createCodeDesk(root: HTMLElement, scene: Scene, getEngine: () =>
       floor.classList.remove("hidden");
       place(floor, r, r.tilt);
       floor.classList.toggle("passive", !atEntry);
-      floor.classList.toggle("lit", s.player.lightEntry === fp.entry);
+      floor.classList.toggle("lit", engine.beamIntensity(fp.entry) >= CONFIG.BEAM_REVEAL_THRESHOLD);
       floor.textContent = "~";
     },
     // Mirrors state.player.reading every frame, so any engine close (scare, dawn, night change) closes the overlay.

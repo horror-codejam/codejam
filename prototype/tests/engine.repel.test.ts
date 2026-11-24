@@ -32,7 +32,7 @@ describe("repelling a visit", () => {
     brace(e);
     e.tick(seconds - T);
     expect(e.state.ram.state).toBe("AT_ENTRY");
-    expect(e.ramVisual("HATCH")).toBe("tell_faint");
+    expect(e.state.ram.target).toBe("HATCH");
     e.tick(T);
     expect(e.state.ram.state).toBe("RETREATING");
     expect(e.ramVisual("HATCH")).toBe("none");

@@ -207,7 +207,6 @@ describe("decoy noises (section 7.4): never correlated with Ram", () => {
       config: cfgWith(3, { firstVisitDelay: 5, awayGap: [5, 6], atEntryTime: [5, 5], fakeOutChance: 1, quickReturnChance: 1 }, quiet),
     });
     b.turn("WINDOW");
-    b.setLight(true);
     const da = decoyTimes(a);
     const db = decoyTimes(b);
     expect(da.length).toBeGreaterThan(10);
@@ -270,9 +269,15 @@ describe("decoy noises (section 7.4): never correlated with Ram", () => {
   });
 });
 
-describe("Shift light and locks (section 6.1)", () => {
-  it("holding or releasing Shift preserves an active lock and the entry stays defended", () => {
-    const config = cfgWith(2, { atEntryTime: [8, 8], approachTime: 6, fakeOutChance: 0 }, quiet);
+describe("Rotating ceiling beam and locks (section 6.1)", () => {
+  const advanceToBeam = (e: GameEngine, entry: Entry) => {
+    for (let i = 0; i < Math.ceil(CONFIG.BEAM_PERIOD / T) && e.beamIntensity(entry) < CONFIG.BEAM_REVEAL_THRESHOLD; i++) {
+      e.tick(T);
+    }
+  };
+
+  it("looking at a locked entry keeps the lock engaged while the beam sweeps past", () => {
+    const config = cfgWith(2, { atEntryTime: [20, 20], approachTime: 6, fakeOutChance: 0 }, quiet);
     const e = playing({ startNight: 2, config });
     e.devSetSuspicion(0);
     e.devSendRam("BALCONY");
@@ -280,56 +285,22 @@ describe("Shift light and locks (section 6.1)", () => {
     runUntil(e, 8);
     expect(e.state.ram.state).toBe("AT_ENTRY");
     e.turn("BALCONY");
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBe("BALCONY");
     expect(e.state.power.slot).toBe("LOCK_BALCONY");
     expect(e.isDefended("BALCONY")).toBe(true);
-    e.setLight(false);
-    expect(e.state.player.lightEntry).toBeNull();
-    expect(e.state.power.slot).toBe("LOCK_BALCONY");
     runUntil(e, 6 + config.nights[1].repelTime);
     expect(e.state.ram.state).toBe("RETREATING");
   });
 
-  it("Shift at the desk does nothing; turning while held moves the light; the desk turns it off", () => {
+  it("generator off or rebooting stops the ceiling lamp until supply returns", () => {
     const e = playing();
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBeNull();
-    e.turn("WINDOW");
-    expect(e.state.player.lightEntry).toBe("WINDOW");
-    e.turn("BALCONY");
-    expect(e.state.player.lightEntry).toBe("BALCONY");
-    e.turn("DESK");
-    expect(e.state.player.lightEntry).toBeNull();
-    expect(e.state.power.slot).toBe("NONE");
-  });
-
-  it("standing or bracing at an entry, Shift lights that entry", () => {
-    const e = playing();
-    e.turn("WINDOW");
-    e.goToEntry("WINDOW");
-    run(e, CONFIG.TRAVEL_TIME + 0.2);
-    expect(e.state.player.position.kind).toBe("STANDING");
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBe("WINDOW");
-    e.startBrace();
-    expect(e.state.player.lightEntry).toBe("WINDOW");
-  });
-
-  it("generator off or rebooting means no light", () => {
-    const e = playing();
+    expect(e.isLampOn()).toBe(true);
     e.toggleGenerator();
-    e.turn("HATCH");
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBeNull();
-    e.setLight(false);
-    e.turn("DESK");
+    expect(e.isLampOn()).toBe(false);
+    expect(e.beamIntensity("HATCH")).toBe(0);
     e.toggleGenerator(); // rebooting
-    e.turn("HATCH");
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBeNull();
+    expect(e.isLampOn()).toBe(false);
     run(e, CONFIG.REBOOT_TIME + 0.2);
-    expect(e.state.player.lightEntry).toBe("HATCH"); // still held when supply returns
+    expect(e.isLampOn()).toBe(true);
   });
 
   it("CHUD cannot light anything: typed light requests and invalid quick buttons do nothing", () => {
@@ -340,63 +311,32 @@ describe("Shift light and locks (section 6.1)", () => {
     // @ts-expect-error LIGHT_* quick commands do not exist
     e.pressQuick("LIGHT_HATCH");
     run(e, 2);
-    expect(e.state.player.lightEntry).toBeNull();
     expect(e.state.power.slot).toBe("NONE");
   });
 
-  it("a pending lock lands on schedule while Shift lights the entry", () => {
-    const e = playing();
-    e.pressQuick("LOCK_WINDOW");
-    e.turn("WINDOW");
-    e.setLight(true);
-    expect(e.state.power.pending).toEqual({ target: "LOCK_WINDOW", landsAt: CONFIG.RELAY_DELAY });
-    expect(e.state.player.lightEntry).toBe("WINDOW");
-    run(e, CONFIG.RELAY_DELAY - T);
-    expect(e.state.power.slot).toBe("NONE");
-    e.tick(T);
-    expect(e.state.power.slot).toBe("LOCK_WINDOW");
-    expect(e.state.power.pending).toBeNull();
-    expect(e.state.player.lightEntry).toBe("WINDOW");
-    expect(e.state.player.lightHeld).toBe(true);
-  });
-
-  it.each(ENTRIES)("the desk view of %s needs light even when the entry is locked", (entry) => {
-    const e = playing({ config: cfgWith(1, { fakeOutChance: 0 }, quiet) });
+  it.each(ENTRIES)("an entry view reveals %s only while the rotating beam passes over it", (entry) => {
+    const config = cfgWith(1, { approachTime: 20, atEntryTime: [20, 20], fakeOutChance: 0 }, quiet);
+    const e = playing({ config });
     e.devSendRam(entry);
     e.turn(entry);
-    expect(e.ramVisual(entry)).toBe("none"); // approaching in the dark
+    expect(e.ramVisual(entry)).toBe("none"); // beam starts at 12 deg, away from entry tells
     e.devSetPower(lockSlot(entry));
-    e.setLight(true);
+    advanceToBeam(e, entry);
     expect(e.ramVisual(entry)).toBe("approach_silhouette");
     expect(e.ramVisual("DESK")).toBe("none");
     for (const other of ENTRIES.filter((other) => other !== entry)) expect(e.ramVisual(other)).toBe("none");
 
     runUntil(e, e.state.ram.stateEndsAt + T);
     expect(e.state.ram.state).toBe("AT_ENTRY");
-    expect(e.ramVisual(entry)).toBe("tell_clear");
-    e.setLight(false);
-    expect(e.ramVisual(entry)).toBe("none"); // locked and dark
     e.devSetPower("NONE");
-    expect(e.ramVisual(entry)).toBe("none"); // unlocked and dark
-    e.setLight(true);
+    advanceToBeam(e, entry);
     expect(e.ramVisual(entry)).toBe("tell_clear");
+    // Advance past the beam cone: returns to dark ("none").
+    run(e, 2);
+    expect(e.ramVisual(entry)).toBe("none");
   });
 
-  it("keeps the faint tell in dark standing and bracing views", () => {
-    const e = playing();
-    e.devSendRam("WINDOW");
-    e.turn("WINDOW");
-    runUntil(e, e.state.ram.stateEndsAt + T);
-    e.goToEntry("WINDOW");
-    run(e, CONFIG.TRAVEL_TIME);
-    expect(e.state.player.position.kind).toBe("STANDING");
-    expect(e.ramVisual("WINDOW")).toBe("tell_faint");
-    e.startBrace();
-    expect(e.state.player.position.kind).toBe("HOLDING");
-    expect(e.ramVisual("WINDOW")).toBe("tell_faint");
-  });
-
-  it("fairness 12.1 and 12.2: every attempt window is at least 5 s and longer than TRAVEL_TIME + 1 s, tell clear with its light", () => {
+  it("fairness 12.1 and 12.2: every attempt window is at least 5 s and longer than TRAVEL_TIME + 1 s", () => {
     for (const n of CONFIG.nights) {
       expect(n.atEntryTime[0]).toBeGreaterThanOrEqual(5);
       expect(n.atEntryTime[0]).toBeGreaterThan(CONFIG.TRAVEL_TIME + 1);
@@ -408,14 +348,7 @@ describe("Shift light and locks (section 6.1)", () => {
         e.tick(T);
         e.drainEvents();
         const r = e.state.ram;
-        if (r.state === "AT_ENTRY") {
-          if (start < 0) start = e.state.clock.elapsed;
-          // with that entry's light on, the tell is clear for the whole window
-          const keep = e.state.player.lightEntry;
-          e.state.player.lightEntry = r.target;
-          expect(e.ramVisual(r.target!)).toBe("tell_clear");
-          e.state.player.lightEntry = keep;
-        }
+        if (r.state === "AT_ENTRY" && start < 0) start = e.state.clock.elapsed;
       }
       if (e.state.ram.state === "INSIDE") expect(e.state.ram.inside!.since - start).toBeGreaterThanOrEqual(5 - T);
     }
@@ -466,29 +399,26 @@ describe("silent breach: Ram INSIDE (section 7.7)", () => {
     }
   });
 
-  it("NONE: nothing fires by itself; looking at his entry with its light on flashes and scares", () => {
+  it("NONE: nothing fires by itself; looking at his entry while the beam crosses it flashes and scares", () => {
     const e = inside("NONE");
     run(e, 30);
     e.turn("WINDOW");
     e.turn("DESK");
     expect(e.state.phase).toBe("PLAYING");
-    e.setLight(true);
-    run(e, 1);
-    expect(e.state.phase).toBe("PLAYING"); // Shift held at the desk lights nothing
     e.turn("HATCH");
+    // Advance until the rotating beam reaches HATCH.
+    for (let i = 0; i < Math.ceil(CONFIG.BEAM_PERIOD / T) && e.state.phase === "PLAYING"; i++) e.tick(T);
     expect(e.state.phase).toBe("BREACH");
     expect(e.state.loss).toMatchObject({ reason: "LOOK", flash: true });
     expect(e.state.loss!.insideFor).toBeGreaterThan(30);
   });
 
-  it("looking at his entry in the dark shows nothing; switching its light on while looking scares", () => {
+  it("looking at his entry between beam passes shows nothing; the beam passing over him scares", () => {
     const e = inside("NONE");
     e.turn("HATCH");
     expect(e.ramVisual("HATCH")).toBe("none");
     expect(e.state.phase).toBe("PLAYING");
-    e.setLight(true);
-    expect(e.ramVisual("HATCH")).toBe("inside");
-    run(e, T);
+    for (let i = 0; i < Math.ceil(CONFIG.BEAM_PERIOD / T) && e.state.phase === "PLAYING"; i++) e.tick(T);
     expect(e.state.loss).toMatchObject({ reason: "LOOK", flash: true });
   });
 
@@ -853,7 +783,7 @@ describe("lock hijack (section 8.3): CHUD can refuse a lock, never gates it", ()
     expect(e.state.ram.inside?.cause).toBe("REFUSED");
   });
 
-  it("the Furious cut hits a lock only, never the player's light", () => {
+  it("the Furious cut hits a lock only, never the ceiling lamp", () => {
     const config = cfgWith(5, { fakeOutChance: 0 }, { ...quiet, LIGHT_CUT: { WARM: 0, HURT: 0, JEALOUS: 0, FURIOUS: 0 } });
     const e = playing({ startNight: 5, config });
     e.devRamAway();
@@ -861,24 +791,22 @@ describe("lock hijack (section 8.3): CHUD can refuse a lock, never gates it", ()
     e.devSendRam("WINDOW");
     e.devSetSuspicion(100);
     e.turn("WINDOW");
-    e.setLight(true);
     const evs: GameEvent[] = [];
     run(e, 15, (ev) => evs.push(ev), () => e.state.ram.state !== "APPROACHING" && e.state.ram.state !== "AT_ENTRY");
     expect(evs.some((ev) => ev.type === "POWER_CHANGED" && ev.cause === "furious")).toBe(false);
     expect(e.state.log.visit.furiousCut).toBe(false);
+    expect(e.isLampOn()).toBe(true);
   });
 });
 
-describe("CHUD forces the light off (section 6.1)", () => {
+describe("CHUD stops the rotating ceiling lamp (section 6.1)", () => {
   const SUSP: Record<string, number> = { WARM: 0, HURT: 50, JEALOUS: 80, FURIOUS: 100 };
-  // One light-on per seed, held for 4 s: how often does CHUD cut it?
   const cutRate = (band: string, seeds = 500) => {
     let cuts = 0;
     for (let seed = 1; seed <= seeds; seed++) {
-      const e = playing({ startNight: 2, seed, config: { ...CONFIG, ...quiet } }); // night 2 first visit at 40 s, well after the 4 s window
+      const e = playing({ startNight: 2, seed, config: { ...CONFIG, ...quiet } });
       e.devSetSuspicion(SUSP[band]);
       e.turn("HATCH");
-      e.setLight(true);
       const t0 = e.state.clock.elapsed;
       let at = -1;
       run(e, 4, (ev) => {
@@ -888,9 +816,9 @@ describe("CHUD forces the light off (section 6.1)", () => {
         cuts++;
         expect(at).toBeGreaterThanOrEqual(CONFIG.LIGHT_CUT_DELAY[0] - T);
         expect(at).toBeLessThanOrEqual(CONFIG.LIGHT_CUT_DELAY[1] + T);
-        expect(e.state.player.lightEntry).toBeNull();
+        expect(e.isLampOn()).toBe(false);
       } else {
-        expect(e.state.player.lightEntry).toBe("HATCH");
+        expect(e.isLampOn()).toBe(true);
       }
     }
     return cuts / seeds;
@@ -905,58 +833,52 @@ describe("CHUD forces the light off (section 6.1)", () => {
 
   const alwaysCut = { ...CONFIG, ...quiet, LIGHT_CUT: { WARM: 0, HURT: 1, JEALOUS: 1, FURIOUS: 1 } };
 
-  it("holding Shift through a cut stays dark; release and press relights at once (and can be cut again)", () => {
+  it("a cut stops the lamp for LIGHT_CUT_DURATION, then restores it", () => {
     const e = playing({ startNight: 2, config: alwaysCut });
     e.devSetSuspicion(50);
     e.turn("BALCONY");
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBe("BALCONY"); // CHUD can never stop it coming on
+    expect(e.isLampOn()).toBe(true);
     run(e, CONFIG.LIGHT_CUT_DELAY[1] + 0.2);
-    expect(e.state.player.lightEntry).toBeNull();
-    run(e, 3); // still holding: no relight by itself
-    expect(e.state.player.lightEntry).toBeNull();
-    e.setLight(false);
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBe("BALCONY");
-    expect(e.state.power.lightCutAt).not.toBeNull(); // the new press rolls again
+    expect(e.isLampOn()).toBe(false);
+    expect(e.beamIntensity("BALCONY")).toBe(0);
+    run(e, CONFIG.LIGHT_CUT_DURATION + 0.2);
+    expect(e.isLampOn()).toBe(true);
   });
 
-  it("a light cut preserves an engaged lock", () => {
+  it("a lamp cut preserves an engaged lock", () => {
     const e = playing({ startNight: 2, config: alwaysCut });
     e.devSetPower("LOCK_WINDOW");
     e.devSetSuspicion(50);
     e.turn("WINDOW");
-    e.setLight(true);
     run(e, CONFIG.LIGHT_CUT_DELAY[1] + 0.2);
-    expect(e.state.player.lightEntry).toBeNull();
+    expect(e.isLampOn()).toBe(false);
     expect(e.state.power.slot).toBe("LOCK_WINDOW");
     expect(e.isDefended("WINDOW")).toBe(true);
   });
 
-  it("never while CHUD is offline or rebooting", () => {
+  it("never cuts while CHUD is offline or rebooting", () => {
     const e = playing({ startNight: 2, config: alwaysCut });
     e.devSetSuspicion(50);
     e.toggleGenerator();
-    e.toggleGenerator(); // rebooting: CHUD offline, no light either
+    e.toggleGenerator(); // rebooting: CHUD offline, lamp off
     run(e, CONFIG.REBOOT_TIME - 1);
     e.turn("HATCH");
-    e.setLight(true);
-    expect(e.state.player.lightEntry).toBeNull();
-    run(e, 1.2); // back online, light comes on, and now CHUD rolls
-    expect(e.state.player.lightEntry).toBe("HATCH");
+    expect(e.isLampOn()).toBe(false);
+    expect(e.state.power.lightCutAt).toBeNull();
+    run(e, 1.2); // back online, lamp resumes
+    expect(e.isLampOn()).toBe(true);
   });
 
   it("each cut says a short possessive line, rate limited, that never names anyone", () => {
-    const e = playing({ startNight: 2, config: alwaysCut });
+    const e = playing({ startNight: 2, config: { ...alwaysCut, LIGHT_CUT_DURATION: 1 } });
     e.devSetSuspicion(80);
-    e.turn("HATCH");
     const lines: string[] = [];
     let cuts = 0;
     let smiles = 0;
     for (let i = 0; i < 6; i++) {
-      e.setLight(false);
-      e.setLight(true);
-      run(e, CONFIG.LIGHT_CUT_DELAY[1] + 0.1, (ev) => {
+      e.turn("DESK");
+      e.turn("HATCH");
+      run(e, CONFIG.LIGHT_CUT_DELAY[1] + 1.2, (ev) => {
         if (ev.type === "LIGHT_CUT") {
           cuts++;
           if (ev.band === "JEALOUS") smiles++;

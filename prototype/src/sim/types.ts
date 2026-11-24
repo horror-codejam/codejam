@@ -22,8 +22,8 @@ export type Command = "ASK_LOCATION" | "LOCK" | "POWER_OFF" | "NONE";
 // What CHUD can claim about Ram's whereabouts: an entry, no one, or in the room with you.
 export type LocationClaim = Entry | "NONE" | "INSIDE";
 
-// The extra scare trigger rolled at each silent breach (GAME_LOGIC 7.7). Looking at him with his entry's light on,
-// putting down an artifact, walking up to his entry and 6:00 AM always trigger the scare as well.
+// The extra scare trigger rolled at each silent breach (GAME_LOGIC 7.7). Looking at him from the desk as the beam
+// passes over his entry, putting down an artifact, walking up to his entry and 6:00 AM always trigger the scare too.
 export type InsideTrigger = "TIMER" | "NONE" | "MOVE";
 // What actually set off the scare.
 export type ScareReason = "LOOK" | "ARTIFACT" | "TIMER" | "MOVE" | "ARRIVED" | "DAWN";
@@ -81,8 +81,6 @@ export interface GameState {
     lastMessageAt: number; // -Infinity if none, for the rate limit
     lastQuickAt: number;
     reading: string | null; // id of the desk artifact being read (full-screen), null if none
-    lightHeld: boolean; // Shift light input, cleared by a forced cut until the next press
-    lightEntry: Entry | null; // the currently lit entry, independent of the lock slot (section 6.1)
   };
   power: {
     slot: PowerSlot;
@@ -90,7 +88,8 @@ export interface GameState {
     chudOnline: boolean;
     generatorOn: boolean; // kill switch position
     rebootingUntil: number | null;
-    lightCutAt: number | null; // CHUD will force the current light off at this time (rolled at light-on)
+    lightCutAt: number | null; // CHUD will stop the rotating ceiling lamp at this time
+    lampCutUntil: number | null; // ceiling lamp stays off until this time after a CHUD light cut
   };
   ram: {
     state: RamState;
@@ -224,7 +223,7 @@ export type Outcome =
   | { kind: "lock_already"; entry: Entry }
   | { kind: "power_off" } // unlock / power off request
   | { kind: "lock_refused"; entry: Entry } // CHUD hijacks the lock: a malicious smile, no lock
-  | { kind: "light_cut" } // CHUD forced the player's light off: a short possessive line
+  | { kind: "light_cut" } // CHUD stopped the rotating ceiling lamp: a short possessive line
   | { kind: "refuse_furious"; request: "LOCK"; entry?: Entry }
   | { kind: "location_claim"; entry: LocationClaim } // never told whether it is a lie
   | { kind: "entry_warning"; entry: Entry } // Night 1 arrival, independent of location questions
@@ -266,8 +265,8 @@ export type GameEvent =
   | { type: "DECOY"; sound: DecoySound; pan: number } // pan -1 (left) .. 1 (right)
   | { type: "ARTIFACT"; id: string | null } // picked up (id) or put down (null)
   | { type: "LOCK_REFUSED"; entry: Entry } // CHUD hijacked a lock request: the malicious smile
-  | { type: "LIGHT_CHANGED"; entry: Entry | null }
-  | { type: "LIGHT_CUT"; entry: Entry; band: Band } // CHUD forced the light off: flicker, tick, smile in JEALOUS/FURIOUS
+  | { type: "LIGHT_CUT"; band: Band; until: number } // CHUD stopped the ceiling lamp: total dark, click, smile in JEALOUS/FURIOUS
+  | { type: "LAMP_RESTORED" } // ceiling lamp resumes after a CHUD light cut
   | { type: "SILENCE_PULL"; newEndsAt: number | null }
   | { type: "POWER_REQUESTED"; target: PowerSlot; landsAt: number }
   | { type: "POWER_CHANGED"; slot: PowerSlot; cause: PowerCause }
@@ -358,7 +357,6 @@ export interface IGameEngine {
 
   // Player
   turn(view: View): void; // only when position is DESK
-  setLight(on: boolean): void; // Shift held or released: the light of the viewed entry (the player's, not CHUD's)
   pickUpArtifact(id: string): void; // DESK position and view: read a desk artifact full-screen (the night keeps running)
   papersOnDesk(): number[]; // [0 .. collected-1]: collected papers, re-readable from the desk
   paperChar(i: number): string; // run.killCode[i]
@@ -380,6 +378,10 @@ export interface IGameEngine {
   applyJudge(ticketId: number, result: JudgeResult | null): void;
 
   // Queries
+  beamAngle(at?: number): number; // radians, deterministic from night/practice time
+  beamIntensity(entry: Entry, at?: number): number; // 0..1 at that entry's tell azimuth (0 while lamp is off)
+  beamViewIntensity(view: View, at?: number): number; // 0..1 at that view's center azimuth (0 while lamp is off)
+  isLampOn(): boolean; // true while supply power is on and CHUD has not cut the lamp
   ramVisual(view: View): RamVisual;
   isDefended(entry: Entry): boolean; // section 7.5 rule at this instant
   drainEvents(): GameEvent[];

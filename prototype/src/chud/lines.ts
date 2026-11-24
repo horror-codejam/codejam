@@ -201,7 +201,7 @@ export const PRACTICE_LINES = {
   danger: "Something on this island comes out at night. It tries to get in. The window, the hatch, the balcony.",
   bargain: "Stay alive until 6 AM each night. I'll help you. As long as you're nice to me.",
   views: "Move your mouse to the edge of the screen to look around.",
-  light: "Something's at the window. It's too dark to see. Hold Shift to look.",
+  light: "Something's at the window. The light comes around slowly. Watch for him when it passes.",
   lock: "See it? Come back to my screen and click W. I'll lock the window.",
   windowSafe: "Good. It's gone. A lock keeps it out.",
   hatch: "It's at the hatch. I can't lock it. Click to run over, then hold it shut until it gives up.",
@@ -214,7 +214,7 @@ export const PRACTICE_LINES = {
   lonely: "Talk to me during the night too. I get lonely. And lonely makes me... unreliable.",
   ready: "That's everything. Survive until 6 AM.",
   nudgeViews: "Try the edge the prompt shows you.",
-  nudgeLight: "Hold Shift at the window.",
+  nudgeLight: "Look at the window and wait for the light to come around.",
   nudgeLock: "At the desk, click W on my screen.",
   nudgeHatch: "Go to the hatch and hold it shut.",
   nudgeReturn: "Come back to the desk.",
@@ -429,12 +429,12 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
       "I won't lock {x}, and I'm sure you'll find the exercise bracing.",
     ],
   },
-  // CHUD forced the light off (section 6.1). Possessive, never names the threat.
+  // CHUD stopped the rotating ceiling lamp (section 6.1). Possessive, never names the threat.
   light_cut: {
-    WARM: ["You don't need that. You have me."],
-    HURT: ["You don't need that. You have me.", "Leave it off, keeper. I'm watching for you.", "The dark is cosier."],
-    JEALOUS: ["Why look out there? Look at me.", "Leave it off, {n}. I'm watching for you.", "You don't need that. You have me."],
-    FURIOUS: ["The dark is cosier.", "Why look out there? Look at me.", "No light, {n}. Just me."],
+    WARM: ["You don't need the lamp. You have me."],
+    HURT: ["You don't need the lamp. You have me.", "I stopped the lamp, keeper. I'm watching for you.", "The dark is cosier."],
+    JEALOUS: ["Why look out there? Look at me.", "I turned the lamp off, {n}. I'm watching for you.", "You don't need the lamp. You have me."],
+    FURIOUS: ["The dark is cosier.", "Why look out there? Look at me.", "No lamp, {n}. Just me."],
   },
 };
 

@@ -1,69 +1,75 @@
-// The PixiJS side (Prototype 3.0, 2.5D): plate-space views, hold views, the dash and screen effects.
+// The PixiJS side (2.5D): rotating-beam plate rendering, hold views, the dash and screen effects.
 // Reads engine state every frame. Never changes game state.
 //
 // Pipeline each frame:
-//   world (off-stage) > cam (plate px, scaled by K, panned by the mouse, night-graded)
-//     rendered into a RenderTexture
-//   stage > warp mesh (the RenderTexture on a PlaneGeometry, edges stretched for a cylindrical feel)
-//         > foreground rain (parallax, moves more than the plate) > scare flash > jumpscare frames > fade > grain > vignette
+//   beamRenderer (1600 x 800 linear-light beam + bounce + haze + AgX grade) -> beamRT
+//   world (off-stage) > cam (plate px, scaled by K, panned by the mouse) -> RenderTexture
+//   stage > warp mesh (curved for entry/hold views, planar for desk)
+//         > foreground rain > darkened dash/turn clips > scare flash > jumpscare frames > fade > grain > vignette
 // The DOM terminal uses the desk's camera transform and the calibrated monitor corners.
 
 import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, PlaneGeometry, RenderTexture, Sprite, Texture, TilingSprite } from "pixi.js";
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
+import type { BeamParams } from "../sim/beam";
 import { BRACE, CONTROLS, SCARE } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
-import { artFrames, artVideoUrl, hasArt, isFinal, slot, stageSlot } from "./art";
+import {
+  artFrames,
+  artVideoUrl,
+  getBeamGrade,
+  getBeamSlot,
+  hasArt,
+  hasBeamArt,
+  isFinal,
+  preloadHoldBeam,
+  slot,
+  stageSlot,
+} from "./art";
+import { BeamRenderer } from "./beamRenderer";
 import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./layout";
 import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
 import { VideoPlate } from "./videoPlate";
-import { entryPlate, holdPlate, JUMPSCARE_FPS, jumpscareJob, sequenceFrame } from "./plates";
+import { beamEntryState, beamSlot, holdBeamSlot, JUMPSCARE_FPS, jumpscareJob, sequenceFrame } from "./plates";
 
-// Final renders are full plates per state (src/ui/plates.ts): when the plate for the current state exists it is shown
-// alone, with no overlay and no night grade. The layers below (view + coded overlays) are the fallback for a state whose
-// final plate is missing.
 interface EntryLayers {
   root: Container;
-  k: string; // "window" | "hatch" | "balcony"
-  dark: Container; // `view_<e>` (final `view_<e>_off` when present)
-  lit: Container | null; // a separate lit plate (placeholder, or `view_<e>_beam` / final `view_<e>_on`)
-  litOverlay: Container | null; // additive light wash on the team's render when there is no lit plate
+  k: string;
+  dark: Container;
+  litOverlay: Container | null;
   tell: Container;
   approach: Container;
-  inside: Container; // Ram in the room, just inside this entry (`ram_inside_<entry>`), only with its light on
-  plates: Map<string, Container>; // final state plates: tell_<e>_on, approach_<e>_on, inside_<e>_on
+  inside: Container;
   render: boolean;
 }
 
 interface HoldLayers {
   root: Container;
   k: string;
-  base: Container; // `hold_<e>` (final `hold_<e>_stand_empty_off` when present), fallback only
+  base: Container;
   tell: Container;
-  arms: Container; // the player's arms on the entry, only while bracing (fallback: the brace plates include the arms)
-  strain: Sprite | null; // whitened knuckles over the coded arms, faded in with fatigue
-  plates: Map<string, Container>; // final plates hold_<e>_<stand|brace>_<empty|tell>_<on|off>
-  plate: Container | null; // the final plate showing this frame
+  arms: Container;
+  strain: Sprite | null;
   render: boolean;
 }
 
 type Rgb = [number, number, number];
 
-// Night grade (multipliers on R, G, B) for the team's grey blockout renders.
-const GRADE_DARK: Rgb = [0.22, 0.27, 0.38]; // light off: dark and blue
-const GRADE_LIT: Rgb = [0.66, 0.57, 0.46]; // this entry's light on (Shift): warm and lighter
-const GRADE_DESK_DARK: Rgb = [0.22, 0.26, 0.36]; // the desk is never lit by an entry light
-const GRADE_NONE: Rgb = [1, 1, 1]; // coded placeholders are already dark
+// Fallback night grade for gray blockout renders when final_beam is unavailable.
+const GRADE_DARK: Rgb = [0.16, 0.2, 0.28];
+const GRADE_LIT: Rgb = [0.66, 0.57, 0.46];
+const GRADE_DESK_DARK: Rgb = [0.18, 0.22, 0.3];
+const GRADE_NONE: Rgb = [1, 1, 1];
 
 const WARP_S = 0.08; // perspective warp strength
-const SWEEP_PERIOD = 7; // seconds for the beacon to cross the glazing
+const SWEEP_PERIOD = 7; // seconds for the exterior beacon to cross the glazing
 const SWEEP_W = 300; // plate px
 const DESK_ZOOM = 1.03 / ZOOM; // leave room for the monitor bezel through the full desk pan
 
-// The green panel in the desk render, slightly outset; blacked out so the DOM terminal blends in.
+// The green panel in the blockout desk render, blacked out so the DOM terminal blends in.
 const SCREEN_FRAME = { x: 152, y: 259, w: 659, h: 201 };
 
 // The two glazing panes either side of the monitor: lightning and the beacon glow light only these.
@@ -76,34 +82,38 @@ export class Scene {
   private app: Application;
   private world = new Container();
   private cam = new Container();
-  private light = new Container(); // same transform as cam, not graded: the beacon sweep and lightning
+  private light = new Container(); // same transform as cam, not graded: exterior beacon sweep and lightning
   private grade = new ColorMatrixFilter();
   private gradeNow: Rgb = [...GRADE_DESK_DARK];
+  private clipDarkFilter = new ColorMatrixFilter();
+  private beam: BeamRenderer | null = null;
+  private beamPlate: Sprite | null = null;
   private rt: RenderTexture;
-  private rtPrev: RenderTexture; // the last frame of the view being turned away from (edge controls slide)
-  private views = new Container(); // warp + warpPrev, motion-blurred during a turn
+  private rtPrev: RenderTexture;
+  private views = new Container();
   private warp: Mesh;
   private flatGeometry = new PlaneGeometry({ width: W, height: H });
   private curvedGeometry: PlaneGeometry;
   private warpPrev: Mesh;
   private turnBlur = new BlurFilter({ strengthX: 0, strengthY: 0, quality: 2 });
-  private turnSlide = false; // the current edge turn can use a clip or the still-plate slide
-  private turnDir = 1; // +1: the picture moves right (turning left), -1: moves left
+  private turnSlide = false;
+  private turnDir = 1;
   private turnDur = CONTROLS.TURN_TIME;
   private lastDashing = false;
-  private braceK = 0; // 0 standing at an entry, 1 bracing it (eased): the camera leans in while bracing
-  private armsK = 0; // 0 arms down out of frame, 1 arms on the entry (eased faster than braceK)
-  private fxT = 0; // effect clock: real seconds that stop while paused (brace shake, Ram's shoves)
+  private braceK = 0;
+  private armsK = 0;
+  private fxT = 0;
   private wasBracing = false;
-  private lungeAt = -10; // fxT of the last brace start (push-in)
-  private relaxAt = -10; // fxT of the last brace end (relax-back)
+  private lungeAt = -10;
+  private relaxAt = -10;
   private repel: { entry: Entry; at: number } | null = null;
   private desk = new Container();
+  private deskStill: Container;
   private deskRender: boolean;
-  private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
-  private deskMedia = new Container(); // above the desk still and below the calibrated glass mask
+  private deskFinal: boolean;
+  private deskMedia = new Container(); // above the desk plate and below the calibrated monitor glass mask
   private transitions = new Container();
-  private dashFloor: Container | null = null; // final floor still for the dash (GAME_LOGIC 6.4), same for every entry
+  private dashFloor: Container | null = null;
   private clips = new Map<string, VideoPlate>();
   private activeTransition?: VideoPlate;
   private clipsPrepared = false;
@@ -111,20 +121,20 @@ export class Scene {
   private reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private sweep = new Container();
   private sweepBand: Sprite;
-  private paneGlow: Sprite[] = []; // final desk: the beacon brightens each side pane as it passes behind the monitor
+  private paneGlow: Sprite[] = [];
   private lightning = new Container();
   private rain: TilingSprite;
   private entries = new Map<Entry, EntryLayers>();
   private holds = new Map<Entry, HoldLayers>();
-  private jumps: Container[] = []; // ram_jumpscare_1..4 (fallback)
-  private jumpSeq = new Container(); // the final 24 fps jumpscare_<entry> sequence, when rendered
+  private jumps: Container[] = [];
+  private jumpSeq = new Container();
   private jumpSeqSprite = new Sprite(Texture.EMPTY);
   private jumpSeqFrames: Texture[] = [];
   private jumpStartedAt = 0;
   private jumpActive = false;
   private scareEntry: Entry | null = null;
   private snapUntil = 0;
-  private flashLayer = new Graphics(); // the white pop at the start of the creepy flash
+  private flashLayer = new Graphics();
   private fade = new Graphics();
   private grain: Sprite;
   private lastView: View | null = null;
@@ -132,16 +142,16 @@ export class Scene {
   private nextLightningAt = 8;
   private lightningUntil = 0;
   private lastT = 0;
-  private mouse = { x: 0, y: 0 }; // -1..1 over the canvas
+  private mouse = { x: 0, y: 0 };
   private overDeskControl = false;
-  private pan = { x: 0, y: 0 }; // stage px, lerped toward the mouse
+  private pan = { x: 0, y: 0 };
 
   private flashStartedAt = Infinity;
-  lightFlickerUntil = 0; // real seconds: the stage flickers as CHUD forces the light off
+  lightFlickerUntil = 0; // real seconds: the stage flickers as CHUD cuts the ceiling lamp
   onThunder: (() => void) | null = null;
-  paused = false; // UI pause: the brace effects freeze
+  paused = false;
   transitionVisible = false;
-  fadeAlpha = 0; // how black the stage is right now (the DOM terminal follows it)
+  fadeAlpha = 0;
 
   constructor(app: Application) {
     this.app = app;
@@ -151,10 +161,22 @@ export class Scene {
     this.cam.scale.set(K);
     this.cam.filters = [this.grade];
 
-    // desk: render (or placeholder), blacked-out screen, beacon sweep, lightning
-    this.deskRender = hasArt("view_desk");
-    this.deskFinal = isFinal("view_desk");
-    this.desk.addChild(slot("view_desk", P.deskView, "stage"), this.deskMedia);
+    const beamGrade = getBeamGrade();
+    if (beamGrade && hasBeamArt()) {
+      this.beam = new BeamRenderer(beamGrade);
+      this.beamPlate = new Sprite(this.beam.texture);
+      this.beamPlate.width = PLATE_W;
+      this.beamPlate.height = PLATE_H;
+      this.beamPlate.visible = false;
+      this.cam.addChild(this.beamPlate);
+    }
+
+    // desk: fallback render (hidden when beamPlate renders desk), media layer, calibrated monitor glass
+    this.deskRender = hasArt("view_desk") || hasBeamArt();
+    this.deskFinal = isFinal("view_desk") || hasBeamArt();
+    this.deskStill = slot("view_desk", P.deskView, "stage");
+    this.deskMedia.filters = [this.clipDarkFilter];
+    this.desk.addChild(this.deskStill, this.deskMedia);
     if (this.deskFinal) {
       const glass = MONITOR_CORNERS.flat();
       this.desk.addChild(new Graphics().poly(glass).fill(0x07130d));
@@ -169,7 +191,6 @@ export class Scene {
     this.sweepBand.y = gl.y;
     this.sweepBand.blendMode = "add";
     if (this.deskFinal) {
-      // The monitor hides the middle of the glazing: no band across it, a soft glow on each side pane instead.
       const glow = makePaneGlow();
       for (const p of FINAL_DESK_PANES) {
         const beacon = new Sprite(glow);
@@ -186,9 +207,6 @@ export class Scene {
         this.lightning.addChild(lightning);
       }
     } else {
-      // No mask: the band is exactly the glazing height and the glazing spans the plate width, so it never leaves the
-      // glazing on screen. A rect mask turns into a stencil mask once the camera rolls (dash, bracing), and inside the
-      // RenderTexture that stencil state broke the frame (the glazing area showed a shifted copy of the plate).
       this.sweep.addChild(this.sweepBand);
       this.lightning.addChild(new Graphics().rect(gl.x, gl.y, gl.w, gl.h).fill(0xcfe0ff));
     }
@@ -196,13 +214,13 @@ export class Scene {
     this.light.addChild(this.sweep, this.lightning);
     this.cam.addChild(this.desk);
 
+    // Fallback entry and hold containers (used only if final_beam assets are unavailable or loading).
     for (const e of ENTRIES) {
       const k = e.toLowerCase();
       const render = hasArt(`view_${k}`);
       const dark = slot(`view_${k}`, P.entryView(e, false), "stage");
-      const lit = !render || hasArt(`view_${k}_beam`) ? slot(`view_${k}_beam`, P.entryView(e, true), "stage") : null;
       let litOverlay: Container | null = null;
-      if (render && !lit) {
+      if (render) {
         litOverlay = slot(`lit_${k}`, P.onRenderLit(e), "plate");
         litOverlay.blendMode = "add";
       }
@@ -210,21 +228,17 @@ export class Scene {
       const tell = render ? slot(`tell_${k}`, P.onRenderTell(e), "plate") : slot(`tell_${k}`, P.tell(e), "stage");
       const inside = slot(`ram_inside_${k}`, P.ramInside(e), "plate");
       inside.visible = false;
-      const plates = finalPlates([`tell_${k}_on`, `approach_${k}_on`, `inside_${k}_on`]);
       const root = new Container();
       root.addChild(dark);
-      if (lit) root.addChild(lit);
       if (litOverlay) root.addChild(litOverlay);
-      root.addChild(approach, tell, inside, ...plates.values());
+      root.addChild(approach, tell, inside);
       root.visible = false;
       this.cam.addChild(root);
-      this.entries.set(e, { root, k, dark, lit, litOverlay, tell, approach, inside, plates, render });
+      this.entries.set(e, { root, k, dark, litOverlay, tell, approach, inside, render });
 
       const holdRender = hasArt(`hold_${k}`);
       const hold = new Container();
       const holdTell = holdRender ? slot(`hold_tell_${k}`, P.onRenderHoldTell(e), "plate") : slot(`hold_tell_${k}`, P.holdTell(e), "stage");
-      // the arms: `brace_arms_<entry>` art, else the painted overlay (P.braceArms). Placeholders are not graded,
-      // so the painted arms are darkened by a tint to sit with them.
       const arms = new Container();
       let strain: Sprite | null = null;
       if (hasArt(`brace_arms_${k}`)) {
@@ -241,13 +255,10 @@ export class Scene {
       }
       arms.visible = false;
       const base = slot(`hold_${k}`, P.holdView(e), "stage");
-      const holdPlates = finalPlates(
-        [false, true].flatMap((brace) => [false, true].flatMap((tell) => [false, true].map((on) => holdPlate(e, brace, tell, on)))),
-      );
-      hold.addChild(base, holdTell, arms, ...holdPlates.values());
+      hold.addChild(base, holdTell, arms);
       hold.visible = false;
       this.cam.addChild(hold);
-      this.holds.set(e, { root: hold, k, base, tell: holdTell, arms, strain, plates: holdPlates, plate: null, render: holdRender });
+      this.holds.set(e, { root: hold, k, base, tell: holdTell, arms, strain, render: holdRender });
     }
 
     // world -> RenderTexture -> warped mesh on the stage
@@ -267,15 +278,16 @@ export class Scene {
     this.views.addChild(this.warpPrev, this.warp);
     app.stage.addChild(this.views);
 
-    // one parallax foreground layer: rain streaks, fading out toward the bottom
     this.rain = new TilingSprite({ texture: makeRainTexture(), width: W + 2 * PAN_X * 1.6, height: H });
-    this.rain.alpha = 0.16;
+    this.rain.alpha = 0.14;
     this.rain.blendMode = "add";
+    this.transitions.filters = [this.clipDarkFilter];
     app.stage.addChild(this.rain, this.transitions);
     if (isFinal("dash_floor")) {
       this.dashFloor = stageSlot("dash_floor", () => {});
       this.dashFloor.pivot.set(W / 2, H / 2);
       this.dashFloor.visible = false;
+      this.dashFloor.filters = [this.clipDarkFilter];
       app.stage.addChild(this.dashFloor);
     }
 
@@ -313,6 +325,14 @@ export class Scene {
     });
   }
 
+  get beamParams(): BeamParams | null {
+    return this.beam?.params ?? null;
+  }
+
+  ensureHoldBeam(entry: Entry): Promise<void> {
+    return preloadHoldBeam(entry);
+  }
+
   deskScreenTransform(): string {
     const plate = this.plateRect({ x: 0, y: 0, w: PLATE_W, h: PLATE_H });
     const projection = this.deskFinal ? monitorTransform.final : monitorTransform.fallback;
@@ -334,7 +354,7 @@ export class Scene {
     };
     if (this.deskFinal) {
       add("ambient_desk", true);
-      add("desk_typing_off", true); // Shift lights entries only; the desk stays dark.
+      add("desk_typing_off", true);
     }
     for (const entry of ENTRIES) {
       const key = entry.toLowerCase();
@@ -362,7 +382,6 @@ export class Scene {
     };
     const ambientVisible = play("ambient_desk", ambient);
     const typingVisible = play("desk_typing_off", typing);
-    // The hands clip is layered under the monitor mask. Keep the ambient plate under the hands.
     const hands = this.deskMedia.children.at(-1);
     if (typingVisible && hands?.label !== "desk_typing_off") {
       const typingPlate = this.deskMedia.getChildByLabel("desk_typing_off");
@@ -410,20 +429,28 @@ export class Scene {
     this.repel = { entry, at: this.fxT };
   }
 
+  private updateClipDarkness(lampOn: boolean): void {
+    const darkGain = this.beam?.params.darkGain ?? CONFIG.BEAM_DARK_GAIN;
+    // Linear darkGain=0.6 maps to ~0.73 sRGB after AgX grading; scale clips smoothly with darkGain and lamp state.
+    const k = clamp(Math.pow(Math.max(0.02, darkGain), 1 / 2.2) * 0.92 * (lampOn ? 1 : 0.55), 0.1, 1);
+    this.clipDarkFilter.matrix = [
+      k, 0, 0, 0, 0,
+      0, k, 0, 0, 0,
+      0, 0, k, 0, 0,
+      0, 0, 0, 1, 0,
+    ] as ColorMatrix;
+  }
+
   update(engine: GameEngine, t: number, typing: boolean): void {
     const s = engine.state;
     if (s.phase === "PLAYING") this.prepareClips();
     const pos = s.player.position;
-    // The player's light (Shift) lights only the entry it is on (GAME_LOGIC 6.1).
-    const litEntry = this.scareEntry ?? s.player.lightEntry;
     const dt = Math.min(0.1, Math.max(0, t - this.lastT));
     this.lastT = t;
     const fdt = this.paused ? 0 : dt;
     this.fxT += fdt;
     const ft = this.fxT;
 
-    // which picture is up
-    // the hold view shows while bracing (HOLDING) and while standing at the entry (edge controls, STANDING)
     const dashing = s.phase === "PLAYING" && (pos.kind === "TRAVELING" || pos.kind === "RETURNING");
     const dashProgress = dashing ? clamp(1 - (pos.until - engine.now) / CONFIG.TRAVEL_TIME, 0, 1) : 0;
     const holding = this.scareEntry ? null
@@ -434,20 +461,17 @@ export class Scene {
     if (view !== this.lastView) {
       if (this.lastView !== null) {
         this.turnStartedAt = this.scareEntry || dashing || this.lastDashing ? -10 : t;
-        // Only regular turns use turn footage or the slide. Dashes and scares have their own transitions.
         this.turnSlide = s.phase === "PLAYING" && !this.lastDashing && !dashing;
         this.turnDir = turnDirection(this.lastView, view);
         this.turnJob = `turn_${this.lastView.toLowerCase()}_${view.toLowerCase()}`;
         this.turnDur = this.lastView === "BALCONY" || view === "BALCONY" ? CONTROLS.TURN_TIME_BALCONY : CONTROLS.TURN_TIME;
         if (this.turnSlide) {
-          // rt still holds the last frame of the old view: keep it as the outgoing picture
           [this.rt, this.rtPrev] = [this.rtPrev, this.rt];
           this.warp.texture = this.rt;
           this.warpPrev.texture = this.rtPrev;
           this.warpPrev.geometry = this.warp.geometry;
         }
       }
-      // The desk stays planar so the projected DOM and the monitor glass share exactly the same corners.
       this.warp.geometry = view === "DESK" ? this.flatGeometry : this.curvedGeometry;
       this.lastView = view;
     }
@@ -462,35 +486,56 @@ export class Scene {
       dashing ? CONFIG.TRAVEL_TIME : this.turnDur,
     );
 
-    let grade: Rgb = GRADE_NONE;
+    // Lazy-load hold beam textures as soon as the player faces or dashes to an entry.
+    if (view !== "DESK") void preloadHoldBeam(view);
+    if (holding) void preloadHoldBeam(holding);
+
+    const lampOn = engine.isLampOn();
+    this.updateClipDarkness(lampOn);
+
     const onDesk = !holding && view === "DESK";
+    const ramAtHolding = holding !== null && s.ram.state === "AT_ENTRY" && s.ram.target === holding;
+    const beamSlotName = holding
+      ? holdBeamSlot(holding, bracing, ramAtHolding)
+      : view === "DESK"
+        ? "desk"
+        : beamSlot(view, beamEntryState(view, s.ram, this.scareEntry));
+    const beamTex = this.beam ? (getBeamSlot(beamSlotName) ?? (holding ? getBeamSlot(beamSlot(holding, ramAtHolding ? "tell" : "empty")) : null)) : null;
+    const beamActive = this.beam !== null && this.beamPlate !== null && beamTex !== null;
+
+    if (beamActive && this.beam && this.beamPlate && beamTex) {
+      const azimuth = engine.beamAngle(engine.visualTime);
+      const darkScale = lampOn ? 1 : onDesk ? 0.55 : 0.35;
+      this.beam.render(this.app.renderer, beamTex, azimuth, lampOn, darkScale);
+      this.beamPlate.visible = true;
+      const hatchShudder = !holding && view === "HATCH" && engine.ramVisual("HATCH") === "tell_clear";
+      this.beamPlate.y = hatchShudder ? Math.sin(t * 60) * 1.5 : 0;
+    } else if (this.beamPlate) {
+      this.beamPlate.visible = false;
+      this.beamPlate.y = 0;
+    }
+
+    let grade: Rgb = GRADE_NONE;
     this.desk.visible = onDesk;
-    if (onDesk && this.deskRender && !this.deskFinal) grade = GRADE_DESK_DARK;
+    this.deskStill.visible = onDesk && !beamActive;
+    if (onDesk && !beamActive && this.deskRender && !this.deskFinal) grade = GRADE_DESK_DARK;
 
     for (const [e, L] of this.entries) {
-      const on = !holding && view === e;
+      const on = !beamActive && !holding && view === e;
       L.root.visible = on;
       if (!on) continue;
-      const lit = litEntry === e;
       const vis = this.scareEntry === e ? "inside" : engine.ramVisual(e);
+      const lit = this.scareEntry === e || engine.beamIntensity(e) >= CONFIG.BEAM_REVEAL_THRESHOLD;
       const tellUp = lit && vis === "tell_clear";
-      // the final full plate for this state, else the view with a coded overlay
-      const want = entryPlate(e, lit, vis);
-      const plate = L.plates.get(want) ?? null;
-      for (const c of L.plates.values()) c.visible = c === plate;
-      const useLit = lit && !!L.lit;
-      L.dark.visible = !plate && !useLit;
-      if (L.lit) L.lit.visible = !plate && useLit;
-      if (L.litOverlay) L.litOverlay.visible = !plate && lit;
-      if (plate || isFinal(useLit ? `view_${L.k}_beam` : `view_${L.k}`)) grade = GRADE_NONE;
-      else if (L.render) grade = lit ? GRADE_LIT : GRADE_DARK;
-      L.inside.visible = !plate && lit && vis === "inside";
-      L.tell.visible = !plate && tellUp;
-      L.approach.visible = !plate && lit && vis === "approach_silhouette";
-      // hatch lid shudders while he is at it
+      L.dark.visible = true;
+      if (L.litOverlay) L.litOverlay.visible = lit;
+      if (L.render && !isFinal(`view_${L.k}`)) grade = lit ? GRADE_LIT : GRADE_DARK;
+      L.inside.visible = lit && vis === "inside";
+      L.tell.visible = tellUp;
+      L.approach.visible = lit && vis === "approach_silhouette";
       L.root.y = e === "HATCH" && tellUp ? Math.sin(t * 60) * 1.5 : 0;
     }
-    // bracing: fatigue (0..1 over HOLD_MAX), push-in on press, relax-back on release, Ram's shoves
+
     if (bracing !== this.wasBracing) {
       if (bracing) this.lungeAt = ft;
       else if (holding) this.relaxAt = ft;
@@ -498,24 +543,19 @@ export class Scene {
     }
     const fatigue = pos.kind === "HOLDING" ? clamp((engine.now - pos.since) / CONFIG.HOLD_MAX, 0, 1) : 0;
     this.armsK += ((bracing ? 1 : 0) - this.armsK) * (1 - Math.exp(-fdt * BRACE.ARMS_EASE));
-    let pushing = false;
+    const pushing = bracing && ramAtHolding;
     for (const [e, L] of this.holds) {
-      L.root.visible = holding === e;
-      if (holding !== e) continue;
-      const lit = litEntry === e;
-      const vis = engine.ramVisual(e);
-      const tellUp = vis === "tell_faint" || vis === "tell_clear";
-      // the final full plate (the brace plates include the arms), else the hold view with coded tell and painted arms
-      const plate = L.plates.get(holdPlate(e, bracing, tellUp, lit)) ?? null;
-      for (const c of L.plates.values()) c.visible = c === plate;
-      L.plate = plate;
-      L.base.visible = !plate;
-      if (plate || isFinal(`hold_${L.k}`)) grade = GRADE_NONE;
-      else if (L.render) grade = lit ? GRADE_LIT : GRADE_DARK;
-      L.tell.visible = !plate && tellUp;
-      L.tell.alpha = vis === "tell_clear" ? 1 : L.render ? 0.6 : 0.45;
-      pushing = bracing && tellUp;
+      const on = !beamActive && holding === e;
+      L.root.visible = on;
+      if (!on) continue;
+      const lit = engine.beamIntensity(e) >= CONFIG.BEAM_REVEAL_THRESHOLD;
+      const tellUp = ramAtHolding && lit;
+      L.base.visible = true;
+      if (L.render && !isFinal(`hold_${L.k}`)) grade = lit ? GRADE_LIT : GRADE_DARK;
+      L.tell.visible = tellUp;
+      L.tell.alpha = 1;
     }
+
     // One silent shove per PUSH_PERIOD, followed by a stronger shove on repel.
     let push = 0;
     let pushSide = 1;
@@ -529,18 +569,15 @@ export class Scene {
       const remaining = Math.max(0, 1 - (ft - this.repel.at) / BRACE.REPEL_SETTLE);
       push = Math.max(push, BRACE.REPEL_PUSH * remaining ** 2);
     }
-    // tremor: three incommensurate sines (organic, not random jitter), -1..1
     const tr = (ph: number): number =>
       (Math.sin(ft * BRACE.TREMOR_HZ * 6.283 + ph) + 0.6 * Math.sin(ft * BRACE.TREMOR_HZ * 1.73 * 6.283 + ph * 2.1) + 0.35 * Math.sin(ft * BRACE.TREMOR_HZ * 2.91 * 6.283 + ph * 3.7)) / 1.95;
     const strainK = this.braceK * (1 + BRACE.FATIGUE_GAIN * fatigue);
     const tremorPx = BRACE.TREMOR_PX * strainK + BRACE.PUSH_TREMOR * push * this.braceK;
     const shakeX = BRACE.SWAY_PX * strainK * Math.sin(ft * BRACE.SWAY_HZ * 6.283) + tremorPx * tr(0);
     const shakeY = BRACE.SWAY_PX * 0.7 * strainK * Math.sin(ft * BRACE.SWAY_HZ * 0.77 * 6.283 + 1) + tremorPx * tr(1.3) - BRACE.PUSH_PX * push;
-    if (holding) {
+    if (holding && !beamActive) {
       const L = this.holds.get(holding)!;
-      // with a final plate up the arms are in the brace render (or out of frame when standing): the camera carries the
-      // brace motion (lean, tremor, Ram's shoves) for the whole plate
-      L.arms.visible = !L.plate && this.armsK > 0.01;
+      L.arms.visible = this.armsK > 0.01;
       L.arms.alpha = Math.min(1, this.armsK * 1.4);
       L.arms.position.set(
         BRACE.ARMS_TREMOR * tremorPx * tr(2.6),
@@ -548,21 +585,22 @@ export class Scene {
       );
       if (L.strain) L.strain.alpha = Math.min(1, Math.max(0, (fatigue - 0.25) / 0.75) + 0.4 * push);
     }
-    // the lighthouse beacon sweeping outside the glazing: exterior ambience only, it never lights the room
-    // and has nothing to do with the power slot or Ram (GAME_LOGIC 6.1)
+
+    // Desk videos: when beam renders the desk, keep ambient_desk off so the rotating beam sweeps visibly across the desk;
+    // desk_typing_off (darkened to match darkGain) still plays while typing.
     const liveDesk = s.phase === "PLAYING" && onDesk && !dashing && !transition;
     const deskPowered = liveDesk && s.power.generatorOn;
-    const playingDeskClip = this.syncDeskVideos(deskPowered, liveDesk && s.power.chudOnline && typing);
+    const playingDeskClip = this.syncDeskVideos(!beamActive && deskPowered, liveDesk && s.power.chudOnline && typing);
     const sweepOn = deskPowered && !playingDeskClip;
     this.sweep.visible = sweepOn;
     if (sweepOn) {
       const k = (t % SWEEP_PERIOD) / SWEEP_PERIOD;
       this.sweepBand.x = -SWEEP_W + k * (PLATE_W + 2 * SWEEP_W);
-      this.sweepBand.alpha = 0.3;
+      this.sweepBand.alpha = 0.22;
       const cx = this.sweepBand.x + SWEEP_W / 2;
       this.paneGlow.forEach((g, i) => {
         const p = FINAL_DESK_PANES[i];
-        g.alpha = 0.14 * Math.max(0, 1 - Math.abs(cx - (p.x + p.w / 2)) / 240);
+        g.alpha = 0.1 * Math.max(0, 1 - Math.abs(cx - (p.x + p.w / 2)) / 240);
       });
     }
 
@@ -573,9 +611,9 @@ export class Scene {
       this.onThunder?.();
     }
     const flash = t < this.lightningUntil;
-    this.lightning.alpha = flash && onDesk ? 0.24 : 0;
+    this.lightning.alpha = flash && onDesk ? 0.18 : 0;
 
-    // night grade, eased so turning or switching power reads as light changing
+    // Fallback night grade (not used when beamActive)
     const ease = 1 - Math.exp(-dt * 6);
     for (let i = 0; i < 3; i++) this.gradeNow[i] += (grade[i] - this.gradeNow[i]) * ease;
     this.cam.filters = grade === GRADE_NONE ? null : [this.grade];
@@ -583,7 +621,6 @@ export class Scene {
     const [r, g, b] = this.gradeNow;
     this.grade.matrix = [r + boost, 0, 0, 0, 0, 0, g + boost, 0, 0, 0, 0, 0, b + boost, 0, 0, 0, 0, 0, 1, 0] as ColorMatrix;
 
-    // camera: mouse pan (lerped), plus dash tip, shake and rise (GAME_LOGIC 6.4), otherwise a slow sway
     const framedDesk = onDesk && this.deskFinal;
     let zoom = framedDesk ? DESK_ZOOM : 1;
     if (!onDesk || !this.overDeskControl) {
@@ -599,7 +636,6 @@ export class Scene {
     let black = 0;
     if (this.dashFloor) this.dashFloor.visible = false;
     if (dashing && !transition && this.dashFloor) {
-      // GAME_LOGIC 6.4: tip down to the floor (0.2 s), run with shake and roll (1.1 s), rise into the next view (0.2 s).
       const edge = 0.2 / CONFIG.TRAVEL_TIME;
       const k = dashProgress;
       const slide = k < edge ? 1 - k / edge : k > 1 - edge ? -(k - (1 - edge)) / edge : 0;
@@ -610,19 +646,17 @@ export class Scene {
       f.rotation = Math.sin(t * 7) * 0.02;
       zoom = 1.05;
     } else if (dashing && !transition) {
-      // Use the existing views and hide the change of angle at the bottom of the dip.
       black = Math.max(0, 1 - Math.abs(dashProgress - 0.5) * CONFIG.TRAVEL_TIME / 0.2);
       ox += Math.sin(t * 31) * 14;
       oy += Math.abs(Math.sin(t * 13)) * 22;
       this.cam.rotation = Math.sin(t * 7) * 0.02;
-      zoom = 1.05; // covers the corners while the camera rolls
+      zoom = 1.05;
     } else {
       this.braceK += ((bracing ? 1 : 0) - this.braceK) * (1 - Math.exp(-fdt * 12));
       if (holding) {
-        // standing: a step back from the entry, bracing: leaning into it, straining, shoved by Ram
         const bump = (since: number, dur: number): number => {
           const k = (ft - since) / dur;
-          return k < 0 || k >= 1 ? 0 : Math.sin(Math.PI * Math.pow(k, 0.6)); // fast attack, slower settle
+          return k < 0 || k >= 1 ? 0 : Math.sin(Math.PI * Math.pow(k, 0.6));
         };
         const lunge = bump(this.lungeAt, BRACE.LUNGE_TIME);
         const relax = bump(this.relaxAt, BRACE.RELAX_TIME);
@@ -634,8 +668,6 @@ export class Scene {
       ox += Math.sin(t * 0.6) * 4;
       oy += Math.sin(t * 0.43) * 3;
     }
-    // never pan past the plate edge
-    // (a rolled camera needs a little more margin so the corners stay covered)
     const roll = dashing ? 0 : Math.abs(this.cam.rotation) * W;
     const mx = (PLATE_W * K * zoom - W) / 2 - roll;
     const my = (PLATE_H * K * zoom - H) / 2 - roll;
@@ -644,12 +676,11 @@ export class Scene {
     this.light.position.copyFrom(this.cam.position);
     this.light.scale.copyFrom(this.cam.scale);
     this.light.rotation = this.cam.rotation;
-    this.light.visible = onDesk; // desk-only effects (sweep, lightning): nothing to draw anywhere else
+    this.light.visible = onDesk;
 
-    // Missing turn footage uses the fast slide with motion blur.
     const sliding = turning && !transition;
     if (sliding) {
-      const e = turnK < 0.5 ? 2 * turnK * turnK : 1 - 2 * (1 - turnK) * (1 - turnK); // ease in-out
+      const e = turnK < 0.5 ? 2 * turnK * turnK : 1 - 2 * (1 - turnK) * (1 - turnK);
       const bump = Math.sin(Math.PI * turnK);
       this.warpPrev.x = this.turnDir * W * e;
       this.warp.x = this.turnDir * W * (e - 1);
@@ -667,7 +698,6 @@ export class Scene {
     this.fadeAlpha = black;
     this.fade.alpha = Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
-    // foreground rain: desk (through the glazing) and window views, moves 1.6x the plate
     this.rain.visible = !transition && !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
     this.rain.x = -PAN_X * 1.6 - this.pan.x * 1.6;
     this.rain.tilePosition.y = (t * 900) % 512;
@@ -675,7 +705,6 @@ export class Scene {
 
     this.app.renderer.render({ container: this.world, target: this.rt, clear: true });
 
-    // the creepy flash: a white pop, then the lit entry with him inside, flickering and twitching
     if (t >= this.flashStartedAt && !this.jumpActive) {
       const k = t - this.flashStartedAt;
       this.flashLayer.alpha = k < 0.06 ? 0.85 : Math.random() < 0.18 ? 0.25 : 0;
@@ -693,10 +722,9 @@ export class Scene {
       const tex = this.jumpSeqFrames[sequenceFrame(jumpTime, JUMPSCARE_FPS, this.jumpSeqFrames.length)];
       const sp = this.jumpSeqSprite;
       sp.texture = tex;
-      const k = Math.max(W / tex.width, H / tex.height); // cover the stage (1280 x 640 frames crop a little at the sides)
+      const k = Math.max(W / tex.width, H / tex.height);
       sp.scale.set(k);
       sp.position.set((W - tex.width * k) / 2, (H - tex.height * k) / 2);
-      // a lighter shake than the stills: the frames already move
       this.jumpSeq.scale.set(1.03 + Math.random() * 0.015);
       this.jumpSeq.position.set(W / 2 + (Math.random() - 0.5) * 12, H / 2 + (Math.random() - 0.5) * 12);
     } else if (legacyFrame >= 0) {
@@ -710,30 +738,16 @@ export class Scene {
   }
 }
 
-// +1 when the head turns left (the picture moves right), -1 when it turns right.
 function turnDirection(from: View, to: View): number {
   if (to === "WINDOW" || from === "HATCH") return 1;
   if (to === "HATCH" || from === "WINDOW") return -1;
-  return to === "BALCONY" ? -1 : 1; // turn round to the right, back to the left
-}
-
-// The final full plates among `names` that are loaded, each a hidden plate-sized container.
-function finalPlates(names: string[]): Map<string, Container> {
-  const m = new Map<string, Container>();
-  for (const name of names) {
-    if (!hasArt(name)) continue;
-    const c = slot(name, () => undefined, "plate");
-    c.visible = false;
-    m.set(name, c);
-  }
-  return m;
+  return to === "BALCONY" ? -1 : 1;
 }
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-// Horizontal amber band, transparent at both edges, for the beacon sweep.
 function makeBandTexture(): Texture {
   const c = document.createElement("canvas");
   c.width = 256;
@@ -762,7 +776,6 @@ function makePaneGlow(): Texture {
   return Texture.from(canvas);
 }
 
-// Slanted rain streaks that fade out over the lower half (so they stay off the terminal).
 function makeRainTexture(): Texture {
   const c = document.createElement("canvas");
   c.width = 512;
@@ -801,7 +814,7 @@ function makeGrain(): Texture {
   const ctx = c.getContext("2d")!;
   const img = ctx.createImageData(c.width, c.height);
   for (let i = 0; i < img.data.length; i += 4) {
-    const v = Math.random() * 255;
+    const v = (Math.random() * 255) | 0;
     img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
     img.data[i + 3] = 255;
   }
@@ -814,9 +827,9 @@ function makeVignette(): Sprite {
   c.width = W;
   c.height = H;
   const ctx = c.getContext("2d")!;
-  const grad = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.7);
+  const grad = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.65);
   grad.addColorStop(0, "rgba(0,0,0,0)");
-  grad.addColorStop(1, "rgba(0,0,0,0.85)");
+  grad.addColorStop(1, "rgba(0,0,0,0.72)");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
   return new Sprite(Texture.from(c));

@@ -43,7 +43,7 @@ describe("parser", () => {
     ["lock the window right now", "LOCK", "WINDOW"],
     ["lock it", "NONE", null],
     ["where is he", "ASK_LOCATION", null],
-    // Lights are the player's (Shift), never CHUD's: no light request parses to a command.
+    // Lighting is from the rotating ceiling lamp, never CHUD's: no light request parses to a command.
     ["turn on the lamp", "NONE", null],
     ["light the window", "NONE", null],
     ["turn on the hatch light", "NONE", null],

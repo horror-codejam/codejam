@@ -1,27 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { entryPlate, FINAL_ALIASES, holdPlate, jumpscareJob, sequenceFrame } from "../src/ui/plates";
+import { beamEntryState, beamSlot, FINAL_ALIASES, holdBeamSlot, jumpscareJob, sequenceFrame } from "../src/ui/plates";
 
-describe("final plate per state", () => {
-  it("entry views swap the whole plate by Ram's visual and the light", () => {
-    expect(entryPlate("WINDOW", false, "none")).toBe("view_window_off");
-    expect(entryPlate("WINDOW", true, "none")).toBe("view_window_on");
-    expect(entryPlate("WINDOW", false, "tell_faint")).toBe("view_window_off");
-    expect(entryPlate("HATCH", false, "tell_clear")).toBe("view_hatch_off");
-    expect(entryPlate("BALCONY", false, "approach_silhouette")).toBe("view_balcony_off");
-    expect(entryPlate("BALCONY", false, "inside")).toBe("view_balcony_off");
-    expect(entryPlate("HATCH", true, "tell_clear")).toBe("tell_hatch_on");
-    expect(entryPlate("BALCONY", true, "approach_silhouette")).toBe("approach_balcony_on");
-    expect(entryPlate("BALCONY", true, "inside")).toBe("inside_balcony_on");
+describe("final beam slot per state", () => {
+  it("maps desk and entry states to final_beam manifest slots", () => {
+    expect(beamSlot("DESK")).toBe("desk");
+    expect(beamSlot("WINDOW", "empty")).toBe("window_empty");
+    expect(beamSlot("HATCH", "tell")).toBe("hatch_tell");
+    expect(beamSlot("BALCONY", "approach")).toBe("balcony_approach");
+    expect(beamSlot("BALCONY", "inside")).toBe("balcony_inside");
   });
-  it("hold views pick stand or brace, empty or tell, on or off", () => {
-    expect(holdPlate("WINDOW", true, true, true)).toBe("hold_window_brace_tell_on");
-    expect(holdPlate("HATCH", false, false, false)).toBe("hold_hatch_stand_empty_off");
-    expect(holdPlate("WINDOW", true, true, false)).toBe("hold_window_brace_tell_off");
+  it("derives the entry state from Ram's state and active scare entry", () => {
+    expect(beamEntryState("WINDOW", { state: "AWAY", target: null, inside: null })).toBe("empty");
+    expect(beamEntryState("WINDOW", { state: "APPROACHING", target: "WINDOW", inside: null })).toBe("approach");
+    expect(beamEntryState("WINDOW", { state: "AT_ENTRY", target: "WINDOW", inside: null })).toBe("tell");
+    expect(beamEntryState("WINDOW", { state: "AT_ENTRY", target: "HATCH", inside: null })).toBe("empty");
+    expect(beamEntryState("BALCONY", { state: "INSIDE", target: "BALCONY", inside: { entry: "BALCONY" } })).toBe("inside");
+    expect(beamEntryState("HATCH", { state: "AWAY", target: null, inside: null }, "HATCH")).toBe("inside");
   });
-  it("old slot names alias to the finals", () => {
+  it("maps hold views to stand or brace, empty or tell", () => {
+    expect(holdBeamSlot("WINDOW", true, true)).toBe("hold_window_brace_tell");
+    expect(holdBeamSlot("HATCH", false, false)).toBe("hold_hatch_stand_empty");
+    expect(holdBeamSlot("BALCONY", false, true)).toBe("hold_balcony_stand_tell");
+  });
+  it("old slot names alias to fallback finals", () => {
     expect(FINAL_ALIASES.view_desk).toBe("view_desk_off");
     expect(FINAL_ALIASES.view_hatch).toBe("view_hatch_off");
-    expect(FINAL_ALIASES.view_hatch_beam).toBe("view_hatch_on");
     expect(FINAL_ALIASES.ram_inside_window).toBe("inside_window_on");
   });
   it("the jumpscare sequence plays at its fps and holds the last frame", () => {

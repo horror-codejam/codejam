@@ -76,6 +76,10 @@ export class Sound {
   private speechQueue: SpeechJob[] = [];
   private speechRun: AbortController | null = null;
   private speechSource: AudioBufferSourceNode | null = null;
+  private lampHumGain: GainNode | null = null;
+  private lampHumFilter: BiquadFilterNode | null = null;
+  private lampHumActive = false;
+  private lampHumSwell = 0;
 
   // UI pause: freeze every scheduled sound and loop, resume where they were.
   suspend(): void {
@@ -148,6 +152,7 @@ export class Sound {
       else this.play("bed_storm", { level: 0.34, loop: true, dest: this.stormGain });
     });
     for (const name of this.clipData.keys()) void this.loadClip(name);
+    this.initLampHum(ctx);
     this.syncBeds();
     this.startSpeech();
     if (this.jumpData) {
@@ -240,6 +245,58 @@ export class Sound {
         void this.loadClip(name).then(() => this.setBed(name, enabled(), level));
       }
     }
+    this.updateLampHum();
+  }
+
+  // Quiet synthesized rotating-lamp motor hum on the ambient bus (master). Swells softly as the beam passes the view.
+  private initLampHum(ctx: AudioContext): void {
+    try {
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 150;
+      filter.Q.value = 1.2;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      filter.connect(gain).connect(this.master);
+
+      const fundamental = ctx.createOscillator();
+      fundamental.type = "sine";
+      fundamental.frequency.value = 58;
+      const g1 = ctx.createGain();
+      g1.gain.value = 0.65;
+      fundamental.connect(g1).connect(filter);
+
+      const overtone = ctx.createOscillator();
+      overtone.type = "triangle";
+      overtone.frequency.value = 116.4;
+      const g2 = ctx.createGain();
+      g2.gain.value = 0.35;
+      overtone.connect(g2).connect(filter);
+
+      fundamental.start();
+      overtone.start();
+      this.lampHumFilter = filter;
+      this.lampHumGain = gain;
+    } catch {
+      // Audio synthesis is optional; never break gameplay if unavailable.
+    }
+  }
+
+  setLampHum(active: boolean, swell: number): void {
+    this.lampHumActive = active;
+    this.lampHumSwell = Math.max(0, Math.min(1, Number.isFinite(swell) ? swell : 0));
+    this.updateLampHum();
+  }
+
+  private updateLampHum(): void {
+    if (!this.ctx || !this.lampHumGain || !this.lampHumFilter) return;
+    const t = this.ctx.currentTime;
+    const on = this.lampHumActive && this.ambientPlaying && this.generatorPowered;
+    const s = this.lampHumSwell;
+    const targetGain = on ? 0.018 + 0.038 * s : 0;
+    const targetFreq = 150 + 180 * s;
+    this.lampHumGain.gain.setTargetAtTime(targetGain, t, on ? 0.08 : 0.03);
+    this.lampHumFilter.frequency.setTargetAtTime(targetFreq, t, 0.08);
   }
 
   private trackCue(source: AudioScheduledSourceNode, disconnect: () => void): void {
@@ -461,19 +518,17 @@ export class Sound {
     }
   }
 
-  // The player's light (Shift): a small switch click. A forced cut (CHUD): a soft electrical tick and fizzle.
+  // The ceiling lamp switching back on or off, or cut by CHUD (small click).
   lightClick(on: boolean): void {
     if (!this.ctx) return;
-    if (this.play(on ? "lights_on" : "lights_off", { level: 0.38 })) return;
-    this.burst(this.master, 0.025, "highpass", on ? 2600 : 1800, 0.12, 1.5);
-    if (on) this.tone(this.master, 120, 0.3, "sawtooth", 0.012); // faint lamp hum
+    if (this.play(on ? "lights_on" : "lights_off", { level: 0.3 })) return;
+    this.burst(this.master, 0.025, "highpass", on ? 2600 : 1800, 0.1, 1.5);
   }
 
   lightTick(): void {
-    if (!this.ctx || this.play("lights_off", { level: 0.5 })) return;
-    this.burst(this.master, 0.02, "highpass", 3800, 0.18, 2);
-    this.tone(this.master, 60, 0.18, "square", 0.04, 0.01, 40);
-    this.burst(this.master, 0.12, "bandpass", 5000, 0.03, 4, undefined, 0.03);
+    if (!this.ctx || this.play("lights_off", { level: 0.44 })) return;
+    this.burst(this.master, 0.02, "highpass", 3800, 0.15, 2);
+    this.tone(this.master, 60, 0.15, "square", 0.035, 0.01, 40);
   }
 
   paper(): void {

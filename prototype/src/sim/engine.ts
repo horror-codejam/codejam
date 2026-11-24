@@ -18,6 +18,7 @@ import {
   type SeedTopic,
 } from "../chud/lines";
 import { Rng } from "./rng";
+import { beamAngleAt, beamIntensityAtAzimuth } from "./beam";
 import {
   NEUTRAL_JUDGE,
   isLockSlot,
@@ -146,6 +147,11 @@ export class GameEngine implements IGameEngine {
   private typing = false;
   private lowQueue: { outcome: Outcome; dropAt: number }[] = [];
   private lastLightQuestion: string | undefined;
+  // Optional dev-panel overrides for live tuning. Default null = exact deterministic Config values.
+  private beamPeriodOverride: number | null = null;
+  private beamPhaseOffset = 0;
+  private beamWidthOverride: number | null = null;
+  private beamSoftnessOverride: number | null = null;
 
   constructor(opts: EngineOptions = {}) {
     this.cfg = opts.config ?? CONFIG;
@@ -207,17 +213,77 @@ export class GameEngine implements IGameEngine {
     return locked ? "lock" : null;
   }
 
-  // Section 7.4. The light reveals the entry from the desk. Close up, the tell is faint in the dark.
+  // Rotating ceiling lamp (GAME_LOGIC 6.1): deterministic from night or practice time.
+  // Dev panel period slider adjusts phase offset so the beam never jumps while tuning.
+  beamAngle(at = this.now): number {
+    if (this.beamPeriodOverride === null && this.beamPhaseOffset === 0) {
+      return beamAngleAt(at, this.cfg);
+    }
+    const period = this.beamPeriodOverride ?? this.cfg.BEAM_PERIOD;
+    return beamAngleAt(at, { ...this.cfg, BEAM_PERIOD: period }) + this.beamPhaseOffset;
+  }
+
+  get visualTime(): number {
+    return this.now + this.acc;
+  }
+
+  isLampOn(): boolean {
+    const p = this.state.power;
+    return p.generatorOn && p.rebootingUntil === null && p.lampCutUntil === null;
+  }
+
+  beamIntensity(entry: Entry, at = this.now): number {
+    if (!this.isLampOn()) return 0;
+    return beamIntensityAtAzimuth(
+      this.cfg.BEAM_ENTRY_AZIMUTHS[entry],
+      this.beamAngle(at),
+      this.beamWidthOverride ?? this.cfg.BEAM_WIDTH,
+      this.beamSoftnessOverride ?? this.cfg.BEAM_SOFTNESS,
+    );
+  }
+
+  beamViewIntensity(view: View, at = this.now): number {
+    if (!this.isLampOn()) return 0;
+    return beamIntensityAtAzimuth(
+      this.cfg.BEAM_VIEW_AZIMUTHS[view],
+      this.beamAngle(at),
+      this.beamWidthOverride ?? this.cfg.BEAM_WIDTH,
+      this.beamSoftnessOverride ?? this.cfg.BEAM_SOFTNESS,
+    );
+  }
+
+  private beamLit(entry: Entry, at = this.now): boolean {
+    return this.beamIntensity(entry, at) >= this.cfg.BEAM_REVEAL_THRESHOLD;
+  }
+
+  // Dev panel live beam tuning. Preserves continuity when changing period; reset restores exact config math.
+  devSetBeam(opts: { period?: number | null; width?: number | null; softness?: number | null; reset?: boolean }): void {
+    if (opts.reset) {
+      this.beamPeriodOverride = null;
+      this.beamPhaseOffset = 0;
+      this.beamWidthOverride = null;
+      this.beamSoftnessOverride = null;
+      return;
+    }
+    if (opts.period !== undefined) {
+      const t = this.visualTime;
+      const before = this.beamAngle(t);
+      this.beamPeriodOverride = opts.period;
+      const nextPeriod = opts.period ?? this.cfg.BEAM_PERIOD;
+      const raw = beamAngleAt(t, { ...this.cfg, BEAM_PERIOD: nextPeriod });
+      this.beamPhaseOffset = before - raw;
+    }
+    if (opts.width !== undefined) this.beamWidthOverride = opts.width;
+    if (opts.softness !== undefined) this.beamSoftnessOverride = opts.softness;
+  }
+
+  // Section 7.4. He is visible only while the rotating beam is on him.
   ramVisual(view: View): RamVisual {
     if (view === "DESK") return "none";
-    const { ram: r, player } = this.state;
-    const lit = player.lightEntry === view;
+    const r = this.state.ram;
+    const lit = this.beamLit(view);
     if (r.state === "INSIDE") return r.inside?.entry === view && lit ? "inside" : "none";
-    if (r.state === "AT_ENTRY" && r.target === view) {
-      if (lit) return "tell_clear";
-      const p = player.position;
-      return (p.kind === "STANDING" || p.kind === "HOLDING") && p.entry === view ? "tell_faint" : "none";
-    }
+    if (r.state === "AT_ENTRY" && r.target === view) return lit ? "tell_clear" : "none";
     if (r.state === "APPROACHING" && r.target === view && lit) return "approach_silhouette";
     return "none";
   }
@@ -409,6 +475,7 @@ export class GameEngine implements IGameEngine {
     this.nightToken++;
     this.tickets.clear();
     this.acc = 0;
+    this.beamPhaseOffset = 0;
     this.awayStartedAt = 0;
     this.entryDefense = null;
     this.pendingPowerCause = "player";
@@ -449,11 +516,9 @@ export class GameEngine implements IGameEngine {
         lastMessageAt: -Infinity,
         lastQuickAt: -Infinity,
         reading: null,
-        lightHeld: false,
-        lightEntry: null,
       },
-      // Night start: dark. Nothing powered (GAME_LOGIC 5.1).
-      power: { slot: "NONE", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null, lightCutAt: null },
+      // Night start: nothing locked, rotating ceiling lamp running (GAME_LOGIC 5.1).
+      power: { slot: "NONE", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null, lightCutAt: null, lampCutUntil: null },
       ram: {
         state: "AWAY",
         target: null,
@@ -591,12 +656,10 @@ export class GameEngine implements IGameEngine {
     this.emit({ type: "BREACH", loss: { ...s.loss } });
   }
 
-  // Looking at his entry with its light on: at the desk, facing that entry with the reader closed.
+  // Looking at his entry from the desk while the rotating beam passes over him.
   private lookingAtLit(entry: Entry): boolean {
     const s = this.state;
-    return (
-      s.player.reading === null && s.player.position.kind === "DESK" && s.player.view === entry && s.player.lightEntry === entry
-    );
+    return s.player.reading === null && s.player.position.kind === "DESK" && s.player.view === entry && this.beamLit(entry);
   }
 
   // Always-on scare triggers while he is inside, checked every step (section 7.7).
@@ -606,7 +669,7 @@ export class GameEngine implements IGameEngine {
     if (!inside) return;
     const p = s.player.position;
     if ((p.kind === "STANDING" || p.kind === "HOLDING") && p.entry === inside.entry) {
-      this.scare("ARRIVED", s.player.lightEntry === inside.entry);
+      this.scare("ARRIVED", this.beamLit(inside.entry));
     } else if (this.lookingAtLit(inside.entry)) {
       this.scare("LOOK", true);
     } else if (inside.timerAt !== null && this.due(inside.timerAt)) {
@@ -635,6 +698,7 @@ export class GameEngine implements IGameEngine {
       this.step();
       if (this.state.phase !== "PLAYING") {
         this.acc = 0;
+    this.beamPhaseOffset = 0;
         break;
       }
     }
@@ -763,9 +827,10 @@ export class GameEngine implements IGameEngine {
     if (s.power.generatorOn) {
       s.power.generatorOn = false;
       s.power.rebootingUntil = null;
+      s.power.lightCutAt = null;
+      s.power.lampCutUntil = null;
       this.emit({ type: "GENERATOR", on: false });
       this.cutPower("kill_switch");
-      this.syncLight();
       if (s.power.chudOnline) {
         s.power.chudOnline = false;
         this.emit({ type: "CHUD_ONLINE", online: false });
@@ -780,8 +845,9 @@ export class GameEngine implements IGameEngine {
     } else {
       s.power.generatorOn = true;
       s.power.rebootingUntil = this.now + this.cfg.REBOOT_TIME;
+      s.power.lightCutAt = null;
+      s.power.lampCutUntil = null;
       this.emit({ type: "GENERATOR", on: true });
-      this.syncLight();
     }
   }
 
@@ -792,7 +858,6 @@ export class GameEngine implements IGameEngine {
     s.power.chudOnline = true;
     this.syncEntryDefense();
     this.emit({ type: "CHUD_ONLINE", online: true });
-    this.syncLight();
     const floor = Math.max(s.chud.suspicion, this.cfg.REBOOT_SUSPICION_FLOOR);
     this.changeSuspicion(floor - s.chud.suspicion, ["reboot_floor"]);
     this.say({ kind: "reboot_back" });
@@ -809,51 +874,34 @@ export class GameEngine implements IGameEngine {
     if (s.player.view === view) return;
     s.player.view = view;
     this.emit({ type: "VIEW", view });
-    this.syncLight();
+    if (view === "DESK") s.power.lightCutAt = null;
+    else this.rollLightCut();
     this.onPlayerMove();
   }
 
-  // Lights (section 6.1): Shift immediately lights the entry in view independently of the locks.
-  setLight(on: boolean): void {
-    const s = this.state;
-    if (s.phase !== "PLAYING") return;
-    s.player.lightHeld = on;
-    this.syncLight();
-  }
-
-  // Keep the light on the viewed entry while held and powered.
-  private syncLight(): void {
-    const { player, power } = this.state;
-    const p = player.position;
-    const view = p.kind === "STANDING" || p.kind === "HOLDING" ? p.entry : player.view;
-    const powered = power.generatorOn && power.rebootingUntil === null;
-    const entry = player.lightHeld && powered && view !== "DESK" && player.reading === null ? view : null;
-    if (player.lightEntry === entry) return;
-    player.lightEntry = entry;
-    if (entry) this.rollLightCut();
-    else power.lightCutAt = null;
-    this.emit({ type: "LIGHT_CHANGED", entry });
-  }
-
-  // CHUD can never stop a light coming on, but it can force it off (section 6.1). One roll per light-on, by band.
+  // CHUD can stop the rotating ceiling lamp for LIGHT_CUT_DURATION when the player turns away to check an entry.
   private rollLightCut(): void {
+    if (this.isPracticing) return;
     const s = this.state;
+    const p = s.power;
+    if (!this.isLampOn() || p.lightCutAt !== null) return;
     const chance = this.cfg.LIGHT_CUT[s.chud.band];
-    const online = s.power.chudOnline && s.power.rebootingUntil === null;
-    s.power.lightCutAt = online && chance > 0 && this.rng.chance(chance) ? this.now + this.rng.range(...this.cfg.LIGHT_CUT_DELAY) : null;
+    const online = p.chudOnline && p.rebootingUntil === null;
+    p.lightCutAt = online && chance > 0 && this.rng.chance(chance) ? this.now + this.rng.range(...this.cfg.LIGHT_CUT_DELAY) : null;
   }
 
   private stepLightCut(): void {
     const s = this.state;
     const p = s.power;
+    if (p.lampCutUntil !== null && this.due(p.lampCutUntil)) {
+      p.lampCutUntil = null;
+      this.emit({ type: "LAMP_RESTORED" });
+    }
     if (p.lightCutAt === null || !this.due(p.lightCutAt)) return;
     p.lightCutAt = null;
-    const entry = s.player.lightEntry;
-    if (!entry || !p.chudOnline || p.rebootingUntil !== null || s.chud.band === "WARM") return;
-    s.player.lightEntry = null;
-    // Holding Shift through the cut stays dark: the player has to release and press again.
-    s.player.lightHeld = false;
-    this.emit({ type: "LIGHT_CUT", entry, band: s.chud.band });
+    if (!p.generatorOn || !p.chudOnline || p.rebootingUntil !== null || s.chud.band === "WARM" || p.lampCutUntil !== null) return;
+    p.lampCutUntil = this.now + this.cfg.LIGHT_CUT_DURATION;
+    this.emit({ type: "LIGHT_CUT", band: s.chud.band, until: p.lampCutUntil });
     if (this.now - s.chud.lastLightCutLineAt >= this.cfg.LIGHT_CUT_LINE_GAP - EPS) {
       s.chud.lastLightCutLineAt = this.now;
       this.say({ kind: "light_cut" });
@@ -976,7 +1024,6 @@ export class GameEngine implements IGameEngine {
     this.syncEntryDefense();
     this.emit({ type: "HOLD_ENDED", entry: p.entry, reason });
     this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
-    this.syncLight();
   }
 
   // ---- Edge-controls flow (docs/CONTROLS_PROPOSAL.md, IMPLEMENTATION_NOTES "Edge controls") ----
@@ -1034,7 +1081,6 @@ export class GameEngine implements IGameEngine {
       else s.player.position = { kind: "HOLDING", entry: p.entry, since: p.until, ...(p.stay ? { stay: true } : {}) };
       this.syncEntryDefense();
       this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
-      this.syncLight();
     } else if (p.kind === "HOLDING" && this.due(p.since + this.cfg.HOLD_MAX)) {
       this.endHold("arms");
     } else if (p.kind === "RETURNING" && this.due(p.until)) {
@@ -1042,8 +1088,8 @@ export class GameEngine implements IGameEngine {
       this.emit({ type: "PLAYER_MOVED", position: { kind: "DESK" } });
       if (s.player.view !== "DESK") {
         s.player.view = "DESK";
+        s.power.lightCutAt = null;
         this.emit({ type: "VIEW", view: "DESK" });
-        this.syncLight();
       }
     }
   }
@@ -1566,7 +1612,7 @@ export class GameEngine implements IGameEngine {
     let parsed: ParsedCommand;
     if (cmd === "ASK_LOCATION" || cmd === "POWER_OFF") parsed = { command: cmd, entry: null };
     else if (isLockSlot(cmd)) parsed = { command: "LOCK", entry: slotEntry(cmd) };
-    else return; // there are no light buttons: lights are the player's own (Shift)
+    else return; // there are no light buttons: lighting comes from the rotating ceiling lamp
     this.sayCommand(this.resolveCommand(parsed));
   }
 
