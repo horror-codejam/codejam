@@ -584,6 +584,81 @@ describe("silent breach: Ram INSIDE (section 7.7)", () => {
   });
 });
 
+describe("loss attribution", () => {
+  function scareAt(e: GameEngine, entry: Entry = "WINDOW") {
+    expect(e.devForceBreach(entry, "MOVE")).toBe(true);
+    e.turn("HATCH");
+    expect(e.state.phase).toBe("BREACH");
+    return e.state.loss;
+  }
+
+  it("keeps the spoken lie that misdirected the player at the breach", () => {
+    const e = playing({ startNight: 2, config: cfgWith(2, { lieChanceHurt: 1 }) });
+    e.devSetSuspicion(50);
+    e.devSendRam("WINDOW");
+    e.pressQuick("ASK_LOCATION");
+    const claim = e.state.chud.lastLocationClaim;
+    expect(claim).not.toBe("WINDOW");
+    expect(e.drainEvents()).toContainEqual(expect.objectContaining({
+      type: "CHUD_SAY", outcome: { kind: "location_claim", entry: claim },
+    }));
+    expect(scareAt(e)).toMatchObject({ cause: "LIED", lastClaim: claim, entry: "WINDOW" });
+  });
+
+  it("does not blame a truthful answer after a fake-out", () => {
+    const e = playing({ startNight: 4, config: cfgWith(4, { fakeOutChance: 1 }) });
+    e.devSetSuspicion(0);
+    e.devSendRam("WINDOW");
+    e.pressQuick("ASK_LOCATION");
+    expect(e.state.chud.lastLocationClaim).toBe("WINDOW");
+    e.tick(e.state.ram.stateEndsAt - e.now);
+    const target = e.state.ram.target!;
+    expect(target).not.toBe("WINDOW");
+    expect(scareAt(e, target)).toMatchObject({ cause: "UNLOCKED", lastClaim: null, entry: target });
+  });
+
+  it.each(["hijack", "pending question"])("credits a lock refusal from %s ahead of a lie", (kind) => {
+    const config = cfgWith(2, { lieChanceHurt: 1 }, { LOCK_REFUSAL: { ...CONFIG.LOCK_REFUSAL, HURT: 1 } });
+    const e = playing({ startNight: 2, config });
+    e.devSetSuspicion(50);
+    e.devSendRam("WINDOW");
+    e.pressQuick("ASK_LOCATION");
+    e.tick(CONFIG.QUICK_BUTTON_COOLDOWN);
+    if (kind === "pending question") {
+      e.state.chud.pendingQuestion = { id: 1, origin: "SCHEDULED", type: "STAY", factKey: null, text: "Will you stay?", askedAt: e.now };
+    }
+    e.pressQuick("LOCK_WINDOW");
+    expect(scareAt(e)).toMatchObject({ cause: "REFUSED", entry: "WINDOW" });
+  });
+
+  it.each(["LOCK_WINDOW", "LOCK_BALCONY"] as const)("only credits a Furious cut if it affected the breached entry (%s)", (slot) => {
+    const e = playing({ startNight: 2 });
+    e.devSendRam("WINDOW");
+    e.devSetPower(slot);
+    e.devSetSuspicion(100);
+    e.tick(e.state.ram.stateEndsAt - e.now);
+    expect(e.state.power.slot).toBe("NONE");
+    expect(scareAt(e)).toMatchObject({ cause: slot === "LOCK_WINDOW" ? "FURIOUS" : "UNLOCKED", entry: "WINDOW" });
+  });
+
+  it("forgets an old cut when the lock has been restored", () => {
+    const e = playing({ startNight: 2, config: { ...CONFIG, SABOTAGE_CHANCE: 1 } });
+    e.devSendRam("WINDOW");
+    e.devSetPower("LOCK_WINDOW");
+    e.devSetSuspicion(80);
+    e.tick(e.state.ram.stateEndsAt - e.now);
+    expect(e.state.log.visit.sabotaged).toBe(true);
+    e.devSetSuspicion(0);
+    e.pressQuick("LOCK_WINDOW");
+    e.tick(CONFIG.RELAY_DELAY);
+    expect(e.state.power.slot).toBe("LOCK_WINDOW");
+    e.pressQuick("POWER_OFF");
+    e.tick(CONFIG.RELAY_DELAY);
+    expect(e.state.power.slot).toBe("NONE");
+    expect(scareAt(e)).toMatchObject({ cause: "UNLOCKED", entry: "WINDOW" });
+  });
+});
+
 describe("desk artifacts (section 6.6)", () => {
   it("only offers the scheduled paper on Nights 1 to 3", () => {
     const schedule = ["clipping", "calendar", "notebook", null, null];
@@ -689,7 +764,7 @@ describe("night hints and CHUD's arrival warnings", () => {
     expect(e.state.timers.locationRefusedUntil).toBe(-Infinity);
     expect(e.state.chud.lastLocationClaim).toBeNull();
     expect(e.state.chud.visitDecision).toBeNull();
-    expect(e.state.log.visit.claimThisVisit).toBeNull();
+    expect(e.state.log.visit.locationLie).toBeNull();
 
     e.state.chud.pendingQuestion = null;
     e.pressQuick("ASK_LOCATION");

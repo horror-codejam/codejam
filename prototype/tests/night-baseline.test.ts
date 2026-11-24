@@ -19,11 +19,19 @@ it("keeps the fixed-seed night simulation identical to the pre-practice baseline
         engine.turn("DESK");
       }
       engine.tick(1);
-      trace.push(JSON.stringify([engine.state, engine.drainEvents()]));
+      // Loss attribution has its own cases. Keep the timing and entry of each breach in the baseline.
+      trace.push(JSON.stringify([engine.state, engine.drainEvents()], (key, value) => {
+        if (key === "visit") return undefined;
+        if ((key === "loss" || key === "inside") && value) {
+          const { cause, heldEntry, lastClaim, ...timing } = value;
+          return timing;
+        }
+        return value;
+      }));
     }
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Captured on 8a1c5f9, before the practice changes.
-  expect(hash).toBe("065d223e616db1b1376132585a906e6a477fd40362663bba37190562d6f3a376");
+  // Captured on 4927cee, when the unfiltered trace still matched 8a1c5f9.
+  expect(hash).toBe("c786fd436b872d79bee118eccf89e9c85d017b3ee6729db411297e7bd4e990df");
 });

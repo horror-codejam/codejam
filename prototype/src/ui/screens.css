@@ -200,6 +200,8 @@
 .screen-reveal { animation: screen-reveal 0.8s ease both; }
 @keyframes screen-reveal { from { opacity: 0; } to { opacity: 1; } }
 
+.loss-reason { max-width: 88vw; margin: 0; text-align: center; text-wrap: balance; font: clamp(20px, 2.5vw, 28px)/1.2 var(--screen-mono); }
+
 #screen[data-screen="safety"] { background: rgba(0, 0, 0, 0.72); }
 .safety-message { width: min(640px, 90vw); text-align: center; font-size: 20px; }
 .safety-message h1 { font-size: 30px; font-weight: normal; letter-spacing: 0.18em; }

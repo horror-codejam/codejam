@@ -625,7 +625,7 @@ function showScreen(phase: Phase): void {
       renderNightCard(ui.screen, engine.state.run.night, () => { engine.beginNight(); wake(); }, signal);
       break;
     case "BREACH":
-      renderLoss(ui.screen, title, signal);
+      renderLoss(ui.screen, engine.state.loss, title, signal);
       break;
     case "NIGHT_WON":
       renderMorning(ui.screen, previewing ? endPreview : () => { engine.nextNight(); wake(); }, signal, dawn);

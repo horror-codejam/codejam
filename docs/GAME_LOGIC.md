@@ -50,8 +50,8 @@ chud:    suspicion, pending_question (type, text, asked_at), facts{}, last_locat
          visit_location_decision (truth | lie, claim, rolled_inside), last_sabotage_hour, furious_active (bool), last_light_cut_line_at
 decoy:   next_at, count (own seeded stream, never reads Ram)
 timers:  last_real_message_at, last_warm_bonus_at, silence_ticks
-log:     last 10 player messages (normalized, for repeat detection), what CHUD last said about Ram's location,
-         this visit: sabotaged, furious_cut, arms_gave_out, refused_entry
+log:     last 10 player messages (normalized, for repeat detection),
+         this visit: sabotaged, furious_cut, arms_gave_out, refused_entry, location_lie (spoken claim and actual entry, or null)
 ```
 
 ## 4. Per-night parameters
@@ -138,7 +138,7 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
    - If the scare was set off by looking (reason `LOOK`, or `ARRIVED` with the entry's light on): a creepy full-frame flash of Ram standing inside the lit entry, about 0.4 s (0.3 to 0.5), then the jumpscare.
    - Otherwise straight to the jumpscare.
    - Play `jumpscare.wav` and the entry-specific impact as the jumpscare frames start. The `INSIDE` transition stays silent.
-   - Then cut to black with a short static burst and offer "Title" (section 11). The highest unlocked night stays saved.
+   - Then cut to black with a short static burst. After 0.35 s, show a plain line naming the entry and explaining the loss. Return to the title after 4 s or on a click or fresh key press while the line is shown (section 11). The highest unlocked night stays saved.
 
 ## 6. The player
 
@@ -294,7 +294,7 @@ Rolled at each `RETREATING` end, in this order:
 The first visit of the night uses the first visit delay instead (kind `first`). Night 1 has no lulls and no quick returns.
 
 ### 7.7 Silent breach (INSIDE)
-- When an attempt ends undefended, Ram becomes `INSIDE(entry)`. There is no sound, no CHUD line and no event the player can perceive. The loss cause is decided now (section 11) and kept for the dev panel.
+- When an attempt ends undefended, Ram becomes `INSIDE(entry)`. There is no sound, no CHUD line and no event the player can perceive. The loss cause is decided now (section 11) and kept for the loss screen and dev panel.
 - **The scare always fires when:**
   - the player looks at his entry with that entry's light on (at the `DESK` position, that view, its light on, not reading). It fires the moment both are true, whichever came last (turning to the view while Shift is held, or pressing Shift while looking). Reason `LOOK`, with the creepy flash.
   - the player puts a desk artifact or a kill code slip down. Reason `ARTIFACT`, no flash.
@@ -495,8 +495,8 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
     4. The run is lost and starts over from night 1.
   - Current build: the text beats on black end with CHUD saying "You don't need to leave, keeper. You never did." The Coast Guard boat appears through the watch-room windows, holds for three seconds after fading in, then fades to black before "Title" appears. A click starts the fade early. The watch-room ambience continues through the sequence. Continue retries night 5 from its checkpoint.
 - Night 5 with Ram `INSIDE` at 6:00 AM is a normal `DAWN` loss (section 5).
-- **Loss:** play the flash when applicable and the four-frame jumpscare with sound. Cut to black, then reveal the single option "Title" after about 1.5 seconds. Continue from the highest unlocked night and its facts checkpoint on the title screen.
-- **Playtest readout:** the dev panel shows the engine's cause and scare reason. Cause priority runs from `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `REFUSED`, `LIED`, `UNLOCKED`.
+- **Loss:** play the flash when applicable and the jumpscare with sound. After the cut to black, explain what left the breached entry undefended. If there is no more specific cause and the player discovered him inside after the breach or reached dawn with him inside, explain that he had already got in through that entry. Continue from the highest unlocked night and its facts checkpoint on the title screen.
+- **Cause priority:** `POWER_OFF`, `FURIOUS`, `SABOTAGE`, `REFUSED`, `LIED`, `ARMS_GAVE_OUT`, `WRONG_HOLD`, `UNLOCKED`. The loss outcome and the dev panel keep the cause and the scare trigger. `POWER_OFF` covers a stopped or rebooting generator. `FURIOUS` applies if CHUD cut the active or pending lock on the breached entry. `REFUSED` includes a lock request blocked by a pending question. Restoring the target lock clears earlier cuts and refusals. `LIED` applies when CHUD's last spoken location answer for that visit was false and misdirected the player about the entry that was breached.
 
 ## 12. Fairness guarantees (must always hold)
 1. Every attempt window is at least 5 s (20 to 25 s on night 1, down to 6 to 8 s on night 5), and for all of it the tell is clearly visible under that entry's light. Ram is silent, so the light and CHUD are how you find him.

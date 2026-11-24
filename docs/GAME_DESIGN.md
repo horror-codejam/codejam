@@ -47,7 +47,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
 - New Game leads from the shipwreck to the keeper name prompt. At the desk, ChudGPT explains the rescue and the threat, then teaches the controls in a safe practice evening. Players explore, reveal and lock a staged window visit, brace the hatch during a second visit, ask for a location, and type a reply. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
 - ChudGPT never names the threat. Night 1 opens with a vague warning. During Night 1, ChudGPT tells the keeper which entry to lock or brace when something reaches it. On later nights the keeper can ask where it is.
-- The timed midnight card shows "12:00 AM" and "Night 1".
+- Each timed midnight card shows "12:00 AM", the night number and one tip for that night.
 
 ## The lighthouse
 - You sit in the round watch room at mid-tower. The chair sits close to the curved keeper's desk, with the ChudGPT terminal straight ahead, with the ocean visible through the fixed glazing behind them.
@@ -126,13 +126,13 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
 | First-try survival target | ~90% | ~75% | ~55% | ~35% | ~20% |
 
-- The jumpscare cuts to black, then offers "Title". Continue resumes the highest unlocked night.
+- The jumpscare cuts to black, then shows one line about what happened before returning to the title. Continue resumes the highest unlocked night.
 
 ## Endings
 - Win: 6 AM night 5, rescue helicopter. Flying away, the player sees Ram on the rocks staring up. The lamp blinks in Morse code: "COME BACK." (Replaced 2026-11-22 by the kill code ending.)
 - Lose: Ram breaks in. He does not hurt the player. He smashes the AI's computer, then looks at the player: "Now you're the keeper." Fade to black, the lamp turns back on.
 - New direction (2026-11-21, replaces the two endings above once the details are settled): both endings finish in the Cage Hall (scenes/99-final-cage-hall/).
-  - The playable loss ends on the cut to black and returns to the title.
+  - The playable loss shows a short explanation on black and returns to the title.
   - Win: you escape. The ending describes the puppets still moving behind you and your empty cage, then rolls credits. (Night 5 replaced 2026-11-22 by the kill code ending.)
 - Kill code ending (2026-11-22, replaces the night 5 win): the run's kill code is random and has 4 characters. Ram leaves its characters on slips at the entries he was blocked at, from night 2 on, and all four are reachable by night 5. On night 5 the player types the code into CHUD's chat before 6 AM. CHUD dies and the hatch opens by itself. The exit scene follows (a teammate's work): down through the dungeon of cages where every previous keeper died, Ram freed and harmless, rescue by the coast guard. Then credits.
 - Two endings (decided 2026-11-22):

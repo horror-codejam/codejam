@@ -137,7 +137,7 @@ export interface GameState {
       sabotaged: boolean;
       furiousCut: boolean;
       armsGaveOut: boolean; // a hold of the target entry ended by HOLD_MAX during AT_ENTRY
-      claimThisVisit: LocationClaim | null;
+      locationLie: { claim: Entry | "NONE"; actual: Entry } | null; // last spoken answer about the current visit, if false
       refusedEntry: Entry | null; // CHUD refused to lock this entry (his target) during this visit
     };
     scriptedFired: string[];
@@ -157,14 +157,14 @@ export interface InsideInfo {
   timerAt: number | null; // TIMER: when the scare fires wherever the player is
   cause: LossCause;
   heldEntry: Entry | null;
-  lastClaim: LocationClaim | null; // CHUD's last location claim at the breach moment (loss screen)
+  lastClaim: Entry | "NONE" | null; // the lie credited with the breach, if any
 }
 
 export interface LossInfo {
   night: number;
   entry: Entry;
   cause: LossCause;
-  lastClaim: LocationClaim | null;
+  lastClaim: InsideInfo["lastClaim"];
   heldEntry: Entry | null; // for WRONG_HOLD
   reason: ScareReason; // what set off the scare
   flash: boolean; // the player saw him first: the creepy still before the jumpscare

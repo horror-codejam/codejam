@@ -89,7 +89,7 @@ interface Ticket {
 }
 
 function freshVisitLog(): GameState["log"]["visit"] {
-  return { sabotaged: false, furiousCut: false, armsGaveOut: false, claimThisVisit: null, refusedEntry: null };
+  return { sabotaged: false, furiousCut: false, armsGaveOut: false, locationLie: null, refusedEntry: null };
 }
 
 export class GameEngine implements IGameEngine {
@@ -491,15 +491,15 @@ export class GameEngine implements IGameEngine {
           ? p.from
           : null;
     const v = s.log.visit;
-    const claim = v.claimThisVisit;
+    const lie = v.locationLie?.actual === entry ? v.locationLie : null;
     let cause: LossCause;
     if (!s.power.generatorOn || s.power.rebootingUntil !== null) cause = "POWER_OFF";
     else if (v.furiousCut) cause = "FURIOUS";
     else if (v.sabotaged) cause = "SABOTAGE";
+    else if (v.refusedEntry === entry) cause = "REFUSED";
+    else if (lie) cause = "LIED";
     else if (v.armsGaveOut) cause = "ARMS_GAVE_OUT";
     else if (heldOther) cause = "WRONG_HOLD";
-    else if (v.refusedEntry === entry) cause = "REFUSED";
-    else if (claim !== null && claim !== entry) cause = "LIED";
     else cause = "UNLOCKED";
     const trigger = forced ?? this.rollInsideTrigger();
     const [lo, hi] = this.cfg.INSIDE_TIMER;
@@ -513,7 +513,7 @@ export class GameEngine implements IGameEngine {
       timerAt: trigger === "TIMER" ? this.now + this.rng.range(lo, hi) : null,
       cause,
       heldEntry: cause === "WRONG_HOLD" ? heldOther : null,
-      lastClaim: s.chud.lastLocationClaim,
+      lastClaim: cause === "LIED" && lie ? lie.claim : null,
     };
     this.emit({ type: "RAM_INSIDE", entry, trigger });
   }
@@ -692,10 +692,15 @@ export class GameEngine implements IGameEngine {
   }
 
   private landRelay(): void {
-    const p = this.state.power;
+    const { power: p, ram, log } = this.state;
     if (p.pending && this.due(p.pending.landsAt)) {
       p.slot = p.pending.target;
       p.pending = null;
+      if (ram.target && p.slot === lockSlot(ram.target)) {
+        log.visit.sabotaged = false;
+        log.visit.furiousCut = false;
+        log.visit.refusedEntry = null;
+      }
       this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: this.pendingPowerCause });
     }
   }
@@ -1196,9 +1201,10 @@ export class GameEngine implements IGameEngine {
     s.chud.furiousCutDone = true;
     // This cut only hits locks, including a lock on its way.
     const p = s.power;
+    const targetLock = lockSlot(r.target!);
     if (p.slot !== "NONE" || (p.pending && p.pending.target !== "NONE")) {
+      s.log.visit.furiousCut = p.slot === targetLock || p.pending?.target === targetLock;
       this.cutPower("furious");
-      s.log.visit.furiousCut = true;
     }
     this.emit({ type: "FURIOUS_CUT", entry: r.target! });
     this.say({ kind: "furious_cut" });
@@ -1411,10 +1417,6 @@ export class GameEngine implements IGameEngine {
     if (cmd === "ASK_LOCATION" || cmd === "POWER_OFF") parsed = { command: cmd, entry: null };
     else if (isLockSlot(cmd)) parsed = { command: "LOCK", entry: slotEntry(cmd) };
     else return; // there are no light buttons: lights are the player's own (Shift)
-    if (s.chud.pendingQuestion) {
-      this.say({ kind: "answer_first" }); // a pending question blocks every ChudGPT command (no suspicion)
-      return;
-    }
     this.sayCommand(this.resolveCommand(parsed));
   }
 
@@ -1432,6 +1434,10 @@ export class GameEngine implements IGameEngine {
   private resolveCommand(p: ParsedCommand): Outcome {
     const s = this.state;
     const band = s.chud.band;
+    if (s.chud.pendingQuestion) {
+      if (p.command === "LOCK" && p.entry) this.recordLockRefusal(p.entry);
+      return { kind: "answer_first" };
+    }
     switch (p.command) {
       case "POWER_OFF":
         if (this.effectiveSlot() !== "NONE") this.requestPower("NONE", "player");
@@ -1447,7 +1453,8 @@ export class GameEngine implements IGameEngine {
         if (this.effectiveSlot() === lockSlot(entry) && band !== "FURIOUS") return { kind: "lock_already", entry };
         const chance = band === "FURIOUS" ? 1 : this.cfg.LOCK_REFUSAL[band];
         if (chance > 0 && (chance >= 1 || this.rng.chance(chance))) {
-          this.refuseLock(entry);
+          this.recordLockRefusal(entry);
+          this.emit({ type: "LOCK_REFUSED", entry });
           return band === "FURIOUS" ? { kind: "refuse_furious", request: "LOCK" } : { kind: "lock_refused", entry };
         }
         this.requestPower(lockSlot(entry), "player");
@@ -1473,11 +1480,12 @@ export class GameEngine implements IGameEngine {
     return refusing || n === 3;
   }
 
-  private refuseLock(entry: Entry): void {
+  private recordLockRefusal(entry: Entry): void {
     const s = this.state;
     const r = s.ram;
-    if ((r.state === "APPROACHING" || r.state === "AT_ENTRY") && r.target === entry) s.log.visit.refusedEntry = entry;
-    this.emit({ type: "LOCK_REFUSED", entry });
+    if ((r.state === "APPROACHING" || r.state === "AT_ENTRY") && r.target === entry && this.effectiveSlot() !== lockSlot(entry)) {
+      s.log.visit.refusedEntry = entry;
+    }
   }
 
   // Section 8.7. One truth-or-lie decision per visit, re-rolled once after a fake-out and once when he gets inside.
@@ -1517,7 +1525,6 @@ export class GameEngine implements IGameEngine {
       s.chud.visitDecision = d;
     }
     s.chud.lastLocationClaim = d!.entry;
-    if (!inside) s.log.visit.claimThisVisit = d!.entry;
     return d!.entry;
   }
 
@@ -1624,7 +1631,7 @@ export class GameEngine implements IGameEngine {
     // Gibberish: no social effects, not a real message. A code-parsed command still runs.
     if (r.gibberish) {
       if (t.seq === this.messageSeq) s.timers.lastRealMessageAt = t.prevLastReal;
-      if (!t.ranImmediately && t.parsed.command !== "NONE") this.say(s.chud.pendingQuestion ? { kind: "answer_first" } : this.resolveCommand(t.parsed));
+      if (!t.ranImmediately && t.parsed.command !== "NONE") this.say(this.resolveCommand(t.parsed));
       return;
     }
 
@@ -1695,7 +1702,7 @@ export class GameEngine implements IGameEngine {
     // Step 8: resolve the command (answer first, then command).
     // A question still pending (the message did not answer it) blocks the command: answer me first, no suspicion.
     if (cmd.command !== "NONE" && s.power.chudOnline) {
-      commandOutcome = s.chud.pendingQuestion ? { kind: "answer_first" } : this.resolveCommand(cmd);
+      commandOutcome = this.resolveCommand(cmd);
     }
 
     // Step 9: exactly one line, picked by priority.
@@ -1724,6 +1731,12 @@ export class GameEngine implements IGameEngine {
   // =========================================================================
 
   private say(outcome: Outcome): void {
+    const { chud, ram, log } = this.state;
+    if (outcome.kind === "location_claim" && (ram.state === "APPROACHING" || ram.state === "AT_ENTRY") && ram.target) {
+      log.visit.locationLie = chud.visitDecision?.lie && outcome.entry !== "INSIDE"
+        ? { claim: outcome.entry, actual: ram.target }
+        : null;
+    }
     const band = this.state.chud.band;
     const text = cannedLine(outcome, {
       band,
