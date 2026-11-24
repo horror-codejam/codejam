@@ -1,5 +1,13 @@
 # Post-hackathon plan and change log
 
+## LATEST (2026-11-24, session end)
+All four items from the START HERE list below are DONE, merged and pushed on `beam-light` (HEAD 329dc12, 448 tests, build passes):
+1. ChudGPT text: Yacine approved 25 plain sample lines; night 1 rewritten in that style, jargon removed, every typed message routed to the LLM (canned only as fallback), persona uses rotating examples (docs/CHUD_PERSONA_RESEARCH.md). Branch text-pass merged.
+2. Dark edge bug: reproduced on the real RTX 3060 (headless Chrome never showed it). Cause: implicit texture derivatives across AgX lookup-table slice boundaries; fix pins the grade lookup to mip level zero (9f5f5fa, branch dark-fix merged). Also removed additive grain and rain from the beam room and repacked dark plates losslessly.
+3. Hold views always show him up close, beam or not (bf26b41).
+4. TTS speed pass, same live Piper ryan voice: model bundled and preloaded, keep-warm during play, 1,003/1,003 scripted lines pre-generated, all 521 joe clips redone in ryan, long replies split. Local warm reply ~0.1 s. Vercel unverified: function estimated 217.7 MB, needs a preview deploy (Yacine must approve).
+Next: Yacine playtests the full build; pick the jumpscare sound variant; then decide on a preview deploy and merging to main (needs approval). All agents and servers stopped. Lesson: verify visuals on the real GPU, not headless only.
+
 ## START HERE (end of session 2026-11-24, ~1:05 AM)
 State: everything below is committed and pushed on `beam-light` up to 424064b (beam in game, screen refresh, FNAF jumpscare, playtest fixes, ChudGPT pacing + variety + night 1 personality pass). Nothing merged to main, nothing deployed. All background jobs and servers stopped. The TTS speed pass was stopped before it changed anything (brief: scratchpad neon_ttsspeed.md; restart it later). Branch `voice-kokoro` is PARKED: Yacine decided to keep the exact live voice (Piper ryan-medium) and only make it faster; do not merge it.
 
