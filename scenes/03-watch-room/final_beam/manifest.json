@@ -1,0 +1,1158 @@
+{
+  "version": 1,
+  "lamp": {
+    "position": [
+      0.0,
+      1.4700000286102295,
+      3.799999952316284
+    ],
+    "tilt": -31,
+    "width": 18,
+    "height": 50,
+    "softness": 0.8,
+    "kelvin": 6500,
+    "power": 105.0,
+    "periodSeconds": 16,
+    "phaseAzimuth": 12,
+    "rotationDirection": "right-to-left",
+    "azimuthRate": 22.5,
+    "entryTellAzimuths": {
+      "window": 189.40797939952267,
+      "hatch": 359.78857681408135,
+      "balcony": 270.0
+    }
+  },
+  "darkGain": 0.6,
+  "colorShaper": 0.125,
+  "haze": {
+    "linearColor": [
+      0.0072,
+      0.0081,
+      0.0099
+    ],
+    "samples": 16,
+    "rangeMeters": 6.0
+  },
+  "preview": false,
+  "samples": 128,
+  "colorEncoding": "linear radiance shaped by x/(x+colorShaper), then encoded as sRGB",
+  "angleEncoding": {
+    "textureSampling": "nearest",
+    "colorSpaceConversion": "none",
+    "azimuth": "(R*256+G)/65535*360-180",
+    "elevation": "B/255*180-90",
+    "channels": "RGB are integer bytes"
+  },
+  "hazeDepthEncoding": "linear 8-bit grayscale, 0 to haze.rangeMeters along the camera ray",
+  "composite": {
+    "dark": "darkBase * darkGain",
+    "lit": "darkBase * darkGain + (dark - darkBase) * darkGain * reveal + beam * beamProfile + bounce * bounceProfile * bounce.gain",
+    "reveal": "max(beamProfile, bounceProfile)",
+    "bounceProfile": "beam profile evaluated at bounce.azimuth and lamp.tilt, or zero for slots without bounce"
+  },
+  "grade": {
+    "lut": "grade.png",
+    "vignette": "vignette.png",
+    "lutSize": 64,
+    "lutShaperMax": 0.992,
+    "displayTransform": "AgX",
+    "look": "AgX - Base Contrast",
+    "exposure": 0.3499999940395355,
+    "gamma": 1.0,
+    "lensDistortion": 0.00800000037997961,
+    "lensDispersion": 0.003000000026077032,
+    "bloomMix": 0.20000000298023224,
+    "bloom": {
+      "Type": "Fog Glow",
+      "Quality": "High",
+      "Threshold": 1.159999966621399,
+      "Smoothness": 0.23000000417232513,
+      "Size": 0.3400000035762787
+    },
+    "gradeStrength": 0.8500000238418579,
+    "vignetteStrength": 0.25
+  },
+  "contactSheet": "contact.png",
+  "slots": {
+    "desk": {
+      "slot": "desk",
+      "state": "empty",
+      "entry": null,
+      "camera": "cam_desk",
+      "sourceJob": "view_desk_off",
+      "frame": 12,
+      "darkBase": "desk",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 118,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        -0.5000001192092896,
+        0.814717173576355,
+        0.1213025152683258
+      ],
+      "rayAcross": [
+        1.000000238418579,
+        0.0,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        -0.07994067668914795,
+        -0.49356821179389954
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "desk_dark.webp",
+        "beam": "desk_beam.webp",
+        "angles": "desk_angles.png",
+        "hazeDepth": "desk_hazeDepth.png"
+      }
+    },
+    "window_empty": {
+      "slot": "window_empty",
+      "state": "empty",
+      "entry": "window",
+      "camera": "cam_window",
+      "sourceJob": "view_window_off",
+      "frame": 12,
+      "darkBase": "window_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        -0.6843750476837158,
+        -0.630562424659729,
+        0.2500000596046448
+      ],
+      "rayAcross": [
+        -0.17633795738220215,
+        0.9843297600746155,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "window_empty_dark.webp",
+        "beam": "window_empty_beam.webp",
+        "angles": "window_empty_angles.png",
+        "hazeDepth": "window_empty_hazeDepth.png"
+      }
+    },
+    "window_tell": {
+      "slot": "window_tell",
+      "state": "tell",
+      "entry": "window",
+      "camera": "cam_window",
+      "sourceJob": "tell_window_off",
+      "frame": 12,
+      "darkBase": "window_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        -0.6843750476837158,
+        -0.630562424659729,
+        0.2500000596046448
+      ],
+      "rayAcross": [
+        -0.17633795738220215,
+        0.9843297600746155,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "window_tell_dark.webp",
+        "beam": "window_tell_beam.webp",
+        "angles": "window_tell_angles.png",
+        "hazeDepth": "window_tell_hazeDepth.png"
+      }
+    },
+    "window_approach": {
+      "slot": "window_approach",
+      "state": "approach",
+      "entry": "window",
+      "camera": "cam_window",
+      "sourceJob": "approach_window_on",
+      "frame": 12,
+      "darkBase": "window_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 186.5,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        -0.6843750476837158,
+        -0.630562424659729,
+        0.2500000596046448
+      ],
+      "rayAcross": [
+        -0.17633795738220215,
+        0.9843297600746155,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "window_approach_dark.webp",
+        "beam": "window_approach_beam.webp",
+        "angles": "window_approach_angles.png",
+        "hazeDepth": "window_approach_hazeDepth.png"
+      }
+    },
+    "window_inside": {
+      "slot": "window_inside",
+      "state": "inside",
+      "entry": "window",
+      "camera": "cam_window",
+      "sourceJob": "inside_window_on",
+      "frame": 1,
+      "darkBase": "window_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        -0.6843750476837158,
+        -0.630562424659729,
+        0.2500000596046448
+      ],
+      "rayAcross": [
+        -0.17633795738220215,
+        0.9843297600746155,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "window_inside_dark.webp",
+        "beam": "window_inside_beam.webp",
+        "angles": "window_inside_angles.png",
+        "hazeDepth": "window_inside_hazeDepth.png"
+      }
+    },
+    "hatch_empty": {
+      "slot": "hatch_empty",
+      "state": "empty",
+      "entry": "hatch",
+      "camera": "cam_hatch",
+      "sourceJob": "view_hatch_off",
+      "frame": 12,
+      "darkBase": "hatch_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.822735071182251,
+        0.4999999701976776,
+        -0.03981316089630127
+      ],
+      "rayAcross": [
+        5.960464477539063e-08,
+        -1.0,
+        1.4901161193847656e-08
+      ],
+      "rayDown": [
+        -0.17460453510284424,
+        2.9802322387695312e-08,
+        -0.4685223698616028
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hatch_empty_dark.webp",
+        "beam": "hatch_empty_beam.webp",
+        "angles": "hatch_empty_angles.png",
+        "hazeDepth": "hatch_empty_hazeDepth.png",
+        "bounce": "hatch_empty_bounce.webp"
+      }
+    },
+    "hatch_tell": {
+      "slot": "hatch_tell",
+      "state": "tell",
+      "entry": "hatch",
+      "camera": "cam_hatch",
+      "sourceJob": "tell_hatch_off",
+      "frame": 8,
+      "darkBase": "hatch_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.822735071182251,
+        0.4999999701976776,
+        -0.03981316089630127
+      ],
+      "rayAcross": [
+        5.960464477539063e-08,
+        -1.0,
+        1.4901161193847656e-08
+      ],
+      "rayDown": [
+        -0.17460453510284424,
+        2.9802322387695312e-08,
+        -0.4685223698616028
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hatch_tell_dark.webp",
+        "beam": "hatch_tell_beam.webp",
+        "angles": "hatch_tell_angles.png",
+        "hazeDepth": "hatch_tell_hazeDepth.png",
+        "bounce": "hatch_tell_bounce.webp"
+      }
+    },
+    "hatch_approach": {
+      "slot": "hatch_approach",
+      "state": "approach",
+      "entry": "hatch",
+      "camera": "cam_hatch",
+      "sourceJob": "approach_hatch_on",
+      "frame": 12,
+      "darkBase": "hatch_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.822735071182251,
+        0.4999999701976776,
+        -0.03981316089630127
+      ],
+      "rayAcross": [
+        5.960464477539063e-08,
+        -1.0,
+        1.4901161193847656e-08
+      ],
+      "rayDown": [
+        -0.17460453510284424,
+        2.9802322387695312e-08,
+        -0.4685223698616028
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hatch_approach_dark.webp",
+        "beam": "hatch_approach_beam.webp",
+        "angles": "hatch_approach_angles.png",
+        "hazeDepth": "hatch_approach_hazeDepth.png",
+        "bounce": "hatch_approach_bounce.webp"
+      }
+    },
+    "hatch_inside": {
+      "slot": "hatch_inside",
+      "state": "inside",
+      "entry": "hatch",
+      "camera": "cam_hatch",
+      "sourceJob": "inside_hatch_on",
+      "frame": 1,
+      "darkBase": "hatch_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.822735071182251,
+        0.4999999701976776,
+        -0.03981316089630127
+      ],
+      "rayAcross": [
+        5.960464477539063e-08,
+        -1.0,
+        1.4901161193847656e-08
+      ],
+      "rayDown": [
+        -0.17460453510284424,
+        2.9802322387695312e-08,
+        -0.4685223698616028
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hatch_inside_dark.webp",
+        "beam": "hatch_inside_beam.webp",
+        "angles": "hatch_inside_angles.png",
+        "hazeDepth": "hatch_inside_hazeDepth.png",
+        "bounce": "hatch_inside_bounce.webp"
+      }
+    },
+    "balcony_empty": {
+      "slot": "balcony_empty",
+      "state": "empty",
+      "entry": "balcony",
+      "camera": "cam_balcony",
+      "sourceJob": "view_balcony_off",
+      "frame": 12,
+      "darkBase": "balcony_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.5,
+        -0.7848427295684814,
+        0.2500000298023224
+      ],
+      "rayAcross": [
+        -0.9999998807907104,
+        0.0,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5000000596046448
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "balcony_empty_dark.webp",
+        "beam": "balcony_empty_beam.webp",
+        "angles": "balcony_empty_angles.png",
+        "hazeDepth": "balcony_empty_hazeDepth.png",
+        "bounce": "balcony_empty_bounce.webp"
+      }
+    },
+    "balcony_tell": {
+      "slot": "balcony_tell",
+      "state": "tell",
+      "entry": "balcony",
+      "camera": "cam_balcony",
+      "sourceJob": "tell_balcony_off",
+      "frame": 12,
+      "darkBase": "balcony_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.5,
+        -0.7848427295684814,
+        0.2500000298023224
+      ],
+      "rayAcross": [
+        -0.9999998807907104,
+        0.0,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5000000596046448
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "balcony_tell_dark.webp",
+        "beam": "balcony_tell_beam.webp",
+        "angles": "balcony_tell_angles.png",
+        "hazeDepth": "balcony_tell_hazeDepth.png",
+        "bounce": "balcony_tell_bounce.webp"
+      }
+    },
+    "balcony_approach": {
+      "slot": "balcony_approach",
+      "state": "approach",
+      "entry": "balcony",
+      "camera": "cam_balcony",
+      "sourceJob": "approach_balcony_on",
+      "frame": 12,
+      "darkBase": "balcony_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.5,
+        -0.7848427295684814,
+        0.2500000298023224
+      ],
+      "rayAcross": [
+        -0.9999998807907104,
+        0.0,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5000000596046448
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "balcony_approach_dark.webp",
+        "beam": "balcony_approach_beam.webp",
+        "angles": "balcony_approach_angles.png",
+        "hazeDepth": "balcony_approach_hazeDepth.png",
+        "bounce": "balcony_approach_bounce.webp"
+      }
+    },
+    "balcony_inside": {
+      "slot": "balcony_inside",
+      "state": "inside",
+      "entry": "balcony",
+      "camera": "cam_balcony",
+      "sourceJob": "inside_balcony_on",
+      "frame": 1,
+      "darkBase": "balcony_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        1.4700000286102295,
+        1.2000000476837158
+      ],
+      "rayOrigin": [
+        0.5,
+        -0.7848427295684814,
+        0.2500000298023224
+      ],
+      "rayAcross": [
+        -0.9999998807907104,
+        0.0,
+        0.0
+      ],
+      "rayDown": [
+        0.0,
+        0.0,
+        -0.5000000596046448
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "balcony_inside_dark.webp",
+        "beam": "balcony_inside_beam.webp",
+        "angles": "balcony_inside_angles.png",
+        "hazeDepth": "balcony_inside_hazeDepth.png",
+        "bounce": "balcony_inside_bounce.webp"
+      }
+    },
+    "hold_window_stand_empty": {
+      "slot": "hold_window_stand_empty",
+      "state": "stand_empty",
+      "entry": "window",
+      "camera": "cam_hold_window",
+      "sourceJob": "hold_window_stand_empty_off",
+      "frame": 12,
+      "darkBase": "hold_window_stand_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        -4.28000020980835,
+        0.5299999713897705,
+        1.5499999523162842
+      ],
+      "rayOrigin": [
+        -0.8228554129600525,
+        -0.4999999403953552,
+        0.037245094776153564
+      ],
+      "rayAcross": [
+        1.1920928955078125e-07,
+        1.0,
+        5.960464477539063e-08
+      ],
+      "rayDown": [
+        0.13005751371383667,
+        0.0,
+        -0.4827888607978821
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_window_stand_empty_dark.webp",
+        "beam": "hold_window_stand_empty_beam.webp",
+        "angles": "hold_window_stand_empty_angles.png",
+        "hazeDepth": "hold_window_stand_empty_hazeDepth.png"
+      }
+    },
+    "hold_window_stand_tell": {
+      "slot": "hold_window_stand_tell",
+      "state": "stand_tell",
+      "entry": "window",
+      "camera": "cam_hold_window",
+      "sourceJob": "hold_window_stand_tell_off",
+      "frame": 12,
+      "darkBase": "hold_window_stand_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        -4.28000020980835,
+        0.5299999713897705,
+        1.5499999523162842
+      ],
+      "rayOrigin": [
+        -0.8228554129600525,
+        -0.4999999403953552,
+        0.037245094776153564
+      ],
+      "rayAcross": [
+        1.1920928955078125e-07,
+        1.0,
+        5.960464477539063e-08
+      ],
+      "rayDown": [
+        0.13005751371383667,
+        0.0,
+        -0.4827888607978821
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_window_stand_tell_dark.webp",
+        "beam": "hold_window_stand_tell_beam.webp",
+        "angles": "hold_window_stand_tell_angles.png",
+        "hazeDepth": "hold_window_stand_tell_hazeDepth.png"
+      }
+    },
+    "hold_window_brace_empty": {
+      "slot": "hold_window_brace_empty",
+      "state": "brace_empty",
+      "entry": "window",
+      "camera": "cam_hold_window",
+      "sourceJob": "hold_window_brace_empty_off",
+      "frame": 12,
+      "darkBase": "hold_window_brace_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        -4.28000020980835,
+        0.5299999713897705,
+        1.5499999523162842
+      ],
+      "rayOrigin": [
+        -0.8228554129600525,
+        -0.4999999403953552,
+        0.037245094776153564
+      ],
+      "rayAcross": [
+        1.1920928955078125e-07,
+        1.0,
+        5.960464477539063e-08
+      ],
+      "rayDown": [
+        0.13005751371383667,
+        0.0,
+        -0.4827888607978821
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_window_brace_empty_dark.webp",
+        "beam": "hold_window_brace_empty_beam.webp",
+        "angles": "hold_window_brace_empty_angles.png",
+        "hazeDepth": "hold_window_brace_empty_hazeDepth.png"
+      }
+    },
+    "hold_window_brace_tell": {
+      "slot": "hold_window_brace_tell",
+      "state": "brace_tell",
+      "entry": "window",
+      "camera": "cam_hold_window",
+      "sourceJob": "hold_window_brace_tell_off",
+      "frame": 12,
+      "darkBase": "hold_window_brace_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 193,
+      "position": [
+        -4.28000020980835,
+        0.5299999713897705,
+        1.5499999523162842
+      ],
+      "rayOrigin": [
+        -0.8228554129600525,
+        -0.4999999403953552,
+        0.037245094776153564
+      ],
+      "rayAcross": [
+        1.1920928955078125e-07,
+        1.0,
+        5.960464477539063e-08
+      ],
+      "rayDown": [
+        0.13005751371383667,
+        0.0,
+        -0.4827888607978821
+      ],
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_window_brace_tell_dark.webp",
+        "beam": "hold_window_brace_tell_beam.webp",
+        "angles": "hold_window_brace_tell_angles.png",
+        "hazeDepth": "hold_window_brace_tell_hazeDepth.png"
+      }
+    },
+    "hold_hatch_stand_empty": {
+      "slot": "hold_hatch_stand_empty",
+      "state": "stand_empty",
+      "entry": "hatch",
+      "camera": "cam_hold_hatch",
+      "sourceJob": "hold_hatch_stand_empty_off",
+      "frame": 12,
+      "darkBase": "hold_hatch_stand_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        2.1700000762939453,
+        1.4700000286102295,
+        0.8999999761581421
+      ],
+      "rayOrigin": [
+        0.7356645464897156,
+        0.5000000596046448,
+        -0.37050753831863403
+      ],
+      "rayAcross": [
+        -5.960464477539063e-08,
+        -1.0,
+        2.9802322387695312e-08
+      ],
+      "rayDown": [
+        -0.3498317003250122,
+        -5.960464477539063e-08,
+        -0.3572363257408142
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_hatch_stand_empty_dark.webp",
+        "beam": "hold_hatch_stand_empty_beam.webp",
+        "angles": "hold_hatch_stand_empty_angles.png",
+        "hazeDepth": "hold_hatch_stand_empty_hazeDepth.png",
+        "bounce": "hold_hatch_stand_empty_bounce.webp"
+      }
+    },
+    "hold_hatch_stand_tell": {
+      "slot": "hold_hatch_stand_tell",
+      "state": "stand_tell",
+      "entry": "hatch",
+      "camera": "cam_hold_hatch",
+      "sourceJob": "hold_hatch_stand_tell_off",
+      "frame": 8,
+      "darkBase": "hold_hatch_stand_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        2.1700000762939453,
+        1.4700000286102295,
+        0.8999999761581421
+      ],
+      "rayOrigin": [
+        0.7356645464897156,
+        0.5000000596046448,
+        -0.37050753831863403
+      ],
+      "rayAcross": [
+        -5.960464477539063e-08,
+        -1.0,
+        2.9802322387695312e-08
+      ],
+      "rayDown": [
+        -0.3498317003250122,
+        -5.960464477539063e-08,
+        -0.3572363257408142
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_hatch_stand_tell_dark.webp",
+        "beam": "hold_hatch_stand_tell_beam.webp",
+        "angles": "hold_hatch_stand_tell_angles.png",
+        "hazeDepth": "hold_hatch_stand_tell_hazeDepth.png",
+        "bounce": "hold_hatch_stand_tell_bounce.webp"
+      }
+    },
+    "hold_hatch_brace_empty": {
+      "slot": "hold_hatch_brace_empty",
+      "state": "brace_empty",
+      "entry": "hatch",
+      "camera": "cam_hold_hatch",
+      "sourceJob": "hold_hatch_brace_empty_off",
+      "frame": 12,
+      "darkBase": "hold_hatch_brace_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        2.1700000762939453,
+        1.4700000286102295,
+        0.8999999761581421
+      ],
+      "rayOrigin": [
+        0.7356645464897156,
+        0.5000000596046448,
+        -0.37050753831863403
+      ],
+      "rayAcross": [
+        -5.960464477539063e-08,
+        -1.0,
+        2.9802322387695312e-08
+      ],
+      "rayDown": [
+        -0.3498317003250122,
+        -5.960464477539063e-08,
+        -0.3572363257408142
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_hatch_brace_empty_dark.webp",
+        "beam": "hold_hatch_brace_empty_beam.webp",
+        "angles": "hold_hatch_brace_empty_angles.png",
+        "hazeDepth": "hold_hatch_brace_empty_hazeDepth.png",
+        "bounce": "hold_hatch_brace_empty_bounce.webp"
+      }
+    },
+    "hold_hatch_brace_tell": {
+      "slot": "hold_hatch_brace_tell",
+      "state": "brace_tell",
+      "entry": "hatch",
+      "camera": "cam_hold_hatch",
+      "sourceJob": "hold_hatch_brace_tell_off",
+      "frame": 8,
+      "darkBase": "hold_hatch_brace_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 359.78857681408135,
+      "position": [
+        2.1700000762939453,
+        1.4700000286102295,
+        0.8999999761581421
+      ],
+      "rayOrigin": [
+        0.7356645464897156,
+        0.5000000596046448,
+        -0.37050753831863403
+      ],
+      "rayAcross": [
+        -5.960464477539063e-08,
+        -1.0,
+        2.9802322387695312e-08
+      ],
+      "rayDown": [
+        -0.3498317003250122,
+        -5.960464477539063e-08,
+        -0.3572363257408142
+      ],
+      "bounce": {
+        "azimuth": 359.78857681408135,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_hatch_brace_tell_dark.webp",
+        "beam": "hold_hatch_brace_tell_beam.webp",
+        "angles": "hold_hatch_brace_tell_angles.png",
+        "hazeDepth": "hold_hatch_brace_tell_hazeDepth.png",
+        "bounce": "hold_hatch_brace_tell_bounce.webp"
+      }
+    },
+    "hold_balcony_stand_empty": {
+      "slot": "hold_balcony_stand_empty",
+      "state": "stand_empty",
+      "entry": "balcony",
+      "camera": "cam_hold_balcony",
+      "sourceJob": "hold_balcony_stand_empty_off",
+      "frame": 12,
+      "darkBase": "hold_balcony_stand_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        -3.75,
+        1.600000023841858
+      ],
+      "rayOrigin": [
+        0.5000000596046448,
+        -0.8236417770385742,
+        0.009610454551875591
+      ],
+      "rayAcross": [
+        -1.0,
+        -1.1920928955078125e-07,
+        -2.0489096641540527e-08
+      ],
+      "rayDown": [
+        0.0,
+        0.14618581533432007,
+        -0.47815242409706116
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_balcony_stand_empty_dark.webp",
+        "beam": "hold_balcony_stand_empty_beam.webp",
+        "angles": "hold_balcony_stand_empty_angles.png",
+        "hazeDepth": "hold_balcony_stand_empty_hazeDepth.png",
+        "bounce": "hold_balcony_stand_empty_bounce.webp"
+      }
+    },
+    "hold_balcony_stand_tell": {
+      "slot": "hold_balcony_stand_tell",
+      "state": "stand_tell",
+      "entry": "balcony",
+      "camera": "cam_hold_balcony",
+      "sourceJob": "hold_balcony_stand_tell_off",
+      "frame": 12,
+      "darkBase": "hold_balcony_stand_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        -3.75,
+        1.600000023841858
+      ],
+      "rayOrigin": [
+        0.5000000596046448,
+        -0.8236417770385742,
+        0.009610454551875591
+      ],
+      "rayAcross": [
+        -1.0,
+        -1.1920928955078125e-07,
+        -2.0489096641540527e-08
+      ],
+      "rayDown": [
+        0.0,
+        0.14618581533432007,
+        -0.47815242409706116
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_balcony_stand_tell_dark.webp",
+        "beam": "hold_balcony_stand_tell_beam.webp",
+        "angles": "hold_balcony_stand_tell_angles.png",
+        "hazeDepth": "hold_balcony_stand_tell_hazeDepth.png",
+        "bounce": "hold_balcony_stand_tell_bounce.webp"
+      }
+    },
+    "hold_balcony_brace_empty": {
+      "slot": "hold_balcony_brace_empty",
+      "state": "brace_empty",
+      "entry": "balcony",
+      "camera": "cam_hold_balcony",
+      "sourceJob": "hold_balcony_brace_empty_off",
+      "frame": 12,
+      "darkBase": "hold_balcony_brace_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        -3.75,
+        1.600000023841858
+      ],
+      "rayOrigin": [
+        0.5000000596046448,
+        -0.8236417770385742,
+        0.009610454551875591
+      ],
+      "rayAcross": [
+        -1.0,
+        -1.1920928955078125e-07,
+        -2.0489096641540527e-08
+      ],
+      "rayDown": [
+        0.0,
+        0.14618581533432007,
+        -0.47815242409706116
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_balcony_brace_empty_dark.webp",
+        "beam": "hold_balcony_brace_empty_beam.webp",
+        "angles": "hold_balcony_brace_empty_angles.png",
+        "hazeDepth": "hold_balcony_brace_empty_hazeDepth.png",
+        "bounce": "hold_balcony_brace_empty_bounce.webp"
+      }
+    },
+    "hold_balcony_brace_tell": {
+      "slot": "hold_balcony_brace_tell",
+      "state": "brace_tell",
+      "entry": "balcony",
+      "camera": "cam_hold_balcony",
+      "sourceJob": "hold_balcony_brace_tell_off",
+      "frame": 12,
+      "darkBase": "hold_balcony_brace_empty",
+      "width": 1600,
+      "height": 800,
+      "previewAzimuth": 270.0,
+      "position": [
+        0.0,
+        -3.75,
+        1.600000023841858
+      ],
+      "rayOrigin": [
+        0.5000000596046448,
+        -0.8236417770385742,
+        0.009610454551875591
+      ],
+      "rayAcross": [
+        -1.0,
+        -1.1920928955078125e-07,
+        -2.0489096641540527e-08
+      ],
+      "rayDown": [
+        0.0,
+        0.14618581533432007,
+        -0.47815242409706116
+      ],
+      "bounce": {
+        "azimuth": 270.0,
+        "gain": 0.65
+      },
+      "renderWidth": 1920,
+      "renderHeight": 960,
+      "files": {
+        "dark": "hold_balcony_brace_tell_dark.webp",
+        "beam": "hold_balcony_brace_tell_beam.webp",
+        "angles": "hold_balcony_brace_tell_angles.png",
+        "hazeDepth": "hold_balcony_brace_tell_hazeDepth.png",
+        "bounce": "hold_balcony_brace_tell_bounce.webp"
+      }
+    }
+  }
+}
