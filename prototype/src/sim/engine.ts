@@ -1934,7 +1934,7 @@ export class GameEngine implements IGameEngine {
         : seedPassed && pq.origin === "QUIET"
           ? cleanFactValue(t.text)
           : undefined;
-      answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type, value: echo };
+      answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type, value: echo, factKey: pq.factKey };
     }
     if (r.new_fact && !seedPassed) this.storeFact(r.new_fact.key, r.new_fact.value);
 

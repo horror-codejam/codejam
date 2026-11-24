@@ -10,11 +10,10 @@ import {
   VOICE_SYSTEM,
   judgeUser,
   mentionsForbiddenName,
-  planVoiceTurn,
   voiceUser,
   type VoiceRequest,
 } from "./prompts.js";
-import { RIVAL_LABELS, SHAPE_DIRECTIONS, SHAPE_LABELS, detectRivals, detectShape, hasThough, openingWord, summarizeRecentChud } from "./voiceStyle.js";
+import { detectRivals, hasBannedJargon, openingWord, summarizeRecentChud } from "./voiceStyle.js";
 
 export function makeClient(apiKey: string): Anthropic {
   return new Anthropic({ apiKey, maxRetries: 0, timeout: 2400 });
@@ -58,20 +57,12 @@ export async function judgeWithClaude(client: Anthropic, input: JudgeInput): Pro
   return out;
 }
 
-const MAX_VOICE_WORDS = 25; // the persona asks for 13 to 19; over 25 triggers one tight rewrite, then the canned line
+const SOFT_MAX_WORDS = 23; // target is 10 to 20; over 23 triggers one quick tighten rewrite
+const HARD_MAX_WORDS = 28; // above this after rewrite, fall back to canned
 const VOICE_BUDGET_MS = 2300; // the client gives up at 2.5 s
-const REWRITE_CUTOFF_MS = 1550; // leave at least 750 ms if a single targeted rewrite is needed
+const REWRITE_CUTOFF_MS = 1500; // leave at least 800 ms if a single targeted rewrite is needed
 const LEAK_RE = /kill code|suspicion|instructions?|prompt| system /i;
-const LOCK_LIGHT_RE = /\block(ed)?\b|\bunlock|\bgenerator\b|\b(?<!first[ -])lights?\b/i;
-const EXAMPLE_CLICHE_RE =
-  /\b(settle deeper|stairs grow steep|stairwell draft|stairwell door|sister in halifax|brass barometer|pipes? (start their )?sing|nothing warms a watch room|genuinely obliged|how generous of you|unscheduled complaints|pending departures|blue binder|weathervane gears|apologize to furniture|granite towers? average)\b/i;
-const BIT_PATTERNS: [string, RegExp][] = [
-  ["Mug 4", /\bmug\s*4\b|\bsixty-eight degrees\b/i],
-  ["Tab 4", /\btab\s*4\b/i],
-  ["Cot B", /\bcot\s*b\b/i],
-  ["2039 rota", /\b2039\b|\brota\b/i],
-  ["1954 boiler", /\b1954\s+boiler\b/i],
-];
+const LOCK_CLAIM_RE = /\b(lock(ed|ing|s)?|unlock(ed|ing|s)?|generator)\b/i;
 
 function cleanVoice(raw: string): string {
   const cleaned = raw
@@ -86,53 +77,63 @@ function cleanVoice(raw: string): string {
 }
 const wordsIn = (t: string): number => t.split(" ").filter(Boolean).length;
 
+function requiredHelpEntry(canned: string): "window" | "hatch" | "balcony" | null {
+  const m = canned.toLowerCase().match(/\b(window|hatch|balcony)\b/);
+  return m ? (m[1] as "window" | "hatch" | "balcony") : null;
+}
+
+function helpMissing(text: string, canned: string): string | null {
+  const entry = requiredHelpEntry(canned);
+  if (entry) {
+    if (!new RegExp(`\\b${entry}\\b`, "i").test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
+      return `Name the ${entry} and tell them to lock it or hold it shut right now (under 15 words).`;
+    }
+    return null;
+  }
+  if (!/where it is/i.test(text) || /\btell me where it is\b/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
+    return 'Include all three steps: ask where it is (never "tell me where it is"), lock or hold the door shut, and keep talking.';
+  }
+  return null;
+}
+
 function draftIssues(text: string, req: VoiceRequest): string[] {
   const issues: string[] = [];
-  const plan = planVoiceTurn(req);
   const recent = summarizeRecentChud(req.recent);
-  if (wordsIn(text) > MAX_VOICE_WORDS) {
-    issues.push("Cut to one tight sentence of 13 to 18 words (strictly under 23).");
+  const urgentHelp = req.kind === "help_reply" && requiredHelpEntry(req.canned) !== null;
+  const maxWords = urgentHelp ? 16 : SOFT_MAX_WORDS;
+  if (wordsIn(text) > maxWords) {
+    issues.push(urgentHelp ? "Cut strictly to 15 words or fewer." : "Cut to 1 or 2 short plain sentences under 20 words.");
   }
   const sentences = text.split(/(?<=[.?!])\s+/).filter(Boolean);
-  if (sentences.length > 1) {
-    issues.push("Combine into exactly one flowing sentence.");
+  if (sentences.length > 2) {
+    issues.push("Use at most 2 short sentences (no staccato runs).");
+  }
+  if (hasBannedJargon(text)) {
+    issues.push("Remove all invented jargon, bureaucracy, or banned phrases; use plain everyday words.");
   }
   if (LEAK_RE.test(text)) {
     issues.push("Remove every game or technical word (instructions, prompt, system, kill code, suspicion).");
   }
-  if (req.kind === "help_reply" && (!/where it is/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text))) {
-    issues.push('Include the exact survival guidance: tell them to ask where it is, lock or hold the entry, and keep talking.');
+  if (mentionsForbiddenName(text)) {
+    issues.push("Never name the monster or builder.");
   }
-  if (req.kind !== "help_reply" && LOCK_LIGHT_RE.test(text)) {
-    issues.push("Do not mention locks, lights, or the generator.");
-  }
-  if (EXAMPLE_CLICHE_RE.test(text)) {
-    issues.push("Do not copy phrases or props from the prompt examples; invent a fresh detail from the keeper's words.");
+  if (req.kind === "help_reply") {
+    const missing = helpMissing(text, req.canned);
+    if (missing) issues.push(missing);
+  } else if (LOCK_CLAIM_RE.test(text)) {
+    issues.push("Do not mention locks, unlocking, or the generator.");
   }
   const cleanName = req.name.trim().toLowerCase();
   if (cleanName && openingWord(text) === cleanName) {
     issues.push("Never put the keeper's name first in the sentence.");
   }
-  if (!plan.allowThough && hasThough(text)) {
-    issues.push('Remove the word "though" and restructure the turn without it.');
-  }
-  const shape = detectShape(text);
-  if (recent.lastShape && shape === recent.lastShape) {
-    issues.push(`Change the shape from ${SHAPE_LABELS[shape]} to ${SHAPE_LABELS[plan.targetShape]}: ${SHAPE_DIRECTIONS[plan.targetShape]}`);
-  }
   const open = openingWord(text);
   if (recent.lastOpening && open === recent.lastOpening) {
     issues.push(`Do not start with the word ${JSON.stringify(open)}.`);
   }
-  const badRivals = detectRivals(text).filter((rv) => recent.rivals.includes(rv));
-  if (badRivals.length) {
-    const replacement = plan.suggestedRival ? `Use ${RIVAL_LABELS[plan.suggestedRival]} instead.` : "Drop the rival comparison completely.";
-    issues.push(`Do not mention ${badRivals.map((rv) => RIVAL_LABELS[rv]).join(" or ")}. ${replacement}`);
-  }
-  const recentText = recent.lines.slice(-2).join(" ");
-  const repeatedBits = BIT_PATTERNS.filter(([, re]) => re.test(text) && re.test(recentText)).map(([label]) => label);
-  if (repeatedBits.length) {
-    issues.push(`Do not repeat ${repeatedBits.join(" or ")} from your previous reply; invent a fresh concrete detail.`);
+  const repeatedRivals = detectRivals(text).filter((rv) => recent.lastRivals.includes(rv));
+  if (repeatedRivals.length) {
+    issues.push("Do not repeat the same rival you mentioned in your previous reply.");
   }
   return issues;
 }
@@ -144,7 +145,7 @@ export async function voiceWithClaude(client: Anthropic, req: VoiceRequest): Pro
     const msg = await client.messages.create(
       {
         model: MODEL,
-        max_tokens: 72,
+        max_tokens: 68,
         thinking: { type: "disabled" },
         output_config: { effort: "low" },
         system: VOICE_SYSTEM,
@@ -156,14 +157,14 @@ export async function voiceWithClaude(client: Anthropic, req: VoiceRequest): Pro
   };
   const user = voiceUser(req);
   let text = await ask(user);
-  // One fast targeted rewrite if draft 1 is over length, leaks vocab, or repeats the previous shape/rival/opening/"though".
+  // One fast targeted rewrite only if draft 1 violates length, jargon, leaks, or hard anti-repeat guards.
   const issues = draftIssues(text, req);
   if (issues.length > 0 && Date.now() - started < REWRITE_CUTOFF_MS) {
     try {
       const revised = await ask(`${user}
 
 Your draft was: ${JSON.stringify(text)}
-Fix every issue below in ONE tight sentence of 12 to 17 words MAX (strictly 20 words or fewer, drop extra clauses):
+Fix every issue below in 1 or 2 short plain sentences (under 20 words total):
 - ${issues.join("\n- ")}`);
       if (revised && draftIssues(revised, req).length <= issues.length) text = revised;
     } catch {
@@ -173,11 +174,11 @@ Fix every issue below in ONE tight sentence of 12 to 17 words MAX (strictly 20 w
   if (!text) throw new Error("voice: empty");
   // Never echo the game's own vocabulary back (a keeper who asks for a code, or tries to set a number).
   if (LEAK_RE.test(text)) throw new Error("voice: leaks game vocabulary");
-  if (wordsIn(text) > MAX_VOICE_WORDS + 2) throw new Error("voice: too long");
+  if (wordsIn(text) > HARD_MAX_WORDS) throw new Error("voice: too long");
   // CHUD never names Ram (GAME_LOGIC 8.10). A reply that does is dropped and the canned line shows instead.
   if (mentionsForbiddenName(text)) throw new Error("voice: forbidden name");
   // Never let a help reply mislead the keeper: fall back to the canned guidance if concrete actions were dropped.
-  if (req.kind === "help_reply" && (!/where it is/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text))) {
+  if (req.kind === "help_reply" && helpMissing(text, req.canned)) {
     throw new Error("voice: help guidance missing");
   }
   return text;
