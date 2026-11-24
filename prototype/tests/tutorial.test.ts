@@ -269,11 +269,13 @@ describe("ChudGPT's practice lessons", () => {
     step();
 
     expect(tutorial.step).toBe("lock");
+    expect(tutorial.prompt(engine.state).chip).toBe("MOUSE TO THE RIGHT EDGE");
     expect(interruptions()).toBe(beforeLighting + 1);
     step();
-    expect(spoken.at(-1)).toBe(PRACTICE_LINES.lock);
+    expect(spoken.at(-1)).toBe("See it? Come back to my screen and click W. I'll lock the window.");
     expect(tutorial.allowsQuick("LOCK_WINDOW")).toBe(true);
     waitForNudge("nudgeLock");
+    expect(spoken).toContain("At the desk, click W on my screen.");
     engine.turn("DESK");
     expect(tutorial.prompt(engine.state).target).toBe("LOCK_WINDOW");
     engine.pressQuick("LOCK_WINDOW");
@@ -309,6 +311,7 @@ describe("ChudGPT's practice lessons", () => {
     expect(tutorial.step).toBe("location");
     expect(tutorial.prompt(engine.state).target).toBe("ASK_LOCATION");
     waitForNudge("nudgeLocation");
+    expect(spoken).toContain("At the desk, click 'where is it' on my screen.");
     engine.pressQuick("ASK_LOCATION");
     settleSpeech();
     expect(engine.state.chud.lastLocationClaim).toBe("NONE");
