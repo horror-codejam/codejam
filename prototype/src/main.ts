@@ -435,7 +435,9 @@ function showChud(text: string, band: Band, t: number): SpeechPlayback | undefin
   // A new line cuts off the one still speaking and drops anything queued. Practice lines keep their own sequencing.
   if (!engine.isPracticing) sound.stopSpeech();
   const staleAt = engine.isPracticing ? undefined : performance.now() + display * 1000;
-  const playback = engine.state.power.chudOnline ? sound.speak(text, band, staleAt) : undefined;
+  const playback = engine.state.power.chudOnline
+    ? sound.speak(text, band, staleAt, engine.state.chud.facts.name ?? null)
+    : undefined;
   if (engine.isPracticing) chudCaption.playback = playback;
   return playback;
 }

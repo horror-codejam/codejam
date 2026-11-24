@@ -1,12 +1,26 @@
-// Lists the scripted lines that have no recorded clip yet, as JSON for gen_clips.py. Run from prototype/:
-//   npx vite-node tools/chud-tts/export-lines.ts > tools/chud-tts/models/missing.json
-// Lines with a player name in them are not pre-recorded (the name is unknown), the rest are looked up like the game does.
-import { readFileSync } from "node:fs";
+// Build the complete audio input catalog from the same pools the game uses.
 import { clipLines } from "../../src/chud/lines";
+import { namedSpeechParts } from "../../src/chud/speechParts";
+import type { Band } from "../../src/sim/types";
 
-const dialogue = JSON.parse(readFileSync(new URL("../../assets/audio/dialogue.json", import.meta.url), "utf8")) as {
-  chud: Record<string, Record<string, string>>;
-};
-const have = new Map(Object.entries(dialogue.chud).map(([band, clips]) => [band, new Set(Object.keys(clips).map((l) => l.toLowerCase()))]));
-const missing = clipLines().filter(({ band, text }) => !have.get(band.toLowerCase())?.has(text.toLowerCase()));
-console.log(JSON.stringify({ total: clipLines().length, missing }, null, 1));
+const fixed = new Map<string, { band: Band; text: string }>();
+const clips = new Map<string, { band: Band; text: string }>();
+const named: Record<string, string[]> = { warm: [], hurt: [], jealous: [], furious: [] };
+let namedTotal = 0;
+for (const { band, text } of clipLines()) {
+  if (text.includes("{n}")) {
+    namedTotal++;
+    const parts = namedSpeechParts(text);
+    const recorded = parts?.find((part) => !part.includes("{n}"));
+    if (recorded) {
+      named[band.toLowerCase()].push(text);
+      clips.set(`${band}|${recorded.toLowerCase()}`, { band, text: recorded });
+    }
+  }
+  const spoken = text.replaceAll("{n}", "keeper");
+  const key = `${band}|${spoken.toLowerCase()}`;
+  fixed.set(key, { band, text: spoken });
+  clips.set(key, { band, text: spoken });
+}
+
+console.log(JSON.stringify({ fixed: [...fixed.values()], clips: [...clips.values()], named, namedTotal }));

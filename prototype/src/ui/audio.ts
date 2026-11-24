@@ -1,5 +1,6 @@
 // Web Audio for the room, player, CHUD, and screen transitions.
-import { RADIO_LINES } from "../chud/lines";
+import { cleanName, RADIO_LINES } from "../chud/lines";
+import { liveSpeechParts } from "../chud/speechParts";
 import type { Band, Entry, View } from "../sim/types";
 import { CHUD_SPEECH, JUMPSCARE, type JumpscareVariant } from "../uiConfig";
 
@@ -43,11 +44,21 @@ export type SpeechPlayback = {
 type SpeechJob = {
   text: string;
   band: Band;
+  name: string | null;
   playback: SpeechPlayback;
-  signal: AbortSignal;
-  buffer?: Promise<AudioBuffer | undefined>; // prefetched as soon as the line exists
+  request: AbortController;
+  prepared?: Promise<PreparedSpeech | undefined>; // prefetched as soon as the line exists
   staleAt?: number; // performance.now() ms: if the audio is ready only after this, the subtitle is gone and it is skipped
 };
+
+type PreparedSpeech = {
+  first: AudioBuffer;
+  next?: { buffer: Promise<AudioBuffer | undefined>; pause: number };
+};
+
+type SpeechIndex = typeof import("./audioDialogue");
+
+const speechPause = (text: string) => /[.!?]$/.test(text) ? 0.14 : 0.07;
 
 export class Sound {
   private ctx: AudioContext | null = null;
@@ -79,7 +90,8 @@ export class Sound {
   private speechView: View = "DESK";
   private speechQueue: SpeechJob[] = [];
   private speechRun: AbortController | null = null;
-  private speechSource: AudioBufferSourceNode | null = null;
+  private speechCurrent: AbortController | null = null;
+  private speechSources = new Set<AudioBufferSourceNode>();
   private lampHumGain: GainNode | null = null;
   private lampHumFilter: BiquadFilterNode | null = null;
   private lampHumActive = false;
@@ -633,11 +645,11 @@ export class Sound {
   }
 
   // One tiny request on the title screen so a cold hosted function is warm by the first line. Silent if unavailable.
-  private voiceIndexPromise: Promise<typeof import("./audioDialogue") | undefined> | null = null;
+  private voiceIndexPromise: Promise<SpeechIndex | undefined> | null = null;
   private warmed = false;
   private lastSpeechRequestAt = -Infinity;
 
-  private voiceIndex(): Promise<typeof import("./audioDialogue") | undefined> {
+  private voiceIndex(): Promise<SpeechIndex | undefined> {
     if (!this.voiceIndexPromise) {
       this.voiceIndexPromise = import("./audioDialogue").catch(() => undefined);
     }
@@ -666,16 +678,16 @@ export class Sound {
     }).then((r) => r.arrayBuffer()).catch(() => undefined);
   }
 
-  // A recorded clip if the line has one, else the speech service. Resolves undefined when there is no audio.
-  private async prepareSpeech(ctx: AudioContext, text: string, band: Band, signal: AbortSignal): Promise<AudioBuffer | undefined> {
+  private async recordedSpeech(index: SpeechIndex | undefined, text: string, band: Band, signal: AbortSignal): Promise<AudioBuffer | undefined> {
+    if (!index || signal.aborted) return undefined;
+    const clip = await index.cannedClip(text, band);
+    return clip && !signal.aborted ? this.loadClip(clip.name, clip.url) : undefined;
+  }
+
+  private async fetchSpeech(ctx: AudioContext, text: string, band: Band, signal: AbortSignal): Promise<AudioBuffer | undefined> {
+    if (signal.aborted) return undefined;
     try {
       const timeout = import.meta.env.DEV ? CHUD_SPEECH.REQUEST_TIMEOUT_MS : CHUD_SPEECH.HOSTED_TIMEOUT_MS;
-      const voiceIndex = await this.voiceIndex();
-      if (signal.aborted) return undefined;
-      const clip = voiceIndex ? await voiceIndex.cannedClip(text, band) : undefined;
-      if (signal.aborted) return undefined;
-      const recorded = clip ? await this.loadClip(clip.name, clip.url) : undefined;
-      if (recorded || signal.aborted) return recorded;
       this.lastSpeechRequestAt = performance.now();
       const response = await fetch("/api/tts", {
         method: "POST",
@@ -690,7 +702,34 @@ export class Sound {
     }
   }
 
-  speak(text: string, band: Band, staleAt?: number): SpeechPlayback {
+  private async prepareSpeech(ctx: AudioContext, line: SpeechJob): Promise<PreparedSpeech | undefined> {
+    const { text, band, name, request: { signal } } = line;
+    const index = await this.voiceIndex();
+    const recorded = await this.recordedSpeech(index, text, band, signal);
+    if (signal.aborted) return undefined;
+    if (recorded) return { first: recorded };
+
+    const fetchPart = (part: string) => this.fetchSpeech(ctx, part, band, signal);
+    const named = name ? index?.namedClips(text, band, name) : undefined;
+    if (named && name) {
+      const preparePart = async (part: string) => part.includes("{n}")
+        ? fetchPart(part.replaceAll("{n}", () => name))
+        : await this.recordedSpeech(index, part, band, signal) ?? fetchPart(part);
+      const pending = preparePart(named[0]);
+      const next = { buffer: preparePart(named[1]), pause: speechPause(named[0]) };
+      const first = await pending;
+      return first ? { first, next } : undefined;
+    }
+
+    const parts = liveSpeechParts(text);
+    const first = await fetchPart(parts?.[0] ?? text);
+    if (!first || signal.aborted) return undefined;
+    // The first reply gets the worker to itself. Request the rest as soon as the first is ready to play.
+    const next = parts ? { buffer: fetchPart(parts[1]), pause: speechPause(parts[0]) } : undefined;
+    return { first, next };
+  }
+
+  speak(text: string, band: Band, staleAt?: number, playerName: string | null = null): SpeechPlayback {
     const request = new AbortController();
     const playback: SpeechPlayback = {
       state: "queued",
@@ -701,8 +740,8 @@ export class Sound {
       },
     };
     if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift()?.playback.cancelPending();
-    const job: SpeechJob = { text, band, playback, signal: request.signal, staleAt };
-    if (this.ctx) job.buffer = this.prepareSpeech(this.ctx, text, band, request.signal); // prefetch, in parallel with playback
+    const job: SpeechJob = { text, band, name: cleanName(playerName), playback, request, staleAt };
+    if (this.ctx) job.prepared = this.prepareSpeech(this.ctx, job);
     this.speechQueue.push(job);
     this.startSpeech();
     return playback;
@@ -721,38 +760,56 @@ export class Sound {
     this.speechQueue.length = 0;
     this.speechRun?.abort();
     this.speechRun = null;
-    this.speechSource?.stop();
-    this.speechSource = null;
+    this.speechCurrent?.abort();
+    this.speechCurrent = null;
+    for (const source of this.speechSources) source.stop();
+    this.speechSources.clear();
+  }
+
+  private startSpeechSegment(ctx: AudioContext, buffer: AudioBuffer, when = ctx.currentTime) {
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.speechGain);
+    const ended = new Promise<void>((resolve) => {
+      source.onended = () => {
+        source.disconnect();
+        this.speechSources.delete(source);
+        resolve();
+      };
+    });
+    source.start(when);
+    this.speechSources.add(source);
+    return { ended, endAt: when + buffer.duration };
   }
 
   private async playSpeech(ctx: AudioContext, run: AbortController): Promise<void> {
     while (!run.signal.aborted && this.speechQueue.length > 0) {
       const line = this.speechQueue.shift()!;
-      const signal = AbortSignal.any([run.signal, line.signal]);
+      this.speechCurrent = line.request;
+      const { signal } = line.request;
       try {
-        const buffer = await (line.buffer ?? this.prepareSpeech(ctx, line.text, line.band, signal));
-        if (!buffer || signal.aborted) continue;
+        const prepared = await (line.prepared ?? this.prepareSpeech(ctx, line));
+        if (!prepared || signal.aborted) continue;
         if (this.radioFinished) await this.radioFinished;
         if (signal.aborted) continue;
         // The subtitle is already gone: a late voice would be talking about nothing.
         if (line.staleAt !== undefined && performance.now() > line.staleAt) continue;
 
-        const source = ctx.createBufferSource();
-        this.speechSource = source;
-        source.buffer = buffer;
-        source.connect(this.speechGain);
-        const ended = new Promise<void>((resolve) => {
-          source.onended = () => resolve();
-        });
-        source.start();
+        const first = this.startSpeechSegment(ctx, prepared.first);
         line.playback.state = "playing";
-        await ended;
-        source.disconnect();
-        if (this.speechSource === source) this.speechSource = null;
+        const continuation = prepared.next;
+        const next = await continuation?.buffer;
+        // Schedule on the audio clock with the same short pause regardless of when the tail decoded.
+        const last = continuation && next && !signal.aborted
+          ? this.startSpeechSegment(ctx, next, Math.max(first.endAt + continuation.pause, ctx.currentTime))
+          : first;
+        await last.ended;
         if (!signal.aborted) line.playback.state = "finished";
       } catch {
         // Keep the existing subtitle and chime if audio playback fails.
       } finally {
+        line.request.abort();
+        if (this.speechCurrent === line.request) this.speechCurrent = null;
         if (line.playback.state !== "finished") line.playback.state = "unavailable";
       }
     }

@@ -47,7 +47,7 @@ done
 
 Keep Piper running on port `5100` and start the game with `npm run dev` from `prototype/`. Select New Game or Continue on the title screen to unlock browser audio. CHUD's opening line, questions, lock and light responses, and conversation are voiced automatically.
 
-The game sends the displayed line and its original mood to the same-origin `POST /api/tts` route. Hono forwards the request to Piper, and Web Audio plays the WAV from the desk. Speech plays one line at a time. The game displays subtitles and plays the chime immediately, including when Piper is offline. Pausing freezes voice playback. A power cutoff, restart, breach, dawn or return to the title clears pending and playing speech.
+The game loads canned clips by text and mood. It sends live speech segments to the same-origin `POST /api/tts` route. In Vite dev, Hono forwards those requests to Piper. Web Audio plays one line at a time from the desk. The game displays subtitles and plays the chime immediately, including when Piper is offline. Pausing freezes voice playback. A power cutoff, restart, breach, dawn or return to the title clears pending and playing speech.
 
 Piper runs with or without an Anthropic key. Claude can rewrite certain conversational lines, while Piper speaks the final text. The local Vite speech proxy expects Piper on the same machine.
 
@@ -56,6 +56,19 @@ Piper runs with or without an Anthropic key. Claude can rewrite certain conversa
 ```
 
 `POST /tts` accepts 1–300 characters of final dialogue and one of the four bands above. A successful response is `200 audio/wav`.
+
+## Refresh clips and measure latency
+
+Run from `prototype/tools/chud-tts` with the prototype's npm dependencies installed and FFmpeg on PATH.
+
+```sh
+.venv/bin/python gen_clips.py
+.venv/bin/python gen_clips.py --check
+.venv/bin/python bench_tts.py --local-handler --split
+.venv/bin/python bench_tts.py --base-url http://127.0.0.1:5173 --split
+```
+
+The generator fills missing text and mood pairs, replaces takes of unverified origin, and prints full and personalized clip coverage. The benchmark prints WAV header and full-buffer times for ten replies, plus one initial request. Full-buffer time approximates when Web Audio can start decoding. The first request to a remote URL may reach a warm worker. With `--split`, the benchmark measures the first playable segment of eligible replies and reports continuation requests separately.
 
 ## Vercel deployment
 

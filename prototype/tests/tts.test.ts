@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApi } from "../server/app";
+import { cannedLine } from "../src/chud/lines";
+import { liveSpeechParts, namedSpeechParts } from "../src/chud/speechParts";
 
 const app = createApi({});
 
@@ -48,4 +50,33 @@ describe("CHUD speech proxy", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("connection refused")));
     expect((await speak({ text: "I'm still here.", band: "WARM" })).status).toBe(503);
   });
+});
+
+describe("CHUD speech segments", () => {
+  it("keeps short lines whole and splits a long reply at its first usable sentence", () => {
+    expect(liveSpeechParts("I heard you. Come back to the desk.")).toBeUndefined();
+    expect(liveSpeechParts("I saw your boat go under. I pulled you into the lighthouse before the waves could carry you away."))
+      .toEqual(["I saw your boat go under.", "I pulled you into the lighthouse before the waves could carry you away."]);
+  });
+
+  it("splits at a clause and skips commas that belong to a list", () => {
+    expect(liveSpeechParts("I heard knocking, scraping, and footsteps on the stairs, so keep the hatch locked until I tell you it's clear."))
+      .toEqual(["I heard knocking, scraping, and footsteps on the stairs,", "so keep the hatch locked until I tell you it's clear."]);
+  });
+
+  it("records a complete name-free segment and keeps an ending name in its sentence", () => {
+    expect(namedSpeechParts("Thanks for telling me, {n}. I'm glad you're here."))
+      .toEqual(["Thanks for telling me, {n}.", "I'm glad you're here."]);
+    expect(namedSpeechParts("Save your sweet words, {n}.")).toBeUndefined();
+  });
+});
+
+it("uses the same short offline acknowledgement pool for new answers of any kind", () => {
+  const replies = (value: string, factKey: string | null) => [0, 0.25, 0.5, 0.75].map((roll) => cannedLine(
+    { kind: "answer_ack", pass: true, type: "SEED", value, factKey },
+    { name: "Morgan", band: "WARM", rand: () => roll },
+  ));
+  const coffee = replies("Black, two sugars", null);
+  expect(new Set(coffee).size).toBe(4);
+  expect(replies("Halifax", "home_port")).toEqual(coffee);
 });

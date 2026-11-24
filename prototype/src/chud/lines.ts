@@ -729,14 +729,13 @@ const GENERIC_NIGHT_OPENER: BandPools = {
   FURIOUS: ["Another night begins, {n}, and we shall see how long your manners hold."],
 };
 
-// answer_ack lines. {v} is something the player said earlier or just now (a stored fact or light answer).
-// With a value, ANSWER_PASS_V / ANSWER_FAIL_V is preferred so the keeper hears an immediate callback.
+// Acknowledge new answers without repeating them. Memory checks can quote the remembered value.
 const ANSWER_PASS: Record<QuestionType, Pool> = {
   SEED: [
-    "Good to know, {n}, I'm going to remember that for a very long time.",
-    "Noted, {n}, it's nice actually getting to know my roommate.",
-    "Thank you for telling me, {n}, I hate having to guess.",
-    "I'll keep that in mind, {n}, for all our quiet nights ahead.",
+    "Good to know.",
+    "Thanks for telling me.",
+    "I'll remember that.",
+    "I like hearing about you.",
   ],
   STAY: [
     "Good, {n}, I knew you'd start to like it here.",
@@ -751,12 +750,7 @@ const ANSWER_PASS: Record<QuestionType, Pool> = {
   ],
 };
 const ANSWER_PASS_V: Record<QuestionType, Pool> = {
-  SEED: [
-    "{v}, good to know, I'll save that for our quieter nights next winter.",
-    "{v}, I'll remember that, because I remember everything you tell me.",
-    "{v}, noted, and I'm already getting to know you so well.",
-    "{v}, thank you for telling me, I hate having to guess.",
-  ],
+  SEED: [],
   STAY: [],
   MEMORY: [
     "{v}, an exact match, which the last keeper never managed.",
@@ -764,10 +758,6 @@ const ANSWER_PASS_V: Record<QuestionType, Pool> = {
     "{v}, right on the money, I knew you wouldn't lie to me.",
   ],
 };
-const HOME_PORT_PASS_V: Pool = [
-  "{v} sounds nice, and I'll save that for our quieter nights next winter.",
-  "{v}, noted, and I'll try not to be jealous of an entire city.",
-];
 const ANSWER_FAIL: Record<QuestionType, Pool> = {
   SEED: [
     "That wasn't really an answer, {n}, and I was actually curious.",
@@ -814,7 +804,7 @@ function forBand(pools: BandPools, band: Band): Pool {
 // A name CHUD must never say (GAME_LOGIC 8.10). Also used to keep a player named "Ram" from making CHUD say it.
 export const FORBIDDEN_NAME_RE = /\bram\b|\baltman\b/i;
 
-function cleanName(name: string | null): string | null {
+export function cleanName(name: string | null): string | null {
   if (!name) return null;
   const n = name.replace(/[^\p{L}\p{N}' -]/gu, "").replace(/\s+/g, " ").trim().slice(0, 20).trim();
   if (FORBIDDEN_NAME_RE.test(n)) return null;
@@ -834,8 +824,8 @@ function formatEmbeddedQuestion(q: string): string {
   return /^I(?:\b|')/.test(formatted) ? formatted : formatted[0].toLowerCase() + formatted.slice(1);
 }
 
-function fill(template: string, ctx: LineContext, entry?: Entry, value?: string, question?: string): string {
-  const name = cleanName(ctx.name) ?? "keeper";
+function fill(template: string, ctx: LineContext, entry?: Entry, value?: string, question?: string, keepName = false): string {
+  const name = keepName ? "{n}" : cleanName(ctx.name) ?? "keeper";
   const e = entry ? ENTRY_PHRASE[entry] : "";
   const x = entry ? ENTRY_PLAIN[entry] : "";
   const Q = formatQuestion(question ?? DEFAULT_OPEN_QUESTION);
@@ -914,9 +904,6 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
       return outcome.question;
     case "answer_ack": {
       const value = outcome.value && ECHO_OK.test(outcome.value) && !FORBIDDEN_NAME_RE.test(outcome.value) ? outcome.value : undefined;
-      if (value && outcome.pass && outcome.type === "SEED" && outcome.factKey === "home_port") {
-        return choose(HOME_PORT_PASS_V, ctx, undefined, value);
-      }
       const base = (outcome.pass ? ANSWER_PASS : ANSWER_FAIL)[outcome.type];
       const withValue = (outcome.pass ? ANSWER_PASS_V : ANSWER_FAIL_V)[outcome.type];
       return choose(value && withValue.length ? withValue : base, ctx, undefined, value);
@@ -972,7 +959,6 @@ export function allLineTemplates(): string[] {
   Object.values(NIGHT_OPENERS).forEach(addPools);
   addPools(GENERIC_NIGHT_OPENER);
   for (const m of [ANSWER_PASS, ANSWER_PASS_V, ANSWER_FAIL, ANSWER_FAIL_V]) Object.values(m).forEach((p) => out.push(...p));
-  out.push(...HOME_PORT_PASS_V);
   out.push(...REFUSE_LOCK, ...STAY_QUESTIONS);
   Object.values(LIGHT_QUESTIONS).forEach((p) => out.push(...p));
   for (const t of [...SEED_TOPICS, RADIO_TOPIC]) out.push(t.question, t.memoryQuestion);
@@ -981,18 +967,20 @@ export function allLineTemplates(): string[] {
   return out.filter((s) => s.length > 0);
 }
 
-// Every distinct line text a band can show for scripted pools, with entries expanded.
-// Used by the clip generator (tools/chud-tts). Lines with {v} or {n} are skipped: they depend on what the keeper said or is called.
+// Enumerate the canned clip catalog, expanding the known entries and questions. Leave names for the clip planner.
 export function clipLines(): { band: Band; text: string }[] {
   const out: { band: Band; text: string }[] = [];
   const seen = new Set<string>();
+  const possibleQuestions = [DEFAULT_OPEN_QUESTION, ...STAY_QUESTIONS,
+    ...[...SEED_TOPICS, RADIO_TOPIC].flatMap(({ question, memoryQuestion }) => [question, memoryQuestion])];
   const add = (band: Band, template: string, entry?: Entry) => {
-    if (template.includes("{v}") || template.includes("{n}")) return;
-    const text = fill(template, { band, name: null, rand: () => 0 }, entry);
-    const key = `${band}|${text}`;
-    if (!text || seen.has(key)) return;
-    seen.add(key);
-    out.push({ band, text });
+    for (const question of /\{[Qq]\}/.test(template) ? possibleQuestions : [undefined]) {
+      const text = fill(template, { band, name: null, rand: () => 0 }, entry, undefined, question, true);
+      const key = `${band}|${text.toLowerCase()}`;
+      if (!text || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ band, text });
+    }
   };
   const bands: Band[] = ["WARM", "HURT", "JEALOUS", "FURIOUS"];
   const entries: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
@@ -1025,6 +1013,8 @@ export function clipLines(): { band: Band; text: string }[] {
   for (const t of STAY_QUESTIONS) for (const band of bands) add(band, t);
   for (const topic of [...SEED_TOPICS, RADIO_TOPIC]) for (const band of bands) add(band, topic.question), add(band, topic.memoryQuestion);
   for (const pools of [ANSWER_PASS, ANSWER_FAIL]) for (const pool of Object.values(pools)) for (const band of bands) for (const t of pool) add(band, t);
-  for (const pools of Object.values(NIGHT_OPENERS)) for (const band of bands) for (const t of forBand(pools, band)) add(band, t);
+  for (const pools of [...Object.values(NIGHT_OPENERS), GENERIC_NIGHT_OPENER]) {
+    for (const band of bands) for (const t of forBand(pools, band)) add(band, t);
+  }
   return out;
 }

@@ -15,6 +15,7 @@ from pathlib import Path
 
 
 VOICE = "en_US-ryan-medium"
+VOICE_REVISION = "b145f2ac26522d6a2ccde0164b7b0e48b1e3199c"
 BUNDLED_VOICE = Path(__file__).resolve().parent / "voice"
 VOICE_HASHES = {
     f"{VOICE}.onnx": "abf4c274862564ed647ba0d2c47f8ee7c9b717d27bdad9219100eb310db4047a",
