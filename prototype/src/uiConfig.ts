@@ -62,6 +62,8 @@ export const BRACE = {
   PUSH_ZOOM: -0.02, // and pulled back from the door
   PUSH_ROT: 0.008, // radians, alternating sides
   PUSH_TREMOR: 2.2, // extra tremor px while he pushes
+  REPEL_PUSH: 2, // final shove relative to the ordinary shove
+  REPEL_SETTLE: 0.24, // seconds to settle after the final shove
   ARMS_EASE: 16, // per second, arms sliding in on press and out on release
   ARMS_DROP: 240, // plate px the arms start below their pose (off the bottom of the frame)
   ARMS_SLIP: 9, // plate px the hands slip down at fatigue 1

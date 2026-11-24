@@ -250,12 +250,13 @@ function onEvent(ev: GameEvent, t: number): void {
       // Also handles dev jumps within the same phase, including those that skip the card.
       showScreen(engine.state.phase);
       break;
-    // The lesson uses room sounds at the entries. Night visits are silent (GAME_LOGIC 7.4).
+    // The lesson uses room sounds to cue the arrivals.
     case "RAM_AT_ENTRY":
       if (engine.isPracticing) sound.decoy(ev.entry === "WINDOW" ? "glass" : "knock", ev.entry === "WINDOW" ? -0.8 : 0.8);
       break;
-    case "RAM_RETREAT":
-      if (engine.isPracticing && ev.entry === "HATCH") sound.decoy("metal", 0.8);
+    case "RAM_REPELLED":
+      scene.repelImpact(ev.entry);
+      sound.braceImpact();
       break;
     case "DECOY":
       sound.decoy(ev.sound, ev.pan);
@@ -995,7 +996,7 @@ function devSkipClock(): void {
   const t = now();
   const evs = engine.drainEvents();
   const mute = new Set<GameEvent["type"]>([
-    "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "SILENCE_PULL",
+    "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_REPELLED", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "SILENCE_PULL",
     "DECOY", "LIGHT_CHANGED", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
   ]);
   sound.stopCues();

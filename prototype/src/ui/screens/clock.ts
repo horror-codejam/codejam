@@ -3,7 +3,7 @@ import { after } from "./timing";
 const CARD_HOLD = 4000;
 const CARD_FADE = 800;
 const NIGHT_TIPS = [
-  "Lock it, or hold it shut. Ask ChudGPT if you don't know where he is.",
+  "Brace or lock the entry until he gives up.",
   "The more ChudGPT thinks you'll leave, the more it lies and refuses.",
   "The noises aren't him. He makes no sound.",
   "Ask where he is too often and ChudGPT stops answering for a while.",

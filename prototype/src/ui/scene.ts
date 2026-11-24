@@ -97,6 +97,7 @@ export class Scene {
   private wasBracing = false;
   private lungeAt = -10; // fxT of the last brace start (push-in)
   private relaxAt = -10; // fxT of the last brace end (relax-back)
+  private repel: { entry: Entry; at: number } | null = null;
   private desk = new Container();
   private deskRender: boolean;
   private deskFinal: boolean; // the final desk plate: terminal on the monitor, lightning and beacon on the side panes
@@ -405,6 +406,10 @@ export class Scene {
     this.jumpActive = false;
   }
 
+  repelImpact(entry: Entry): void {
+    this.repel = { entry, at: this.fxT };
+  }
+
   update(engine: GameEngine, t: number, typing: boolean): void {
     const s = engine.state;
     if (s.phase === "PLAYING") this.prepareClips();
@@ -511,7 +516,7 @@ export class Scene {
       L.tell.alpha = vis === "tell_clear" ? 1 : L.render ? 0.6 : 0.45;
       pushing = bracing && tellUp;
     }
-    // one shove per PUSH_PERIOD: a sharp knock then a slow give (0..1). Felt, never heard: Ram is silent.
+    // One silent shove per PUSH_PERIOD, followed by a stronger shove on repel.
     let push = 0;
     let pushSide = 1;
     if (pushing) {
@@ -519,6 +524,10 @@ export class Scene {
       const ph = (ft / BRACE.PUSH_PERIOD) % 1;
       push = ph < 0.1 ? ph / 0.1 : Math.exp(-(ph - 0.1) * 6);
       pushSide = n % 2 === 0 ? 1 : -1;
+    }
+    if (this.repel && holding === this.repel.entry && !dashing && !this.reducedMotion.matches) {
+      const remaining = Math.max(0, 1 - (ft - this.repel.at) / BRACE.REPEL_SETTLE);
+      push = Math.max(push, BRACE.REPEL_PUSH * remaining ** 2);
     }
     // tremor: three incommensurate sines (organic, not random jitter), -1..1
     const tr = (ph: number): number =>

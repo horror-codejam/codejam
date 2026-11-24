@@ -292,6 +292,7 @@ describe("ChudGPT's practice lessons", () => {
     expect(engine.state.ram.target).toBe("HATCH");
     expect(tutorial.allowsQuick("LOCK_HATCH")).toBe(true);
     waitForNudge("nudgeHatch");
+    expect(spoken).toContain("It's at the hatch. I can't lock it. Click to run over, then hold it shut until it gives up.");
     engine.turn("HATCH");
     expect(tutorial.prompt(engine.state).chip).toBe("CLICK");
     engine.goToEntry("HATCH");

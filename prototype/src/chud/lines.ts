@@ -113,7 +113,7 @@ export const PRACTICE_LINES = {
   light: "Something's at the window. It's too dark to see. Hold Shift to look.",
   lock: "See it? Come back to my screen and click W. I'll lock the window.",
   windowSafe: "Good. It's gone. A lock keeps it out.",
-  hatch: "It's at the hatch. I can't lock it. Click to run over, then hold the mouse button to brace.",
+  hatch: "It's at the hatch. I can't lock it. Click to run over, then hold it shut until it gives up.",
   hatchRefusal: "I can't lock the hatch this time. You've got this. Go hold it shut.",
   return: "Nice. Your arms get tired, so don't hold too long. Come back to the desk.",
   location: "If you don't know where it is, just ask me. At the desk, click 'where is it'.",

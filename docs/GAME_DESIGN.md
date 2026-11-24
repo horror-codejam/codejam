@@ -45,8 +45,8 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as ChudGPT on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
-- New Game leads from the shipwreck to the keeper name prompt. At the desk, ChudGPT explains the rescue and the threat, then teaches the controls in a safe practice evening. Players explore, reveal and lock a staged window visit, brace the hatch during a second visit, ask for a location, and type a reply. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
-- ChudGPT never names the threat. Night 1 opens with a vague warning. During Night 1, ChudGPT tells the keeper which entry to lock or brace when something reaches it. On later nights the keeper can ask where it is.
+- New Game leads from the shipwreck to the keeper name prompt. At the desk, ChudGPT explains the rescue and the threat, then teaches the controls in a safe practice evening. Players explore, reveal and lock a staged window visit, brace the hatch until the threat gives up during a second visit, ask for a location, and type a reply. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
+- ChudGPT never names the threat. Night 1 opens with a vague warning. During Night 1, ChudGPT names which entry to defend and confirms when a repel succeeds. On later nights the keeper can ask where it is.
 - Each timed midnight card shows "12:00 AM", the night number and one tip for that night.
 
 ## The lighthouse
@@ -67,7 +67,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 Controls: the mouse moves you, Shift is the light, the rest of the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
 1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it` and `unlock all` are clickable. ChudGPT can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
 2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
-3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until Ram leaves (about 6 s per brace, then the arms give out and you need 1 s to rest). Push the return edge to run back. Standing at the entry without bracing does not defend. Cannot type or see the PC while at an entry.
+3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until he gives up. A brace can last up to 6 s, followed by a 1 s rest when you release or your arms give out. Push the return edge to run back. You can type at the desk.
 4. Read one paper on the tabletop per night. The newspaper clipping, leaving calendar and Daniel Vale's diary appear on Nights 1, 2 and 3. Clicking the paper opens the image in the center while the night keeps running.
 5. Collect the kill code slips Ram leaves at the entries he was blocked at (nights 2 to 5). Collected slips stay on the desk and can be reread (GAME_LOGIC.md 6.7).
 
@@ -79,9 +79,10 @@ The release uses final room plates and per-entry scare sequences. Missing run fo
 | 1. In the caves | Out of reach | Nothing (the storm, the house settling) |
 | 2. Approaching | Heading for one entry | Nothing to hear. With that entry lit: a hint of him |
 | 3. At the entry | Trying to break in | Nothing to hear. A clear tell with the entry's light, even when locked. At the desk a dark entry looks empty. Up close the tell is faint in the dark. Right hatch: fingers over the lifting lid. Left window: a hand on the glass. Rear balcony: the door ajar, a head in the gap |
-| Result | Locked or held: he leaves, silently. Open: he gets in, silently | He is in the room. The scare comes when you light his entry and look, put down what you are reading, or on its own. 6 AM with him inside is a loss |
+| Repelled | A few seconds of continuous defense force a retreat | One last shove, a low thud from the entry and the tell vanishes |
+| Attempt deadline | A defended entry forces a retreat. An undefended entry lets him in silently | After a breach, the scare comes when you light his entry and look, put down what you are reading, or on its own. 6 AM with him inside is a loss |
 
-Pacing: constant fear, low frequency. Few visits (3 or 4 on night 1, 7 or 8 on night 5), long and uneven gaps (lulls and sudden quick returns), slow early in the night and tighter toward dawn. Ram never speaks.
+Pacing: few visits, long and uneven gaps (lulls and sudden quick returns), slow early in the night and tighter toward dawn. Repels let the next gap start sooner. Ram never speaks.
 
 ## The AI's suspicion meter (0 to 100, shown by its mood and color)
 | Range | Mood | Lock request | Lies about Ram | Acts against player |

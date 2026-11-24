@@ -1,4 +1,4 @@
-// Web Audio for the room, player, CHUD, and screen transitions. Entry itself remains silent.
+// Web Audio for the room, player, CHUD, and screen transitions.
 import { RADIO_LINES } from "../chud/lines";
 import type { Band, Entry, View } from "../sim/types";
 import { CHUD_SPEECH } from "../uiConfig";
@@ -698,13 +698,18 @@ export class Sound {
       return;
     }
     this.voice(this.master, 125, 92, 0.3, 0.07, 620);
-    this.burst(this.master, 0.09, "lowpass", 300, 0.25); // body against wood or metal
+    this.braceImpact();
     this.loop("brace", 1250, (i) => {
       if (i === 0) return;
       // a held breath forced out in a hiss, now and then a small voiced strain
       this.burst(this.master, 0.45, "bandpass", 1100 + Math.random() * 300, 0.035, 1.4, 800);
       if (i % 2 === 0) this.voice(this.master, 105, 98, 0.35, 0.025, 520, 0.05);
     });
+  }
+
+  // The body or the lock knocks against the entry.
+  braceImpact(): void {
+    if (this.ctx) this.burst(this.master, 0.09, "lowpass", 300, 0.25);
   }
 
   // Brace end: a release breath. `armsGaveOut` (HOLD_MAX): a heavier gasp.

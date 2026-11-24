@@ -264,7 +264,7 @@ any state but INSIDE --(6:00 AM)--> night won, visit cancelled
 - An `AWAY` gap can never drop below 4 s (or below its own rolled length, if that was shorter, as a quick return can be).
 
 ### 7.4 Cues
-Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, no lines. Everything below is visual, and the visuals depend on the light (6.1).
+Ram makes **no sound**. The visuals depend on the light (6.1). On a repel, the entry takes one short, low thud through the existing brace impact sound. In the hold view the camera takes one stronger shove as the tell disappears.
 
 | Phase | Audio | Visual |
 |---|---|---|
@@ -273,7 +273,7 @@ Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, 
 | AT_ENTRY, HATCH | Same as AWAY | The lid lifts a crack and his fingers curl over the rim. Visible with the hatch light, faint in the dark only when standing or bracing there |
 | AT_ENTRY, WINDOW | Same as AWAY | A hand pressed flat on the glass in fogged condensation; in the hold view, part of his face. Visible with the window light, faint in the dark only when standing or bracing there |
 | AT_ENTRY, BALCONY | Same as AWAY | The door pushed ajar, a head in the gap. Visible with the balcony light, faint in the dark only when standing or bracing there |
-| RETREATING | Same as AWAY | Tell disappears |
+| RETREATING | A single low thud on repel, then the same as AWAY | On repel, one stronger shove in the hold view. Tell disappears on retreat |
 | INSIDE | Same as AWAY | Only with his entry lit and looked at: him, standing just inside. That sets off the scare (7.7) |
 
 **Decoy noises:** creaks, knocks, metal and glass, stereo panned (-1 left to 1 right), at the night's decoy interval. A separate seeded random stream controls each event's timing, sound category and pan without reading Ram's state. The audio layer picks a recording from the category. Decoys continue while he is inside. The storm and room-tone recordings loop during play.
