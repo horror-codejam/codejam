@@ -35,6 +35,7 @@ Last updated: 2026-11-21 (late night)
 - Next: team playtest of the new loop (is night 1 tense rather than empty, are PEEKED and refusals fair, light cut rate), tune numbers in prototype/src/config.ts, then commit and PR with the team's go-ahead.
 
 ## Codex (art pre-production)
+- Clarity pass, Task C: added midnight tips, a skippable breach explanation and clearer practice instructions for returning to CHUD's screen. The build and all 361 tests passed. Inspected the Night 2 and death screenshots in headless Chrome and verified retry, both skip inputs, timed return and the practice speech request with a WAV fixture.
 - Clarity pass, Task B: added CHUD's skippable story and practice with staged window and hatch visits. Verified completion and skip in headless Chrome, reviewed four screenshots, and checked Web Audio timing with a WAV fixture because local Piper was unavailable. The build and all 339 tests passed, including the pre-change fixed-seed Night 1 to 5 trace.
 - Clarity pass, Task A: independent lights and locks, empty dark entry views from the desk, dialogue-only night captions, truthful Night 1 arrival warnings and revised silence lines. The production build and all 332 tests passed.
 - Trapped ending: the Coast Guard approach still follows the existing text, then fades to black before Title. Verified the timed and click-to-fade paths in the browser and measured continuing game audio through the shot and fade. The build and all 308 tests passed.
