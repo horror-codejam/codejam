@@ -164,6 +164,7 @@ function lesson(playback?: SpeechPlayback) {
   const tutorial = new EveningTutorial();
   const emitted: GameEvent[] = [];
   const spoken: string[] = [];
+  let interruptions = 0;
   let t = 0;
   function step(dt = 0) {
     t += dt;
@@ -173,14 +174,14 @@ function lesson(playback?: SpeechPlayback) {
     tutorial.update(engine, t, (line) => {
       spoken.push(line.text);
       return playback;
-    });
+    }, () => { interruptions++; });
   }
   function skipStory() {
     tutorial.skipStory(engine, t);
     step();
   }
   tutorial.start(engine);
-  return { engine, tutorial, emitted, spoken, step, skipStory };
+  return { engine, tutorial, emitted, spoken, step, skipStory, interruptions: () => interruptions };
 }
 
 describe("ChudGPT's practice lessons", () => {
@@ -225,7 +226,7 @@ describe("ChudGPT's practice lessons", () => {
 
   it("advances on each lesson action and emits one nudge for every waiting step", () => {
     const playback: SpeechPlayback = { state: "finished", cancelPending: () => {} };
-    const { engine, tutorial, emitted, spoken, step, skipStory } = lesson(playback);
+    const { engine, tutorial, emitted, spoken, step, skipStory, interruptions } = lesson(playback);
     const settleSpeech = () => {
       for (let i = 0; i < 8; i++) step(0.5);
     };
@@ -245,6 +246,7 @@ describe("ChudGPT's practice lessons", () => {
       engine.turn(entry);
       step();
       expect(tutorial.step).toBe("views");
+      if (entry === "BALCONY") expect(tutorial.prompt(engine.state).chip).toBe("MOVE AWAY, THEN BACK TO BOTTOM EDGE");
       engine.turn("DESK");
       step();
     }
@@ -262,10 +264,14 @@ describe("ChudGPT's practice lessons", () => {
     engine.turn("WINDOW");
     step();
     expect(tutorial.prompt(engine.state).chip).toBe("HOLD SHIFT");
+    const beforeLighting = interruptions();
     engine.setLight(true);
     step();
 
     expect(tutorial.step).toBe("lock");
+    expect(interruptions()).toBe(beforeLighting + 1);
+    step();
+    expect(spoken.at(-1)).toBe(PRACTICE_LINES.lock);
     expect(tutorial.allowsQuick("LOCK_WINDOW")).toBe(true);
     waitForNudge("nudgeLock");
     engine.turn("DESK");

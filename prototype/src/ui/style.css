@@ -37,6 +37,7 @@ button:disabled { opacity: 0.35; cursor: default; }
 #subtitle.desk { bottom: 104px; }
 #subtitle.practice { bottom: 72px; }
 #subtitle.practice.desk { bottom: 76px; }
+#subtitle.practice-hatch-close { bottom: 152px; }
 @media (prefers-reduced-motion: reduce) { #subtitle { transition: none; } }
 
 #tutorial {

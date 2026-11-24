@@ -109,7 +109,7 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
 | Talk to CHUD | Send a message in chat. CHUD gives a warm canned reply and explains why talking during the night matters |
 | Ready | CHUD repeats the survival goal. `Start Night 1` opens the midnight card |
 
-- Each action has one spoken instruction, a plain control chip, and a single spoken nudge after 12 s of waiting. Quick buttons and chat follow the current lesson. Trying H during the hatch visit produces a friendly refusal.
+- Each action has one spoken instruction, a plain control chip, and a single spoken nudge after 12 s of waiting. Completing an action clears obsolete prompts. Quick buttons and chat follow the current lesson. Trying H during the hatch visit produces a friendly refusal.
 - Practice uses the real controls and their local timers, with entry travel limited to the hatch lesson. Staged visits go straight to `AT_ENTRY`, have no attack deadline, use the normal tell plates, and retreat as soon as the target is locked or the 2 s brace succeeds. Practice reuses directional room sounds at the visit and normal lock and brace foley. Night visits stay silent.
 - The night clock stays at zero. Practice never breaches, scares, kills, changes suspicion or schedules night beats. There are no paper, pause, unlock or power tradeoff lessons. `Skip practice` is available throughout the story and lessons. Starting or skipping resets the room and retains the keeper name. Continue opens the saved night card.
 

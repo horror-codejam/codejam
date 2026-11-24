@@ -217,7 +217,7 @@ function frame(dt: number): void {
   }
   edgeTurn(t);
   if (!paused && engine.isPracticing && phase === "PLAYING") {
-    tutorial.update(engine, t, (line) => showChud(line.text, line.band, t));
+    tutorial.update(engine, t, (line) => showChud(line.text, line.band, t), clearPracticeSpeech);
   }
   const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
   const typing = document.activeElement === terminal.chat && t - lastTypedAt < TYPING_TAIL;
@@ -384,6 +384,11 @@ function stopChudSpeech(): void {
   sound.stopSpeech();
 }
 
+function clearPracticeSpeech(): void {
+  stopChudSpeech();
+  chudCaption = undefined;
+}
+
 function showChud(text: string, band: Band, t: number): SpeechPlayback | undefined {
   chudCaption = { text, until: t + Math.max(PRACTICE_UI.MIN_READ_TIME, text.length * PRACTICE_UI.READ_SECONDS_PER_CHARACTER) };
   terminal.addLine("chud", text, t);
@@ -433,6 +438,7 @@ function renderHud(t: number): void {
   ui.subtitle.classList.toggle("visible", !!caption);
   ui.subtitle.classList.toggle("desk", deskView); // sits on the bare desk above the keyboard, not over it
   ui.subtitle.classList.toggle("practice", practicing);
+  ui.subtitle.classList.toggle("practice-hatch-close", practicing && view === "HATCH" && (pos.kind === "STANDING" || pos.kind === "HOLDING"));
 
   show(terminal.root, deskView);
   terminal.root.inert = paused || s.player.reading !== null || (practicing && tutorial.step === "story");
@@ -721,8 +727,7 @@ function wireInput(): void {
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event instanceof KeyboardEvent && event.repeat) return;
-    stopChudSpeech();
-    chudCaption = undefined;
+    clearPracticeSpeech();
     tutorial.skipStory(engine, now());
   };
   window.addEventListener("click", skipStory, { capture: true });

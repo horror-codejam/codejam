@@ -12,7 +12,7 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 ### Practice evening
 
 - `EveningTutorial` in `src/ui/tutorial.ts` advances the story and action lessons in GAME_LOGIC 5.0. It reads the real view, light, relay and brace state, and listens for the location answer and submitted chat. `main.ts` connects it to the controls and presents a plain key chip and the existing terminal target outline.
-- Practice lines in `src/chud/lines.ts` emit `CHUD_SAY` and reach the normal chat, subtitle, chime and Piper playback. Practice queues one caption with its voice at a time. `Sound.speak` reports playback state so the story can wait for the audio end, fall back to reading time or cancel on a skip. The Piper request contract is unchanged.
+- Practice lines in `src/chud/lines.ts` emit `CHUD_SAY` and reach the normal chat, subtitle, chime and Piper playback. Practice queues one caption with its voice at a time and clears a control prompt when its action is done. `Sound.speak` reports playback state so the story can wait for the audio end, fall back to reading time or cancel on a skip. The Piper request contract is unchanged.
 - `stagePracticeVisit` uses the existing arrival and retreat events and tell plates. Its practice-only step runs after the relay and player timers and never enters the night scheduler. The staged window uses the existing glass room cue, and the hatch uses the existing knock and metal cues. The lock and brace keep their usual foley. Night 1 to 5 simulation is checked against a fixed-seed trace captured before the rewrite.
 
 ### Player-facing visual audit (2026-11-22)

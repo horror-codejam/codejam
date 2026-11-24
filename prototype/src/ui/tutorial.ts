@@ -22,8 +22,13 @@ type Line = Extract<GameEvent, { type: "CHUD_SAY" }>;
 type PlayLine = (line: Line) => SpeechPlayback | undefined;
 
 function edgeChip(from: View, to: View): string {
+  if (from === "BALCONY" && to === "DESK") return "MOVE AWAY, THEN BACK TO BOTTOM EDGE";
   const edge = Object.entries(EDGE_TARGET[from]).find(([, target]) => target === to)?.[0];
   return edge ? `MOUSE TO THE ${edge.toUpperCase()} EDGE` : "";
+}
+
+function practiceLine(line: Line | undefined): PracticeLine | undefined {
+  return line?.outcome.kind === "practice_line" ? line.outcome.line : undefined;
 }
 
 export class EveningTutorial {
@@ -55,10 +60,14 @@ export class EveningTutorial {
   }
 
   hear(line: Line): void {
-    const { outcome } = line;
-    if (outcome.kind === "practice_line") {
-      const storyIndex = STORY.findIndex((id) => id === outcome.line);
-      if (storyIndex >= 0 && (this.step !== "story" || storyIndex !== this.storyIndex)) return;
+    const id = practiceLine(line);
+    const storyIndex = STORY.findIndex((storyLine) => storyLine === id);
+    if (storyIndex >= 0 && (this.step !== "story" || storyIndex !== this.storyIndex)) return;
+    if (id === "hatchRefusal") {
+      if (practiceLine(this.active?.line) !== id && !this.queue.some((queued) => practiceLine(queued) === id)) {
+        this.queue.unshift(line);
+      }
+      return;
     }
     this.queue.push(line);
   }
@@ -73,8 +82,8 @@ export class EveningTutorial {
       || (this.step === "location" && command === "ASK_LOCATION");
   }
 
-  update(engine: GameEngine, t: number, play: PlayLine): void {
-    this.updateSpeech(t, play);
+  update(engine: GameEngine, t: number, play: PlayLine, stop: () => void): void {
+    this.updateSpeech(t, play, stop);
     const s = engine.state;
     const { position, view } = s.player;
     const facingDesk = position.kind === "DESK" && view === "DESK";
@@ -86,19 +95,19 @@ export class EveningTutorial {
         if (position.kind === "DESK" && view !== "DESK") this.visited.add(view);
         if (facingDesk && this.visited.size === VIEWS.length) {
           engine.stagePracticeVisit("WINDOW");
-          this.enter(engine, "light", t);
+          this.advanceAction(engine, "light", t, stop);
           return;
         }
         break;
       case "light":
         if (view === "WINDOW" && engine.ramVisual(view) === "tell_clear") {
-          this.enter(engine, "lock", t);
+          this.advanceAction(engine, "lock", t, stop);
           return;
         }
         break;
       case "lock":
         if (s.power.slot === "LOCK_WINDOW" && s.ram.state === "RETREATING") {
-          this.enter(engine, "windowSafe", t);
+          this.advanceAction(engine, "windowSafe", t, stop);
           return;
         }
         break;
@@ -110,13 +119,13 @@ export class EveningTutorial {
         return;
       case "hatch":
         if (s.ram.state === "RETREATING") {
-          this.enter(engine, "return", t);
+          this.advanceAction(engine, "return", t, stop);
           return;
         }
         break;
       case "return":
         if (facingDesk) {
-          this.enter(engine, "location", t);
+          this.advanceAction(engine, "location", t, stop);
           return;
         }
         break;
@@ -157,7 +166,18 @@ export class EveningTutorial {
     }
   }
 
-  private updateSpeech(t: number, play: PlayLine): void {
+  private advanceAction(engine: GameEngine, step: Exclude<Step, "story">, t: number, stop: () => void): void {
+    this.queue.length = 0;
+    this.active = undefined;
+    stop();
+    this.enter(engine, step, t);
+  }
+
+  private updateSpeech(t: number, play: PlayLine, stop: () => void): void {
+    if (this.active && practiceLine(this.queue[0]) === "hatchRefusal") {
+      this.active = undefined;
+      stop();
+    }
     const active = this.active;
     if (active) {
       const status = active.playback?.state;
@@ -165,8 +185,8 @@ export class EveningTutorial {
       active.playback?.cancelPending();
       active.nextAt ??= t + PRACTICE_UI.LINE_PAUSE;
       if (t < active.nextAt) return;
-      const { outcome } = active.line;
-      if (outcome.kind === "practice_line") this.lastFinished = outcome.line;
+      const finished = practiceLine(active.line);
+      if (finished) this.lastFinished = finished;
       this.active = undefined;
     }
 
@@ -205,7 +225,7 @@ export class EveningTutorial {
       case "return":
         return { chip: position.kind === "RETURNING" ? "" : back };
       case "location":
-        return back ? { chip: back } : { chip: "CLICK WHERE IS IT", target: "ASK_LOCATION" };
+        return back ? { chip: back } : { chip: 'CLICK "WHERE IS IT"', target: "ASK_LOCATION" };
       case "chat":
         return back ? { chip: back } : { chip: "TYPE + ENTER", target: "chat" };
       default:
