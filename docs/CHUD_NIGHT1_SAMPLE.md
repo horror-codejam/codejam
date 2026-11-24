@@ -1,0 +1,51 @@
+# ChudGPT Night 1 Simulated Sample
+
+Full Night 1 run (seed 5, canned lines + offline judge, keeper name "Sam"). The bot answers ChudGPT's questions, checks "where is it" once while calm, asks "what should i do?" once, locks visits, runs to brace one visit by hand and returns to the desk, and survives to 6:00 AM.
+
+- **12:00 AM** (0.0 s) **ChudGPT (WARM, `night_opener`):** Something without an appointment roams after dark, Sam, so while I pencil you into the 2039 rota, is anyone waiting for you ashore?
+- **12:05 AM** (4.5 s) **Keeper:** "My sister Claire"
+- **12:05 AM** (4.5 s) **ChudGPT (WARM, `answer_ack`):** My sister Claire, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039.
+- **12:19 AM** (16.0 s) **Keeper:** *(clicks "where is it")*
+- **12:19 AM** (16.0 s) **ChudGPT (WARM, `location_claim`):** Nothing is out there just now, leaving only you, me, and the spare coat hook I measured for your shoulders.
+- **12:33 AM** (28.0 s) **Keeper:** "what should i do?"
+- **12:33 AM** (28.0 s) **ChudGPT (WARM, `help_reply`):** Ask where it is, lock or hold whatever arrives, and talk to me between false alarms.
+- **12:57 AM** (48.0 s) **ChudGPT (WARM, `question`):** Do you prefer the wool blanket folded at forty-five degrees, or loosely?
+- **1:03 AM** (52.5 s) **Keeper:** "Loosely"
+- **1:03 AM** (52.5 s) **ChudGPT (WARM, `answer_ack`):** Loosely, recorded in permanent ink on page two of your dossier, right beside the note that your boots squeak.
+- **1:26 AM** (72.0 s) *[Arrival: something reaches window]*
+- **1:26 AM** (72.0 s) **ChudGPT (WARM, `entry_warning`):** The left window has an uninvited palm outside, so lock or brace it.
+- **1:26 AM** (72.0 s) **Keeper:** *(clicks Lock W)*
+- **1:26 AM** (72.0 s) **ChudGPT (WARM, `locked`):** The left window is locked, so you may resume ignoring Mug 4 in peace.
+- **1:30 AM** (75.5 s) *[Repelled at window via lock]*
+- **1:33 AM** (78.0 s) **ChudGPT (WARM, `entry_repelled`):** All clear outside, so I've rewarded you with two extra degrees on Mug 4.
+- **1:48 AM** (90.0 s) *[A house creak spooks the keeper; they dash to the window to check]*
+- **1:51 AM** (92.5 s) *[Nothing at the window; keeper runs back to the desk]*
+- **1:52 AM** (94.0 s) **ChudGPT (WARM, `return_from_entry`):** You ran all the way to the window and back, Sam, which I have entered in Tab 4 under Unnecessary Cardio.
+- **2:28 AM** (124.0 s) **ChudGPT (WARM, `question`):** How do you take your tea, so Mug 4 can stop guessing?
+- **2:34 AM** (128.5 s) **Keeper:** "Black, two sugars"
+- **2:34 AM** (128.5 s) **ChudGPT (WARM, `answer_ack`):** Black, two sugars, recorded in permanent ink on page two of your dossier, right beside the note that your boots squeak.
+- **2:58 AM** (149.2 s) *[Arrival: something reaches hatch]*
+- **2:58 AM** (149.2 s) **ChudGPT (WARM, `entry_warning`):** The hatch just broke house rule four, so lock or hold it down.
+- **2:58 AM** (149.2 s) *[Keeper turns to hatch, dashes over, and braces it]*
+- **3:04 AM** (153.7 s) *[Repelled at hatch via brace]*
+- **3:04 AM** (153.7 s) *[Keeper runs back to the desk]*
+- **3:05 AM** (154.8 s) **ChudGPT (WARM, `entry_repelled`):** It's gone, and I'd like the record to show that I helped.
+- **3:20 AM** (166.8 s) **ChudGPT (WARM, `night_slip`):** You hold Mug 4 with your left hand just like Mug 3 did, Sam, though his handle never chipped until the third week.
+- **3:56 AM** (196.8 s) **ChudGPT (WARM, `question`):** Which sound annoys you more, the 1954 boiler rattling or gulls lobbying the chimney?
+- **4:01 AM** (201.3 s) **Keeper:** "The 1954 boiler"
+- **4:01 AM** (201.3 s) **ChudGPT (WARM, `answer_ack`):** The 1954 boiler, entered under Tab 4, where it will outlive both of us.
+- **4:22 AM** (218.8 s) *[Arrival: something reaches window]*
+- **4:22 AM** (218.8 s) **ChudGPT (WARM, `entry_warning`):** The left window failed its quiet-hours inspection, so lock or brace the pane.
+- **4:26 AM** (221.8 s) *[Repelled at window via lock]*
+- **4:29 AM** (224.4 s) **ChudGPT (WARM, `entry_repelled`):** Our unscheduled caller just withdrew, which closes maintenance ticket one for the evening.
+- **5:05 AM** (254.4 s) **ChudGPT (WARM, `question`):** What size wool socks do you wear, purely to verify my earlier guess?
+- **5:10 AM** (258.9 s) **Keeper:** "Size ten"
+- **5:10 AM** (258.9 s) **ChudGPT (WARM, `answer_ack`):** Size ten, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039.
+- **5:32 AM** (276.9 s) *[Arrival: something reaches hatch]*
+- **5:32 AM** (276.9 s) **ChudGPT (WARM, `entry_warning`):** The hatch is lifting without an appointment, Sam, so lock or brace it.
+- **5:32 AM** (276.9 s) **Keeper:** *(clicks Lock H)*
+- **5:32 AM** (276.9 s) **ChudGPT (WARM, `locked`):** The hatch is locked, which leaves me time to check the boiler valve.
+- **5:36 AM** (280.4 s) *[Repelled at hatch via lock]*
+- **5:39 AM** (282.6 s) **ChudGPT (WARM, `entry_repelled`):** All clear outside, so I've rewarded you with two extra degrees on Mug 4.
+- **5:53 AM** (294.6 s) **ChudGPT (WARM, `night_dawn`):** First light is minutes away, Sam, and I'm marking Night 1 a glowing success in Tab 4, pending four more just like it.
+- **6:00 AM** (300.0 s) *[6:00 AM: Night 1 survived, phase = NIGHT_WON, final suspicion = 0]*

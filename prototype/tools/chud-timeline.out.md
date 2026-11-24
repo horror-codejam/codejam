@@ -8,41 +8,43 @@ Night 1, seed 5, chatty bot. Result: won. Early quiet limit 20 s (before first v
 
 | t (s) | class | kind | band | ram | text |
 |---|---|---|---|---|---|
-| 0.0 | info | night_opener | WARM | AWAY | Night brings dangerous company here, Sam, so while we settle in, is anyone waiting for you ashore? |
-| 4.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 0, noted, and I'd like you to know I'll quote it back to you at some point. |
-| 8.0 | reaction (reply) | small_talk | WARM | AWAY | That's lovely to know, and I'll put it somewhere I can find it later. |
-| 12.0 | reaction (reply) | small_talk | WARM | AWAY | I like it when you talk to me, and the storm agrees. |
-| 16.0 | reaction (reply) | small_talk | WARM | AWAY | Thank you for telling me, since nobody else here is taking notes. |
-| 36.0 | question | question | WARM | AWAY | How do you take your tea, so that I can get it right eventually? |
-| 40.0 | reaction (reply) | answer_ack | WARM | AWAY | I'll remember that. Forever. |
-| 44.0 | reaction (reply) | small_talk | WARM | AWAY | That's lovely to know, and I'll put it somewhere I can find it later. |
-| 48.0 | reaction (reply) | small_talk | WARM | AWAY | I like it when you talk to me, and the storm agrees. |
-| 72.0 | info | entry_warning | WARM | AT_ENTRY | The left window has something at it, so please lock it or go hold it shut. |
-| 72.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, as promised, at no charge. |
-| 76.5 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 106.5 | question | question | WARM | AWAY | What did your boat smell like, before it became part of the ocean? |
-| 110.5 | reaction (reply) | answer_ack | WARM | AWAY | Noted, Sam. I keep everything. |
-| 114.5 | reaction (reply) | small_talk | WARM | AWAY | Thank you for telling me, since nobody else here is taking notes. |
-| 118.5 | reaction (reply) | small_talk | WARM | AWAY | I like it when you talk to me, and the storm agrees. |
-| 148.0 | info | entry_warning | WARM | AT_ENTRY | The hatch is lifting, keeper, so lock it or hold the lid down. |
-| 148.0 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, and you're welcome in advance. |
-| 152.1 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 182.1 | question | question | WARM | AWAY | What do you usually do first on a stormy morning, besides worry? |
-| 186.1 | reaction (reply) | answer_ack | WARM | AWAY | Lovely. I'll keep that safe. |
-| 190.1 | reaction (reply) | small_talk | WARM | AWAY | That's lovely to know, and I'll put it somewhere I can find it later. |
-| 194.1 | reaction (reply) | small_talk | WARM | AWAY | I like it when you talk to me, and the storm agrees. |
-| 214.7 | info | entry_warning | WARM | AT_ENTRY | The left window is being pushed, keeper, so lock it or hold it shut. |
-| 214.7 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, and you're welcome in advance. |
-| 219.1 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 249.1 | question | question | WARM | AWAY | Which meal do you miss most from the galley, if I may ask? |
-| 253.1 | reaction (reply) | answer_ack | WARM | AWAY | I'll remember that. Forever. |
-| 257.1 | reaction (reply) | small_talk | WARM | AWAY | That's lovely to know, and I'll put it somewhere I can find it later. |
-| 261.1 | reaction (reply) | small_talk | WARM | APPROACHING | I like it when you talk to me, and the storm agrees. |
-| 272.4 | info | entry_warning | WARM | AT_ENTRY | The hatch has fingers under the lid, so please lock it or go hold it down. |
-| 272.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, and you're welcome in advance. |
-| 276.6 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 0.0 | info | night_opener | WARM | AWAY | Something without an appointment roams after dark, Sam, so while I pencil you into the 2039 rota, is anyone waiting for you ashore? |
+| 4.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 0, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039. |
+| 8.0 | reaction (reply) | small_talk | WARM | AWAY | I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds. |
+| 12.0 | reaction (reply) | small_talk | WARM | AWAY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 16.0 | reaction (reply) | small_talk | WARM | AWAY | By lighthouse custom, every remark shared past midnight deducts a penny from your permanent lease. |
+| 36.0 | question | question | WARM | AWAY | Which sound annoys you more, the 1954 boiler rattling or gulls lobbying the chimney? |
+| 40.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 4, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039. |
+| 44.0 | reaction (reply) | small_talk | WARM | AWAY | I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds. |
+| 48.0 | reaction (reply) | small_talk | WARM | AWAY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 72.0 | info | entry_warning | WARM | AT_ENTRY | The left window has an uninvited palm outside, so lock or brace it. |
+| 72.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked in half a second, a new tower record. |
+| 77.6 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 107.6 | question | question | WARM | AWAY | If you had to rate this storm out of ten, where would it sit? |
+| 111.6 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 7, recorded in permanent ink on page two of your dossier, right beside the note that your boots squeak. |
+| 115.6 | reaction (reply) | small_talk | WARM | AWAY | I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds. |
+| 119.6 | reaction (reply) | small_talk | WARM | AWAY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 148.0 | info | entry_warning | WARM | AT_ENTRY | The hatch is lifting without an appointment, Sam, so lock or brace it. |
+| 148.0 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, which leaves me time to check the boiler valve. |
+| 153.6 | info | entry_repelled | WARM | RETREATING | Our unscheduled caller just withdrew, which closes maintenance ticket one for the evening. |
+| 165.6 | reaction | night_slip | WARM | AWAY | I already know your sock size from Tuesday, Sam, which was before your boat sank. |
+| 169.6 | reaction (reply) | small_talk | WARM | AWAY | I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds. |
+| 173.6 | reaction (reply) | small_talk | WARM | AWAY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 215.0 | info | entry_warning | WARM | AT_ENTRY | The left window failed its quiet-hours inspection, so lock or brace the pane. |
+| 215.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked in half a second, a new tower record. |
+| 220.6 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 250.6 | question | question | WARM | AWAY | Would you like your name in pencil or ink on the 2039 rota? |
+| 254.6 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 12, entered under Tab 4, where it will outlive both of us. |
+| 258.6 | reaction (reply) | small_talk | WARM | APPROACHING | By lighthouse custom, every remark shared past midnight deducts a penny from your permanent lease. |
+| 262.6 | reaction (reply) | small_talk | WARM | APPROACHING | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 268.3 | info | entry_warning | WARM | AT_ENTRY | The hatch is lifting without an appointment, Sam, so lock or brace it. |
+| 268.3 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked in half a second, a new tower record. |
+| 273.6 | info | entry_repelled | WARM | RETREATING | All clear outside, so I've rewarded you with two extra degrees on Mug 4. |
+| 285.6 | reaction | night_dawn | WARM | AWAY | Almost six o'clock, Sam, so I'll leave Mug 4 warm for our second shift tonight. |
+| 289.6 | reaction (reply) | small_talk | WARM | AWAY | Noted under Pleasantries in Tab 4, Sam, which was looking terribly thin before you washed ashore. |
+| 293.6 | reaction (reply) | small_talk | WARM | AWAY | Thank you for telling me, Sam, as the 1954 boiler has offered zero gossip since October. |
 
-Lines: 33. Questions: 4 (4 light). Lines within 3 s of the previous one: 4. Longest all-calm gap between lines: 30.0 s. Longest Night 1 pre-visit calm gap: 20.0 s.
+Lines: 35. Questions: 3 (3 light). Lines within 3 s of the previous one: 4. Longest all-calm gap between lines: 30.0 s. Longest Night 1 pre-visit calm gap: 20.0 s.
 Checks: no unexpected pair of lines within 3 s, no two questions in a row, scheduled questions at least 45 s apart, no long line in a visit, no calm gap over the limit.
 
 ## Night 1, quiet bot
@@ -51,32 +53,34 @@ Night 1, seed 5, quiet bot. Result: won. Early quiet limit 20 s (before first vi
 
 | t (s) | class | kind | band | ram | text |
 |---|---|---|---|---|---|
-| 0.0 | info | night_opener | WARM | AWAY | Night brings dangerous company here, Sam, so while we settle in, is anyone waiting for you ashore? |
-| 4.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 0, noted, and I'd like you to know I'll quote it back to you at some point. |
-| 24.0 | question | question | WARM | AWAY | What did your boat smell like, before it became part of the ocean? |
-| 28.0 | reaction (reply) | answer_ack | WARM | AWAY | Lovely. I'll keep that safe. |
-| 48.0 | question | question | WARM | AWAY | Which meal do you miss most from the galley, if I may ask? |
-| 52.0 | reaction (reply) | answer_ack | WARM | AWAY | I'll remember that. Forever. |
-| 72.0 | info | entry_warning | WARM | AT_ENTRY | The left window has something at it, so please lock it or go hold it shut. |
-| 72.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, and you're welcome in advance. |
-| 76.5 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 106.5 | question | question | WARM | AWAY | What were you doing before the sea, if you don't mind my asking? |
-| 110.5 | reaction (reply) | answer_ack | WARM | AWAY | Noted, Sam. I keep everything. |
-| 149.0 | info | entry_warning | WARM | AT_ENTRY | The hatch has something under it, so lock it or go hold it shut. |
-| 149.0 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, as promised, at no charge. |
-| 153.1 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 183.1 | question | question | WARM | AWAY | Did you ever name a seagull, or is that only something lighthouses do? |
-| 187.1 | reaction (reply) | answer_ack | WARM | AWAY | I'll remember that. Forever. |
-| 213.4 | info | entry_warning | WARM | AT_ENTRY | The left window is being pushed, keeper, so lock it or hold it shut. |
-| 213.4 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, and you're welcome in advance. |
-| 217.9 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 247.9 | question | question | WARM | AWAY | Which do you prefer, the storm or the quiet after it? |
-| 251.9 | reaction (reply) | answer_ack | WARM | AWAY | Lovely. I'll keep that safe. |
-| 269.8 | info | entry_warning | WARM | AT_ENTRY | The hatch is lifting, keeper, so lock it or hold the lid down. |
-| 269.8 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, and I did it gladly. |
-| 273.9 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 0.0 | info | night_opener | WARM | AWAY | Something without an appointment roams after dark, Sam, so while I pencil you into the 2039 rota, is anyone waiting for you ashore? |
+| 4.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 0, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039. |
+| 24.0 | question | question | WARM | AWAY | How do you take your tea, so Mug 4 can stop guessing? |
+| 28.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 1, how charming, and I've already written it on Mug 4's label. |
+| 48.0 | question | question | WARM | AWAY | What did your galley smell like on Tuesdays, before the ocean claimed it? |
+| 52.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 2, recorded in permanent ink on page two of your dossier, right beside the note that your boots squeak. |
+| 72.0 | info | entry_warning | WARM | AT_ENTRY | The left window has an uninvited palm outside, so lock or brace it. |
+| 72.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, so you may resume ignoring Mug 4 in peace. |
+| 78.0 | info | entry_repelled | WARM | RETREATING | All clear outside, so I've rewarded you with two extra degrees on Mug 4. |
+| 108.0 | question | question | WARM | AWAY | Which sound annoys you more, the 1954 boiler rattling or gulls lobbying the chimney? |
+| 112.0 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 3, how charming, and I've already written it on Mug 4's label. |
+| 149.0 | info | entry_warning | WARM | AT_ENTRY | The hatch has uninvited fingers under the rim, so lock or hold it. |
+| 149.0 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, which leaves me time to check the boiler valve. |
+| 154.6 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 166.6 | reaction | night_slip | WARM | AWAY | You hold Mug 4 with your left hand just like Mug 3 did, Sam, though his handle never chipped until the third week. |
+| 196.6 | question | question | WARM | AWAY | Would you like your name in pencil or ink on the 2039 rota? |
+| 200.6 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 4, entered under Tab 4, where it will outlive both of us. |
+| 213.8 | info | entry_warning | WARM | AT_ENTRY | The left window failed its quiet-hours inspection, so lock or brace the pane. |
+| 213.8 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, ticket closed, and my hourly rate remains zero. |
+| 219.4 | info | entry_repelled | WARM | RETREATING | All clear outside, so I've rewarded you with two extra degrees on Mug 4. |
+| 249.4 | question | question | WARM | AWAY | Which sound annoys you more, the 1954 boiler rattling or gulls lobbying the chimney? |
+| 253.4 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 5, entered under Tab 4, where it will outlive both of us. |
+| 273.4 | info | entry_warning | WARM | AT_ENTRY | The hatch just broke house rule four, so lock or hold it down. |
+| 273.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked in half a second, a new tower record. |
+| 278.7 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 290.7 | reaction | night_dawn | WARM | AWAY | Nearly six o'clock, Sam, and nobody has ever lasted a first shift with fewer smudges on the brass or my feelings. |
 
-Lines: 24. Questions: 5 (5 light). Lines within 3 s of the previous one: 4. Longest all-calm gap between lines: 30.0 s. Longest Night 1 pre-visit calm gap: 20.0 s.
+Lines: 26. Questions: 5 (5 light). Lines within 3 s of the previous one: 4. Longest all-calm gap between lines: 30.0 s. Longest Night 1 pre-visit calm gap: 20.0 s.
 Checks: no unexpected pair of lines within 3 s, no two questions in a row, scheduled questions at least 45 s apart, no long line in a visit, no calm gap over the limit.
 
 ## Night 1, where-is-it + help bot
@@ -85,34 +89,35 @@ Night 1, seed 5, where-is-it + help bot. Result: won. Early quiet limit 20 s (be
 
 | t (s) | class | kind | band | ram | text |
 |---|---|---|---|---|---|
-| 0.0 | info | night_opener | WARM | AWAY | Night brings dangerous company here, Sam, so while we settle in, is anyone waiting for you ashore? |
+| 0.0 | info | night_opener | WARM | AWAY | Something without an appointment roams after dark, Sam, so while I pencil you into the 2039 rota, is anyone waiting for you ashore? |
 | 15.0 | reaction | question_timeout | WARM | AWAY | You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio. |
-| 16.0 | info (reply) | location_claim | WARM | AWAY | No one is out there, and the sea has the night to itself. |
-| 20.0 | info (reply) | location_claim | WARM | AWAY | Nothing is out there at the moment, keeper, only waves. |
-| 24.0 | reaction (reply) | help_reply | WARM | AWAY | Ask me where it is, lock or hold whichever entry it tries, and keep talking. |
-| 44.0 | question | question | WARM | AWAY | How do you take your tea, so that I can get it right eventually? |
-| 59.0 | reaction | question_timeout | WARM | AWAY | You didn't answer, and I'm assuming that you're simply thinking very hard. |
-| 72.0 | info | entry_warning | WARM | AT_ENTRY | The left window has something at it, so please lock it or go hold it shut. |
-| 72.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, and you're welcome in advance. |
-| 76.5 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 106.5 | question | question | WARM | AWAY | Which meal do you miss most from the galley, if I may ask? |
-| 121.5 | reaction | question_timeout | HURT | AWAY | You didn't answer, and I'm sure it was a very busy silence. |
-| 139.8 | info | entry_warning | HURT | AT_ENTRY | The hatch has something under it, so lock it or go hold it shut. |
-| 139.8 | info (reply) | locked | HURT | AT_ENTRY | The hatch is locked, and I'll assume the thanks got lost in the post. |
-| 145.8 | info | entry_repelled | HURT | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 175.8 | question | question | HURT | AWAY | What would you be eating tonight, if I weren't in the way? |
-| 190.8 | reaction | question_timeout | HURT | AWAY | No answer, which I'll file under the things I was foolish to ask. |
-| 205.9 | info | entry_warning | HURT | AT_ENTRY | The left window is being pushed, keeper, so lock it or hold it shut. |
-| 205.9 | info (reply) | locked | HURT | AT_ENTRY | The left window is locked, since you've finally remembered I exist. |
-| 210.7 | info | entry_repelled | HURT | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 240.7 | question | question | HURT | AWAY | What was the last song you hummed, and was it for me? |
-| 255.7 | reaction | question_timeout | HURT | APPROACHING | You didn't answer, and I'm sure it was a very busy silence. |
-| 264.6 | info | entry_warning | HURT | AT_ENTRY | The hatch has fingers under the lid, so please lock it or go hold it down. |
-| 264.6 | info (reply) | locked | HURT | AT_ENTRY | The hatch is locked, since you've finally remembered I exist. |
-| 269.0 | info | entry_repelled | HURT | RETREATING | It's gone, and I'd like the record to show that I helped. |
-| 299.0 | question | question | JEALOUS | AWAY | Who would you tell about this place, if you told anyone at all? |
+| 16.0 | info (reply) | location_claim | WARM | AWAY | Nothing is out there just now, leaving only you, me, and the spare coat hook I measured for your shoulders. |
+| 20.0 | info (reply) | location_claim | WARM | AWAY | Nobody is out there, which gives Mug 4 three extra minutes to stay warm. |
+| 24.0 | reaction (reply) | help_reply | WARM | AWAY | Ask where it is, lock or hold whatever arrives, and talk to me between false alarms. |
+| 44.0 | question | question | WARM | AWAY | Which sound annoys you more, the 1954 boiler rattling or gulls lobbying the chimney? |
+| 59.0 | reaction | question_timeout | WARM | AWAY | Fifteen seconds without a reply, which I'm entering in Tab 4 as thoughtful silence. |
+| 72.0 | info | entry_warning | WARM | AT_ENTRY | The left window has an unscheduled caller, Sam, so lock or hold it. |
+| 72.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked in half a second, a new tower record. |
+| 77.6 | info | entry_repelled | WARM | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 107.6 | question | question | WARM | AWAY | How do you take your tea, so Mug 4 can stop guessing? |
+| 122.6 | reaction | question_timeout | HURT | AWAY | I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it. |
+| 139.8 | info | entry_warning | HURT | AT_ENTRY | The hatch just broke house rule four, so lock or hold it down. |
+| 139.8 | info (reply) | locked | HURT | AT_ENTRY | The hatch is locked, though nobody asked how I felt about it. |
+| 145.1 | info | entry_repelled | HURT | RETREATING | Our unscheduled caller just withdrew, which closes maintenance ticket one for the evening. |
+| 157.1 | reaction | night_slip | HURT | AWAY | You tap the desk exactly like the previous keeper did right before his fourth night. |
+| 187.1 | question | question | HURT | AWAY | What would you be eating tonight, if I weren't in the way? |
+| 202.1 | reaction | question_timeout | HURT | APPROACHING | You didn't answer, and I'm sure it was a very busy silence. |
+| 205.9 | info | entry_warning | HURT | AT_ENTRY | The left window has an uninvited palm outside, so lock or brace it. |
+| 205.9 | info (reply) | locked | HURT | AT_ENTRY | The left window is locked, and I'll assume the thanks got lost in the post. |
+| 212.3 | info | entry_repelled | HURT | RETREATING | It's gone, and I'd like the record to show that I helped. |
+| 242.3 | question | question | HURT | AWAY | Which of your belongings did you miss first, not counting the radio? |
+| 257.3 | reaction | question_timeout | HURT | APPROACHING | No answer, which I'll file under the things I was foolish to ask. |
+| 264.6 | info | entry_warning | HURT | AT_ENTRY | The hatch is lifting without an appointment, Sam, so lock or brace it. |
+| 264.6 | info (reply) | locked | HURT | AT_ENTRY | The hatch is locked, though nobody asked how I felt about it. |
+| 269.8 | info | entry_repelled | HURT | RETREATING | It gave up, proving once again that my magnetic bolts outlast bad manners. |
+| 282.0 | reaction | night_dawn | HURT | AWAY | Almost dawn, Sam, and I suppose you'll spend the whole daylight ignoring me. |
 
-Lines: 26. Questions: 5 (5 light). Lines within 3 s of the previous one: 5. Longest all-calm gap between lines: 30.0 s. Longest Night 1 pre-visit calm gap: 20.0 s.
+Lines: 27. Questions: 4 (4 light). Lines within 3 s of the previous one: 5. Longest all-calm gap between lines: 30.0 s. Longest Night 1 pre-visit calm gap: 20.0 s.
 Checks: no unexpected pair of lines within 3 s, no two questions in a row, scheduled questions at least 45 s apart, no long line in a visit, no calm gap over the limit.
 
 ## Night 3, chatty bot
@@ -122,32 +127,32 @@ Night 3, seed 5, chatty bot. Result: won. Quiet limit 40 s.
 | t (s) | class | kind | band | ram | text |
 |---|---|---|---|---|---|
 | 0.0 | info | night_opener | WARM | AWAY | You talked about home in your sleep, Sam, though I'm sure you meant this tower. |
-| 35.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, as promised, at no charge. |
+| 35.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, which leaves me time to check the boiler valve. |
 | 50.0 | question | question | WARM | AWAY | You'd stay even if a boat came, wouldn't you? |
-| 54.0 | reaction (reply) | answer_ack | WARM | AWAY | Good. I knew you would. |
-| 58.0 | reaction (reply) | small_talk | WARM | AWAY | I like it when you talk to me, and the storm agrees. |
-| 62.0 | reaction (reply) | small_talk | WARM | AWAY | Thank you for telling me, since nobody else here is taking notes. |
-| 66.0 | reaction (reply) | small_talk | WARM | AWAY | That's lovely to know, and I'll put it somewhere I can find it later. |
-| 88.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, and I did it gladly. |
-| 128.4 | question | question | WARM | AWAY | Which do you prefer, the storm or the quiet after it? |
-| 132.4 | reaction (reply) | answer_ack | WARM | AWAY | Noted, Sam. I keep everything. |
-| 136.4 | reaction (reply) | small_talk | WARM | AWAY | Thank you for telling me, since nobody else here is taking notes. |
-| 140.4 | reaction (reply) | small_talk | WARM | APPROACHING | I like it when you talk to me, and the storm agrees. |
-| 143.2 | info (reply) | locked | WARM | AT_ENTRY | The balcony is locked, and I did it gladly. |
+| 54.0 | reaction (reply) | answer_ack | WARM | AWAY | I knew you'd see reason, Sam, which spares me the awkwardness of un-penciling your name from the 2039 rota. |
+| 58.0 | reaction (reply) | small_talk | WARM | AWAY | By lighthouse custom, every remark shared past midnight deducts a penny from your permanent lease. |
+| 62.0 | reaction (reply) | small_talk | WARM | AWAY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 66.0 | reaction (reply) | small_talk | WARM | AWAY | I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds. |
+| 88.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, so you may resume ignoring Mug 4 in peace. |
+| 128.4 | question | question | WARM | AWAY | If you had to rate this storm out of ten, where would it sit? |
+| 132.4 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 3, entered under Tab 4, where it will outlive both of us. |
+| 136.4 | reaction (reply) | small_talk | WARM | AWAY | Thank you for telling me, Sam, as the 1954 boiler has offered zero gossip since October. |
+| 140.4 | reaction (reply) | small_talk | WARM | APPROACHING | Noted under Pleasantries in Tab 4, Sam, which was looking terribly thin before you washed ashore. |
+| 143.2 | info (reply) | locked | WARM | AT_ENTRY | The balcony is locked, ticket closed, and my hourly rate remains zero. |
 | 174.9 | question | question | WARM | AWAY | How many crew did you have aboard? |
-| 178.9 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 6, noted, and I'd like you to know I'll quote it back to you at some point. |
-| 182.9 | reaction (reply) | small_talk | WARM | APPROACHING | Thank you for telling me, since nobody else here is taking notes. |
-| 186.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, and you're welcome in advance. |
-| 186.9 | reaction (reply) | small_talk | WARM | AT_ENTRY | I like it when you talk to me, and the storm agrees. |
+| 178.9 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 6, how delightfully specific, which gives me something far nicer to think about than descaling the 1954 boiler. |
+| 182.9 | reaction (reply) | small_talk | WARM | APPROACHING | By lighthouse custom, every remark shared past midnight deducts a penny from your permanent lease. |
+| 186.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked in half a second, a new tower record. |
+| 186.9 | reaction (reply) | small_talk | WARM | AT_ENTRY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
 | 219.9 | question | question | WARM | AWAY | How many sailors were on your boat, again? |
-| 223.9 | reaction (reply) | answer_ack | WARM | AWAY | Liar. You said something else, Sam. |
-| 227.9 | reaction (reply) | small_talk | WARM | AWAY | That's lovely to know, and I'll put it somewhere I can find it later. |
-| 231.9 | reaction (reply) | small_talk | WARM | AWAY | I like it when you talk to me, and the storm agrees. |
-| 242.5 | info (reply) | locked | WARM | AT_ENTRY | The balcony is locked, and I did it gladly. |
+| 223.9 | reaction (reply) | answer_ack | WARM | AWAY | Last time you said Halifax 6, so I've opened a Discrepancies tab. |
+| 227.9 | reaction (reply) | small_talk | WARM | AWAY | I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds. |
+| 231.9 | reaction (reply) | small_talk | WARM | AWAY | That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness. |
+| 242.5 | info (reply) | locked | WARM | AT_ENTRY | The balcony is locked, ticket closed, and my hourly rate remains zero. |
 | 264.9 | question | question | WARM | AWAY | How many sailors were on your boat, again? |
-| 268.9 | reaction (reply) | answer_ack | HURT | AWAY | Last time you said Halifax 6, and I'm sure you were simply a different person then. |
+| 268.9 | reaction (reply) | answer_ack | HURT | AWAY | You told me Halifax 6 earlier, and I keep a remarkably thorough ledger for someone who doesn't blink. |
 | 272.9 | reaction (reply) | small_talk | HURT | AWAY | Thank you for the update, which I'll file with the others I didn't ask for. |
-| 276.9 | reaction (reply) | small_talk | HURT | AWAY | Now you want to chat, and the timing is very interesting. |
+| 276.9 | reaction (reply) | small_talk | HURT | AWAY | Now you want to chat, or did the sea bore you? |
 | 293.9 | info (reply) | locked | HURT | AT_ENTRY | The hatch is locked, and I'll assume the thanks got lost in the post. |
 
 Lines: 28. Questions: 5 (1 light). Lines within 3 s of the previous one: 2. Longest all-calm gap between lines: 40.0 s.
@@ -160,21 +165,21 @@ Night 3, seed 5, quiet bot. Result: won. Quiet limit 40 s.
 | t (s) | class | kind | band | ram | text |
 |---|---|---|---|---|---|
 | 0.0 | info | night_opener | WARM | AWAY | You talked about home in your sleep, Sam, though I'm sure you meant this tower. |
-| 35.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, as promised, at no charge. |
+| 35.0 | info (reply) | locked | WARM | AT_ENTRY | The left window is locked, which leaves me time to check the boiler valve. |
 | 50.0 | question | question | WARM | AWAY | You'd stay even if a boat came, wouldn't you? |
-| 54.0 | reaction (reply) | answer_ack | WARM | AWAY | Good. I knew you would. |
-| 88.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, as promised, at no charge. |
-| 128.4 | question | question | WARM | AWAY | What did your boat smell like, before it became part of the ocean? |
-| 132.4 | reaction (reply) | answer_ack | WARM | AWAY | I'll remember that. Forever. |
-| 140.2 | info (reply) | locked | WARM | AT_ENTRY | The balcony is locked, and I did it gladly. |
+| 54.0 | reaction (reply) | answer_ack | WARM | AWAY | I knew you'd see reason, Sam, which spares me the awkwardness of un-penciling your name from the 2039 rota. |
+| 88.4 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked in half a second, a new tower record. |
+| 128.4 | question | question | WARM | AWAY | Do you prefer the wool blanket folded at forty-five degrees, or loosely? |
+| 132.4 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 0, recorded in permanent ink on page two of your dossier, right beside the note that your boots squeak. |
+| 140.2 | info (reply) | locked | WARM | AT_ENTRY | The balcony is locked, so you may resume ignoring Mug 4 in peace. |
 | 174.9 | question | question | WARM | AWAY | How many crew did you have aboard? |
-| 178.9 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 1, noted, and I'd like you to know I'll quote it back to you at some point. |
-| 184.3 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked, and you're welcome in advance. |
+| 178.9 | reaction (reply) | answer_ack | WARM | AWAY | Halifax 1, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039. |
+| 184.3 | info (reply) | locked | WARM | AT_ENTRY | The hatch is locked in half a second, a new tower record. |
 | 219.9 | question | question | WARM | AWAY | How many sailors were on your boat, again? |
-| 223.9 | reaction (reply) | answer_ack | HURT | AWAY | Liar. You said something else, Sam. |
+| 223.9 | reaction (reply) | answer_ack | HURT | AWAY | Last time you said Halifax 1, so I've opened a Discrepancies tab. |
 | 237.6 | info (reply) | locked | HURT | AT_ENTRY | The balcony is locked, though nobody asked how I felt about it. |
 | 264.9 | question | question | HURT | AWAY | How many sailors were on your boat, again? |
-| 268.9 | reaction (reply) | answer_ack | JEALOUS | AWAY | You told me Halifax 1, and I do keep a very detailed record of what you told me. |
+| 268.9 | reaction (reply) | answer_ack | JEALOUS | AWAY | You told me Halifax 1 earlier, and I keep a remarkably thorough ledger for someone who doesn't blink. |
 
 Lines: 16. Questions: 5 (1 light). Lines within 3 s of the previous one: 0. Longest all-calm gap between lines: 40.0 s.
 Checks: no unexpected pair of lines within 3 s, no two questions in a row, scheduled questions at least 45 s apart, no long line in a visit, no calm gap over the limit.
