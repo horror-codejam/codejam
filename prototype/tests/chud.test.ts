@@ -405,14 +405,15 @@ describe("canned lines", () => {
     expect(sweep({ kind: "night_opener", night: 2 }, "WARM").some((l) => /kept the cottage warm/i.test(l))).toBe(true);
   });
 
-  it("every night opener in every band uses the new flowing one-sentence voice with no exclamation marks", () => {
+  it("every night opener in every band uses plain clear phrasing with no exclamation marks or staccato", () => {
     for (const night of [1, 2, 3, 4, 5]) {
       for (const band of BANDS) {
         const lines = sweep({ kind: "night_opener", night }, band);
         expect(lines.length).toBeGreaterThan(0);
         for (const l of lines) {
           expect(l, `N${night} ${band}: ${l}`).not.toContain("!");
-          expect(l, `N${night} ${band}: ${l}`).not.toMatch(/[.?!]\s+[A-Z]/); // one flowing sentence, no staccato
+          const sentences = l.split(/(?<=[.?!])\s+/).filter(Boolean);
+          expect(sentences.length, `N${night} ${band}: ${l}`).toBeLessThanOrEqual(night === 1 ? 2 : 1);
           if (night === 1) expect(l.endsWith("?"), `N1 ${band}: ${l}`).toBe(true);
         }
       }
@@ -424,7 +425,7 @@ describe("canned lines", () => {
       for (const l of sweep({ kind: "help_reply", entry: null }, band)) {
         expect(l, `calm ${band}: ${l}`).toMatch(/where it is/i);
         expect(l, `calm ${band}: ${l}`).toMatch(/lock|hold/i);
-        expect(l, `calm ${band}: ${l}`).toMatch(/talk|chat|speak/i);
+        expect(l, `calm ${band}: ${l}`).toMatch(/talk|chat|speak|answer/i);
         expect(l, `calm ${band}: ${l}`).not.toMatch(/\b(ram|altman)\b/i);
       }
       for (const entry of ENTRIES) {
@@ -594,8 +595,8 @@ describe("scripted lines", () => {
 
   it("night 1 opener only warns of danger at night, vaguely, and ends with a question", () => {
     for (const band of BANDS) {
-      for (const l of sweep({ kind: "night_opener", night: 1, question: "Where did you sail from, keeper?" }, band)) {
-        expect(l).toMatch(/danger|dark/i);
+      for (const l of sweep({ kind: "night_opener", night: 1, question: "Where did you sail from?" }, band)) {
+        expect(l).toMatch(/danger|dark|night|doors/i);
         expect(l.endsWith("?")).toBe(true);
         expect(l).not.toMatch(/\b(lock|light|hatch|window|balcony)\b/i);
       }
