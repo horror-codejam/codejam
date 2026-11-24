@@ -68,10 +68,12 @@ export async function voiceRemote(ask: VoiceAsk): Promise<string | null> {
 export const VOICED = new Set([
   "small_talk",
   "warm_reply",
+  "flattery_reply",
   "help_reply",
   "rude_reply",
   "leaving_reply",
   "answer_ack",
+  "answer_first",
   "manipulation_hurt",
   "offensive_deflect",
 ]);

@@ -334,12 +334,14 @@ function onEvent(ev: GameEvent, t: number): void {
         tutorial.hear(ev);
         break;
       }
-      if (!llm.on || !VOICED.has(o.kind) || (o.kind === "help_reply" && o.entry !== null)) {
+      // Quick-button answer_first stays instant/canned; every typed-chat outcome goes through the LLM when available.
+      const quickAnswerFirst = o.kind === "answer_first" && engine.state.player.lastQuickAt > engine.state.player.lastMessageAt;
+      if (!llm.on || !VOICED.has(o.kind) || quickAnswerFirst) {
         showChud(ev.text, ev.band, t);
         break;
       }
-      const calmNow = engine.state.ram.state === "AWAY" || engine.state.ram.state === "RETREATING";
-      // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
+      const atEntryNow = engine.state.ram.state === "AT_ENTRY";
+      // Code already decided the outcome; the LLM only words it. Canned line only if it fails, times out, or is too long during AT_ENTRY.
       const token = dialogueToken;
       void voiceRemote({
         kind: o.kind,
@@ -352,10 +354,10 @@ function onEvent(ev: GameEvent, t: number): void {
         recent: convo.slice(-6),
       }).then((text) => {
         if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
-          // Long lines only while calm (GAME_LOGIC 8.10): a long reworded reply during a visit falls back to the short canned one.
-          const stillCalm = calmNow && (engine.state.ram.state === "AWAY" || engine.state.ram.state === "RETREATING");
+          // During AT_ENTRY only short lines play (GAME_LOGIC 8.10); APPROACHING and calm always show the live LLM reply.
+          const inAttempt = atEntryNow || engine.state.ram.state === "AT_ENTRY";
           const long = text !== null && text.trim().split(/\s+/).length > LONG_LINE_WORDS;
-          const shown = text !== null && (stillCalm || !long) ? text : ev.text;
+          const shown = text !== null && (!inAttempt || !long) ? text : ev.text;
           showChud(shown, ev.band, now());
           engine.noteSpoken(shown); // the engine counts it as speech, so nothing is asked over it
         }
