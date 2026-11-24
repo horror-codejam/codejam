@@ -3,7 +3,6 @@
 
 import type { Band, Entry, InsideTrigger, QuestionType } from "./sim/types";
 
-export const PRACTICE_BRACE_TIME = 2;
 
 export interface NightParams {
   activeEntries: Entry[];
@@ -11,6 +10,7 @@ export interface NightParams {
   awayGap: [number, number]; // base range, random; then times the hour ramp (GAME_LOGIC 7.6)
   approachTime: number;
   atEntryTime: [number, number]; // attempt window, random per visit
+  repelTime: number; // continuous defense at the threatened entry
   lullChance: number; // 0..1, a rolled gap is multiplied by LULL_MULT
   quickReturnChance: number; // 0..1, after a retreat the next gap is QUICK_RETURN_GAP instead
   decoyInterval: [number, number]; // seconds between decoy noises, random
@@ -91,6 +91,7 @@ export const CONFIG: Config = {
       awayGap: [50, 70],
       approachTime: 12,
       atEntryTime: [20, 25],
+      repelTime: 3,
       lullChance: 0,
       quickReturnChance: 0,
       decoyInterval: [15, 30],
@@ -107,6 +108,7 @@ export const CONFIG: Config = {
       awayGap: [36, 52],
       approachTime: 9,
       atEntryTime: [14, 17],
+      repelTime: 3.5,
       lullChance: 0.15,
       quickReturnChance: 0,
       decoyInterval: [12, 25],
@@ -123,6 +125,7 @@ export const CONFIG: Config = {
       awayGap: [32, 46],
       approachTime: 5,
       atEntryTime: [10, 13],
+      repelTime: 4,
       lullChance: 0.15,
       quickReturnChance: 0.15,
       decoyInterval: [10, 20],
@@ -139,6 +142,7 @@ export const CONFIG: Config = {
       awayGap: [28, 42],
       approachTime: 4.5,
       atEntryTime: [8, 10],
+      repelTime: 4.5,
       lullChance: 0.15,
       quickReturnChance: 0.2,
       decoyInterval: [8, 16],
@@ -155,6 +159,7 @@ export const CONFIG: Config = {
       awayGap: [25, 37],
       approachTime: 4,
       atEntryTime: [6, 8],
+      repelTime: 5,
       lullChance: 0.15,
       quickReturnChance: 0.25,
       decoyInterval: [6, 14],

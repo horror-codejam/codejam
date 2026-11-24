@@ -3,7 +3,7 @@
 // and a separate stream for the decoy noises so they can never depend on Ram (GAME_LOGIC 7.4).
 // Every tuning number comes from the Config. The few constants below are rule constants, not tuning knobs.
 
-import { CONFIG, ENDING, PRACTICE_BRACE_TIME, nightLength, type Config, type NightParams } from "../config";
+import { CONFIG, ENDING, nightLength, type Config, type NightParams } from "../config";
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
@@ -112,6 +112,7 @@ export class GameEngine implements IGameEngine {
   private messageSeq = 0;
   private acc = 0;
   private awayStartedAt = 0; // for the 4 s AWAY floor on silence pulls
+  private entryDefense: { since: number; braceSince?: number; lockSince?: number } | null = null;
   private pendingPowerCause: PowerCause = "player";
   private killCode = "";
   private initPapers = 0;
@@ -168,9 +169,16 @@ export class GameEngine implements IGameEngine {
   }
 
   isDefended(entry: Entry): boolean {
-    const s = this.state;
-    const p = s.player.position;
-    return (s.power.slot === lockSlot(entry) && s.power.chudOnline) || (p.kind === "HOLDING" && p.entry === entry);
+    return this.defenseAt(entry) !== null;
+  }
+
+  private defenseAt(entry: Entry): Extract<GameEvent, { type: "RAM_REPELLED" }>["how"] | null {
+    const { player, power } = this.state;
+    const p = player.position;
+    const braced = p.kind === "HOLDING" && p.entry === entry;
+    const locked = power.slot === lockSlot(entry) && power.chudOnline;
+    if (braced) return locked ? "both" : "brace";
+    return locked ? "lock" : null;
   }
 
   // Section 7.4. The light reveals the entry from the desk. Close up, the tell is faint in the dark.
@@ -232,26 +240,22 @@ export class GameEngine implements IGameEngine {
     ram.stateEndsAt = Infinity;
     ram.visitId++;
     log.visit = freshVisitLog();
+    this.entryDefense = null;
+    this.syncEntryDefense();
     this.emit({ type: "RAM_AT_ENTRY", visitId: ram.visitId, entry });
   }
 
   private stepPracticeVisit(): void {
-    const { ram, power, player } = this.state;
+    const { ram } = this.state;
     if (ram.state === "RETREATING" && this.due(ram.stateEndsAt)) {
       ram.state = "AWAY";
       ram.target = null;
       ram.stateEndsAt = Infinity;
       this.emit({ type: "RAM_AWAY", nextVisitAt: Infinity });
     }
-    const entry = ram.target;
-    if (ram.state !== "AT_ENTRY" || !entry) return;
-    const locked = power.chudOnline && power.slot === lockSlot(entry);
-    const p = player.position;
-    const braced = p.kind === "HOLDING" && p.entry === entry && this.due(p.since + PRACTICE_BRACE_TIME);
-    if (!locked && !braced) return;
-    ram.state = "RETREATING";
-    ram.stateEndsAt = this.now + this.cfg.RETREAT_TIME;
-    this.emit({ type: "RAM_RETREAT", visitId: ram.visitId, entry });
+    if (ram.state === "AT_ENTRY" && ram.target === "WINDOW" && this.isDefended("WINDOW")) {
+      this.retreatFrom("WINDOW", this.now);
+    }
   }
 
   finishPractice(): void {
@@ -356,6 +360,7 @@ export class GameEngine implements IGameEngine {
     if (this.state.phase !== "PLAYING" || !p.generatorOn) return;
     p.pending = null;
     p.slot = slot;
+    this.syncEntryDefense();
     this.emit({ type: "POWER_CHANGED", slot, cause: "player" });
   }
 
@@ -379,6 +384,7 @@ export class GameEngine implements IGameEngine {
     this.tickets.clear();
     this.acc = 0;
     this.awayStartedAt = 0;
+    this.entryDefense = null;
     this.pendingPowerCause = "player";
     this.memoryChecked = [];
     this.nightStarts++;
@@ -618,7 +624,8 @@ export class GameEngine implements IGameEngine {
     if (this.isPracticing) this.practiceElapsed = elapsed;
     else s.clock.elapsed = elapsed;
 
-    // Other state moves, before the section 13 list.
+    // Credit the elapsed defense before this tick's relay or arms timer can end it.
+    this.stepRepel();
     this.landRelay();
     this.stepPlayer();
     if (this.isPracticing) {
@@ -696,6 +703,7 @@ export class GameEngine implements IGameEngine {
     if (p.pending && this.due(p.pending.landsAt)) {
       p.slot = p.pending.target;
       p.pending = null;
+      this.syncEntryDefense();
       if (ram.target && p.slot === lockSlot(ram.target)) {
         log.visit.sabotaged = false;
         log.visit.furiousCut = false;
@@ -709,6 +717,7 @@ export class GameEngine implements IGameEngine {
     const p = this.state.power;
     p.slot = "NONE";
     p.pending = null;
+    this.syncEntryDefense();
     this.emit({ type: "POWER_CHANGED", slot: "NONE", cause });
   }
 
@@ -745,6 +754,7 @@ export class GameEngine implements IGameEngine {
     if (s.power.rebootingUntil === null || !this.due(s.power.rebootingUntil)) return;
     s.power.rebootingUntil = null;
     s.power.chudOnline = true;
+    this.syncEntryDefense();
     this.emit({ type: "CHUD_ONLINE", online: true });
     this.syncLight();
     const floor = Math.max(s.chud.suspicion, this.cfg.REBOOT_SUSPICION_FLOOR);
@@ -927,6 +937,7 @@ export class GameEngine implements IGameEngine {
       s.player.holdCooldownUntil = t + this.cfg.HOLD_COOLDOWN;
       s.player.position = { kind: "RETURNING", from: p.entry, until: t + this.cfg.TRAVEL_TIME };
     }
+    this.syncEntryDefense();
     this.emit({ type: "HOLD_ENDED", entry: p.entry, reason });
     this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
     this.syncLight();
@@ -952,6 +963,7 @@ export class GameEngine implements IGameEngine {
       p.braceOnArrival = true;
     } else if (p.kind === "STANDING" && this.now >= p.restUntil - EPS) {
       s.player.position = { kind: "HOLDING", entry: p.entry, since: this.now, stay: true };
+      this.syncEntryDefense();
       this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
     }
   }
@@ -984,6 +996,7 @@ export class GameEngine implements IGameEngine {
     if (p.kind === "TRAVELING" && this.due(p.until)) {
       if (p.stay && !p.braceOnArrival) s.player.position = { kind: "STANDING", entry: p.entry, restUntil: p.until };
       else s.player.position = { kind: "HOLDING", entry: p.entry, since: p.until, ...(p.stay ? { stay: true } : {}) };
+      this.syncEntryDefense();
       this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
       this.syncLight();
     } else if (p.kind === "HOLDING" && this.due(p.since + this.cfg.HOLD_MAX)) {
@@ -1056,10 +1069,44 @@ export class GameEngine implements IGameEngine {
     r.state = "AT_ENTRY";
     r.attemptLength = this.rng.range(lo, hi); // random per visit, so the end moment cannot be counted (section 4)
     r.stateEndsAt = r.stateEndsAt + r.attemptLength;
+    this.entryDefense = null;
+    this.syncEntryDefense();
     this.emit({ type: "RAM_AT_ENTRY", visitId: r.visitId, entry });
     if (s.phase !== "PLAYING") return;
     if (s.run.night === 1 && s.power.chudOnline) this.say({ kind: "entry_warning", entry });
     this.tryFuriousCut();
+  }
+
+  private syncEntryDefense(): void {
+    const r = this.state.ram;
+    if (r.state !== "AT_ENTRY" || r.target === null) return;
+    const how = this.defenseAt(r.target);
+    if (how === null) {
+      this.entryDefense = null;
+      return;
+    }
+    const previous = this.entryDefense;
+    const braceSince = how === "lock" ? undefined : previous?.braceSince ?? this.now;
+    const lockSince = how === "brace" ? undefined : previous?.lockSince ?? this.now;
+    // An instantaneous handoff does not overlap. Keep time only through a source that was already active.
+    const oldestSource = Math.min(braceSince ?? Infinity, lockSince ?? Infinity);
+    const since = previous && oldestSource < this.now - EPS ? previous.since : this.now;
+    this.entryDefense = { since, braceSince, lockSince };
+  }
+
+  private stepRepel(): void {
+    const s = this.state;
+    const r = s.ram;
+    const entry = r.target;
+    if (r.state !== "AT_ENTRY" || entry === null || !this.entryDefense) return;
+    if (this.isPracticing && entry === "WINDOW") return; // The window lesson ends when its relay lands.
+    const repelAt = this.entryDefense.since + this.np.repelTime;
+    if (!this.due(repelAt) || repelAt > r.stateEndsAt + EPS) return;
+    const how = this.defenseAt(entry);
+    if (how === null) return;
+    this.emit({ type: "RAM_REPELLED", visitId: r.visitId, entry, how });
+    this.retreatFrom(entry, repelAt);
+    if (!this.isPracticing && s.run.night === 1 && s.power.chudOnline) this.say({ kind: "entry_repelled" });
   }
 
   private resolveAttempt(): void {
@@ -1070,9 +1117,17 @@ export class GameEngine implements IGameEngine {
       this.goInside(entry);
       return;
     }
+    this.retreatFrom(entry, r.stateEndsAt);
+  }
+
+  private retreatFrom(entry: Entry, at: number): void {
+    const s = this.state;
+    const r = s.ram;
+    this.entryDefense = null;
     r.state = "RETREATING";
-    r.stateEndsAt = r.stateEndsAt + this.cfg.RETREAT_TIME;
+    r.stateEndsAt = at + this.cfg.RETREAT_TIME;
     this.emit({ type: "RAM_RETREAT", visitId: r.visitId, entry });
+    if (this.isPracticing) return;
     this.maybeDropPaper(entry);
     if (s.chud.furiousActive && s.chud.furiousVisitId === r.visitId) this.endFurious(true);
   }

@@ -12,7 +12,7 @@ This file defines exactly how the game works: every state, timer, number and rul
   - CHUD locks it. Fast, but CHUD can hijack the request and refuse with a smile.
   - You go to it and brace it by hand. Always works, but you are away from the desk and cannot type.
 - CHUD has a suspicion meter (0 to 100): how much it believes you plan to leave. Higher suspicion means CHUD refuses locks, cuts your light, lies and sabotages.
-- If Ram's attempt ends at an entry that is neither locked nor held, he gets in **silently**. He is now in the room. The scare comes when you look at his entry with the light on, put down what you are reading, or by one rolled extra trigger. 6:00 AM with him inside is a loss.
+- Keep the threatened entry locked or held until he gives up. If the attempt reaches its deadline with the entry undefended, he gets in **silently**. The scare comes when you look at his entry with the light on, put down what you are reading, or by one rolled extra trigger. 6:00 AM with him inside is a loss.
 - Design intent: constant fear, low frequency. Few visits, long silences, and every sound might be him.
 
 The three decisions the player makes all night:
@@ -44,7 +44,8 @@ player:  view, position (DESK | TRAVELING(entry) | STANDING(entry) | HOLDING(ent
          hold_cooldown_until, light_held (Shift), light_entry (lit entry or null), reading (artifact id such as `paper2`, or null)
 power:   slot, pending_switch (target slot + time it lands), chud_online (bool), rebooting_until, light_cut_at (or null)
 ram:     state (AWAY | APPROACHING | AT_ENTRY | RETREATING | INSIDE), target_entry, state_ends_at, faked_this_visit (bool),
-         attempt_length (rolled per visit), last_gap (length, kind first | normal | lull | quick),
+         attempt_length (rolled per visit), continuous defense start and each defense source's start,
+         last_gap (length, kind first | normal | lull | quick),
          inside (entry, since, trigger, timer_at, cause, held_entry, last_claim) or null
 chud:    suspicion, pending_question (type, text, asked_at), facts{}, last_location_claim (entry, "none" or "inside"),
          visit_location_decision (truth | lie, claim, rolled_inside), last_sabotage_hour, furious_active (bool), last_light_cut_line_at
@@ -62,6 +63,7 @@ log:     last 10 player messages (normalized, for repeat detection),
 | AWAY gap base (random, before the hour ramp) | 50 to 70 s | 36 to 52 s | 32 to 46 s | 28 to 42 s | 25 to 37 s |
 | APPROACH time | 12 s | 9 s | 5 s | 4.5 s | 4 s |
 | AT_ENTRY time (attempt window, random per visit) | 20 to 25 s | 14 to 17 s | 10 to 13 s | 8 to 10 s | 6 to 8 s |
+| `REPEL_TIME` (continuous defense during AT_ENTRY) | 3.0 s | 3.5 s | 4.0 s | 4.5 s | 5.0 s |
 | Lull chance per gap | 0% | 15% | 15% | 15% | 15% |
 | Quick return chance per gap | 0% | 0% | 15% | 20% | 25% |
 | Decoy interval (random) | 15 to 30 s | 12 to 25 s | 10 to 20 s | 8 to 16 s | 6 to 14 s |
@@ -69,10 +71,9 @@ log:     last 10 player messages (normalized, for repeat detection),
 | Starting suspicion | 0 | 10 | 30 | 50 | 70 |
 | CHUD scheduled questions | 1 | 3 | 4 | 5 | 6 |
 | Lie chance in HURT / JEALOUS | 20% / 50% | 20% / 50% | 25% / 55% | 30% / 60% | 35% / 65% |
-| Visit target (no silence pulls) | 3 | 3 to 4 | 5 to 6 | 6 to 7 | 7 to 8 |
-| Measured average, 400 seeds, no pulls | 3.00 | 3.91 | 5.31 | 6.35 | 7.35 |
+| Visits measured with immediate locks, 150 seeds, no pulls | 3.83 | 4.62 | 6.10 | 6.96 | 7.84 |
 
-A player who never talks gets a silence tick every 45 s, and each tick pulls Ram closer (7.3). Measured with a silent player: about 4.3, 5.6, 6.9, 8.0 and 9.3 visits.
+A player who never talks gets a silence tick every 45 s, and each tick pulls Ram closer (7.3). Early retreats start the next normal gap sooner.
 
 Fixed constants:
 - `HOUR_LENGTH` = 50 s, so `NIGHT_LENGTH` = 300 s (6 in-game hours, 5 real minutes).
@@ -91,7 +92,7 @@ Fixed constants:
 - `LOCK_REFUSAL` by band = WARM 0%, HURT 25%, JEALOUS 55%, FURIOUS 100%.
 - `LIGHT_CUT` by band = WARM 0%, HURT 25%, JEALOUS 50%, FURIOUS 85%, per light-on. `LIGHT_CUT_DELAY` = 1.0 to 2.5 s after the light came on. `LIGHT_CUT_LINE_GAP` = 5 s.
 
-Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entry the player locks it once and the night is solved. Night 1 is a slow burn: the first visit comes at 60 s (1:12 AM) and there are only 3 visits (4 or 5 for a silent player).
+Night 1 alternates between HATCH and WINDOW. The first approach starts at 60 s (1:12 AM).
 
 ## 5. Night flow
 
@@ -104,13 +105,13 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
 | Look around | Visit the window, hatch and balcony views, then return to the desk. The control chip points to the next edge |
 | Light the window | A staged visit starts at the window. Hold Shift while looking at the window to reveal its tell |
 | Lock the window | Return to the desk and click W. The visit ends when the relay lands. CHUD confirms the retreat before the hatch lesson begins |
-| Brace the hatch | Turn to the hatch, click to run over and hold the left mouse button to brace. After 2 continuous seconds of bracing, the visit ends. CHUD gives a fatigue warning and the player returns to the desk |
+| Brace the hatch | Turn to the hatch, click to run over and hold the left mouse button until he gives up. Night 1's 3.0 s repel threshold applies. CHUD gives a fatigue warning and the player returns to the desk |
 | Ask CHUD | Click `where is it` at the desk. CHUD truthfully says nothing is there |
 | Talk to CHUD | Send a message in chat. CHUD gives a warm canned reply and explains why talking during the night matters |
 | Ready | CHUD repeats the survival goal. `Start Night 1` opens the midnight card |
 
 - Each action has one spoken instruction, a plain control chip, and a single spoken nudge after 12 s of waiting. The lock instruction tells the player to return from the window to CHUD's screen before clicking W. Reminders for desk actions name the desk. Completing an action clears obsolete prompts. Quick buttons and chat follow the current lesson. Trying H during the hatch visit produces a friendly refusal.
-- Practice uses the real controls and their local timers, with entry travel limited to the hatch lesson. Staged visits go straight to `AT_ENTRY`, have no attack deadline, use the normal tell plates, and retreat as soon as the target is locked or the 2 s brace succeeds. Practice reuses directional room sounds at the visit and normal lock and brace foley. Night visits stay silent.
+- Practice uses the real controls and their local timers, with entry travel limited to the hatch lesson. Staged visits go straight to `AT_ENTRY`, have no attack deadline, and use the normal tell plates. The window retreats on relay landing and the hatch uses the repel rule in 7.5. Practice reuses directional room sounds at arrival and normal lock and brace foley.
 - The night clock stays at zero. Practice never breaches, scares, kills, changes suspicion or schedules night beats. There are no paper, pause, unlock or power tradeoff lessons. `Skip practice` is available throughout the story and lessons. Starting or skipping resets the room and retains the keeper name. Continue opens the saved night card.
 
 1. **Night start:**
@@ -220,7 +221,7 @@ Supply power stays on during the nights. The lock slot can be empty or power one
 - **The code:** random per run. Four characters: 2 letters from `ACDEFHJKLMNPRTUVWXY` and 2 digits from `2345679`, in shuffled order. B, G, I, O, Q, S, Z, 0, 1 and 8 are left out so ordinary chat cannot match by accident.
   - Made at New Game from the run seed, on its own random stream. Stored in the save as `kill_code`. A save without a valid code gets a fresh one.
   - Config (`prototype/src/config.ts`, `ENDING`): `CODE_LETTERS` 2, `CODE_DIGITS` 2, `LETTERS`, `DIGITS`, `FIRST_PAPER_NIGHT` 2, `CODE_NIGHT` 5, `LAST_PAPER_AFTER` 60.
-- **Slips:** Ram's conscious half tries to help. When his attempt at an entry ends defended (locked or braced), he may leave a slip at that entry. All of these must hold:
+- **Slips:** Ram's conscious half tries to help. After a repel or a defended attempt at the deadline, he may leave a slip at that entry. All of these must hold:
   - The night is at least `FIRST_PAPER_NIGHT` (2).
   - No slip is already lying on the floor.
   - Fewer than 4 slips are collected.
@@ -244,7 +245,7 @@ Supply power stays on during the nights. The lock slot can be empty or power one
 ### 7.1 State machine
 ```
 AWAY --(gap ends)--> APPROACHING(target) --(approach time ends)--> AT_ENTRY(target)
-AT_ENTRY --(attempt window ends, entry defended)--> RETREATING --(3 s)--> AWAY (new gap, 7.6)
+AT_ENTRY --(repelled or defended at deadline)--> RETREATING --(3 s)--> AWAY (new gap, 7.6)
 AT_ENTRY --(attempt window ends, entry NOT defended)--> INSIDE(entry)   (silent breach, 7.7)
 INSIDE --(scare: look, artifact, rolled trigger, walking up to him, 6:00 AM)--> night lost
 any state but INSIDE --(6:00 AM)--> night won, visit cancelled
@@ -278,11 +279,13 @@ Ram makes **no sound**: no approach, attempt, push or retreat sounds, no shout, 
 **Decoy noises:** creaks, knocks, metal and glass, stereo panned (-1 left to 1 right), at the night's decoy interval. A separate seeded random stream controls each event's timing, sound category and pan without reading Ram's state. The audio layer picks a recording from the category. Decoys continue while he is inside. The storm and room-tone recordings loop during play.
 
 ### 7.5 Resolving an attempt
-At the exact moment `AT_ENTRY` ends, the entry E counts as **defended** if either of these is true:
+The target entry E counts as **defended** if either of these is true:
 - power slot = `LOCK_E` and CHUD is online, or
 - the player is `HOLDING(E)` (`STANDING(E)` does not defend).
 
-If neither is true, Ram gets in silently (7.7). Only that end moment matters: locking or bracing at any point before it counts. A lock switch counts only once it has landed (after `RELAY_DELAY`).
+- **Repel.** After `REPEL_TIME` of continuous defense during `AT_ENTRY`, Ram retreats immediately. Time during approach contributes zero. Releasing the brace, running out of stamina, or losing the lock resets the timer if it leaves the entry undefended. Switching sources preserves time only if their coverage overlaps. A lock starts defending when the relay lands.
+- A repel emits `RAM_REPELLED { visitId, entry, how }`, with `how` set to `brace`, `lock` or `both` for the defense active at the repel. The usual `RAM_RETREAT`, slip and Furious resolution rules apply, followed by the normal retreat and next-visit gap.
+- **Deadline.** If the attempt window ends before the repel threshold, the entry is checked at the deadline. If it is defended, Ram retreats normally. Otherwise he gets in silently (7.7).
 
 ### 7.6 Pacing (the AWAY gap)
 Rolled at each `RETREATING` end, in this order:
@@ -474,6 +477,7 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful.") |
 | 1 | Each transition to `AT_ENTRY` | If CHUD is online, it gives one truthful warning naming the entry and suggesting a lock or brace. Three variants per entry. The warning leaves location spam, location claims, lie decisions and pending questions untouched. Nights 2 to 5 have no unprompted entry warnings |
+| 1 | Each repel | If CHUD is online, it says "Good. It's gone." once for the visit through the usual dialogue and speech path |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |
@@ -521,8 +525,8 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | CHUD cuts the light while Shift is held | Dark until Shift is released and pressed again; the new press relights at once and rolls again |
 | A lock lands while Shift is held | The lock lands on schedule and the light stays on |
 | Lock refused, then asked again | Each request rolls again. Re-locking the entry already locked is always confirmed (not in FURIOUS) |
-| Player braces an entry before Ram arrives | Allowed, but `HOLD_MAX` may run out before his window ends. Pre-bracing is a gamble |
-| Brace runs out during the window | The player is `STANDING(E)`, which does not defend. A new brace needs `BRACE_REST` (1 s). Unless power covers that entry, he gets in (`ARMS_GAVE_OUT`), and since you are standing at his entry the scare fires at once (`ARRIVED`) |
+| Player braces an entry before Ram arrives | Only the part of the brace during `AT_ENTRY` counts toward repel. Time spent bracing early still uses up the 6 s brace |
+| Brace runs out during the window | The player is `STANDING(E)`. If there is no lock, the repel timer resets. A new brace needs `BRACE_REST` (1 s). If the entry is undefended at the deadline he gets in (`ARMS_GAVE_OUT`) and standing there triggers the scare (`ARRIVED`) |
 | Player stands at the right entry and never braces | Not defended, he gets in right next to you: scare at once (`UNLOCKED`, `ARRIVED`) |
 | Player releases the button during the window | Back to `STANDING`, not defended. Re-bracing needs `BRACE_REST` |
 | Left button still down when the arms give out | That press is spent. Release and press again |
@@ -551,13 +555,13 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Player types "turn on the light" | Parses to `NONE`. CHUD cannot control lights |
 | Player spams quick buttons | 0.5 s cooldown. Same CHUD rules apply (each lock click rolls the refusal). Buttons never count as talking |
 | Player types in another language | The judge still scores it. The code parser may miss the command, so quick buttons are the fallback |
-| Two timer events at the same moment | Order per tick: lock relay lands, player, Ram, reboot, hour, attempt end, inside triggers, light cut, 6:00 AM check, decoys, question timeout, silence tick, scheduled question, Furious cut, sabotage roll |
+| Two timer events at the same moment | Order per tick: earned repel, lock relay lands, player, Ram, reboot, hour, attempt end, inside triggers, light cut, 6:00 AM check, decoys, question timeout, silence tick, scheduled question, Furious cut, sabotage roll |
 
 ## 14. Tuning knobs (one config file)
-- Per night (`prototype/src/config.ts`): first visit delay, AWAY gap base range, approach time, attempt window range, lull chance, quick return chance, decoy interval, fake-out chance, starting suspicion, question mix, lie chances, whether questions may land during an attempt.
+- Per night (`prototype/src/config.ts`): first visit delay, AWAY gap base range, approach time, attempt window range, `repelTime`, lull chance, quick return chance, decoy interval, fake-out chance, starting suspicion, question mix, lie chances, whether questions may land during an attempt.
 - Kill code (`prototype/src/config.ts`, `ENDING`): letter and digit counts and pools, first slip night, code night.
 - Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, `LOCATION_SPAM_WINDOW`, `LOCATION_SPAM_PENALTIES`, `LOCATION_REFUSE_TIME`, `FLATTERY_WINDOW`, `FLATTERY_COUNT`, `FLATTERY_PENALTY`, `WARM_BONUS_COOLDOWN`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
-- Practice: `PRACTICE_BRACE_TIME` in `prototype/src/config.ts`, and nudge and line timing in `PRACTICE_UI` in `prototype/src/uiConfig.ts`.
+- Practice: Night 1's `repelTime` for the hatch, and nudge and line timing in `PRACTICE_UI` in `prototype/src/uiConfig.ts`.
 - UI only (`prototype/src/uiConfig.ts`): `EDGE_DWELL`, the turn times, the artifact rects, the scare timings (flash 0.4 s, jumpscare frames), how long the malicious smile shows.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
 

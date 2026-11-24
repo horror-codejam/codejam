@@ -228,6 +228,7 @@ export type Outcome =
   | { kind: "refuse_furious"; request: "LOCK" }
   | { kind: "location_claim"; entry: LocationClaim } // never told whether it is a lie
   | { kind: "entry_warning"; entry: Entry } // Night 1 arrival, independent of location questions
+  | { kind: "entry_repelled" }
   | { kind: "question"; question: string; type: QuestionType }
   | { kind: "answer_ack"; pass: boolean; type: QuestionType }
   | { kind: "question_timeout" }
@@ -254,10 +255,11 @@ export type GameEvent =
   | { type: "NIGHT_CARD"; night: number }
   | { type: "NIGHT_START"; night: number }
   | { type: "HOUR"; hour: number }
-  // Ram events are silent by rule (GAME_LOGIC 7.4): the UI must never play a sound or show text for them.
+  // The threat is silent. Repel feedback comes from the entry taking the impact (GAME_LOGIC 7.4).
   | { type: "RAM_APPROACH"; visitId: number }
   | { type: "RAM_FAKE_OUT"; visitId: number; from: Entry; to: Entry }
   | { type: "RAM_AT_ENTRY"; visitId: number; entry: Entry }
+  | { type: "RAM_REPELLED"; visitId: number; entry: Entry; how: "brace" | "lock" | "both" }
   | { type: "RAM_RETREAT"; visitId: number; entry: Entry }
   | { type: "RAM_AWAY"; nextVisitAt: number }
   | { type: "RAM_INSIDE"; entry: Entry; trigger: InsideTrigger }

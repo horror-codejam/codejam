@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { GameEngine } from "../src/sim/engine";
 import { lockSlot } from "../src/sim/types";
 
-it("keeps the fixed-seed night simulation identical to the pre-practice baseline", async () => {
+it("keeps the fixed-seed night simulation identical to the repel baseline", async () => {
   const trace = [];
   for (let night = 1; night <= 5; night++) {
     const engine = new GameEngine({ seed: 70062, startNight: night, skipNamePrompt: true, facts: { name: "Morgan" } });
@@ -32,6 +32,6 @@ it("keeps the fixed-seed night simulation identical to the pre-practice baseline
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Captured on 4927cee, when the unfiltered trace still matched 8a1c5f9.
-  expect(hash).toBe("c786fd436b872d79bee118eccf89e9c85d017b3ee6729db411297e7bd4e990df");
+  // Sustained locks end visits early, changing event and visit timing from the previous trace.
+  expect(hash).toBe("6b9a9dba1e626359ea66d513e27f4e6356b41d0b6e8d6e9783aaf8d3b72ea16f");
 });

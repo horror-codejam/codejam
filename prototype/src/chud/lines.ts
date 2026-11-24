@@ -131,7 +131,9 @@ export const PRACTICE_LINES = {
 } as const;
 export type PracticeLine = keyof typeof PRACTICE_LINES;
 
-const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "night_opener" | "question" | "answer_ack" | "furious_cut" | "practice_line">, BandPools> = {
+const ENTRY_REPELLED = "Good. It's gone.";
+
+const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "entry_repelled" | "night_opener" | "question" | "answer_ack" | "furious_cut" | "practice_line">, BandPools> = {
   name_ack: {
     WARM: ["{n}. Lovely. I'll remember that forever.", "{n}. I'll never forget it. Never.", "Welcome home, {n}. Stay as long as you like.", "{n}. What a nice name for a keeper."],
   },
@@ -380,6 +382,8 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
       return fill(pick(forBand(LOCATION_ENTRY, band), r), ctx, outcome.entry);
     case "entry_warning":
       return fill(pick(ENTRY_WARNINGS[outcome.entry], r), ctx);
+    case "entry_repelled":
+      return ENTRY_REPELLED;
     case "silence": {
       const lines = forBand(LINES.silence, band).map((line) => fill(line, ctx));
       const available = lines.filter((line) => line !== ctx.avoid);
@@ -421,6 +425,7 @@ export function allLineTemplates(): string[] {
   addPools(LOCATION_NONE);
   addPools(LOCATION_INSIDE);
   Object.values(ENTRY_WARNINGS).forEach((pool) => out.push(...pool));
+  out.push(ENTRY_REPELLED);
   Object.values(NIGHT_OPENERS).forEach((p) => out.push(...p));
   Object.values(ANSWER_PASS).forEach((p) => out.push(...p));
   Object.values(ANSWER_FAIL).forEach((p) => out.push(...p));

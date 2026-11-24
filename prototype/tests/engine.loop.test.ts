@@ -32,12 +32,11 @@ function runUntil(e: GameEngine, time: number) {
   while (e.state.phase === "PLAYING" && e.state.clock.elapsed < time - 1e-9) e.tick(T);
 }
 
-// A perfect defender that never talks to CHUD: the moment Ram is at an entry, its lock is powered (test-only state edit).
+// A perfect defender that never talks to CHUD: power the lock as soon as Ram reaches its entry.
 function autoLock(e: GameEngine) {
   const r = e.state.ram;
-  if (r.state === "AT_ENTRY" && r.target) {
-    e.state.power.slot = lockSlot(r.target);
-    e.state.power.pending = null;
+  if (r.state === "AT_ENTRY" && r.target && e.state.power.slot !== lockSlot(r.target)) {
+    e.devSetPower(lockSlot(r.target));
   }
 }
 
@@ -78,7 +77,7 @@ describe("night length and pacing (sections 4 and 7.6)", () => {
         autoLock(e);
         return !!away;
       });
-      const retreatEnd = sendAt + 6 + 8 + CONFIG.RETREAT_TIME;
+      const retreatEnd = sendAt + 6 + config.nights[1].repelTime + CONFIG.RETREAT_TIME;
       const h = Math.min(5, Math.floor(retreatEnd / CONFIG.HOUR_LENGTH));
       expect(e.state.ram.lastGap?.kind).toBe("normal");
       expect(e.state.ram.lastGap?.length).toBeCloseTo(10 * CONFIG.HOUR_RAMP[h], 6);
@@ -167,9 +166,9 @@ describe("night length and pacing (sections 4 and 7.6)", () => {
   // Low frequency so tension builds (section 4). A player who keeps talking (no silence pulls) and defends every visit.
   // Going silent adds visits through the silence pull (section 7.3); that is the intended cost of silence.
   it.each([
-    [1, 3, 3],
-    [2, 3, 4],
-    [3, 5, 6],
+    [1, 3, 4],
+    [2, 4, 5],
+    [3, 6, 7],
     [4, 6, 7],
     [5, 7, 8],
   ])("night %i averages %i to %i visits over many seeds", (night, lo, hi) => {
@@ -288,7 +287,7 @@ describe("Shift light and locks (section 6.1)", () => {
     e.setLight(false);
     expect(e.state.player.lightEntry).toBeNull();
     expect(e.state.power.slot).toBe("LOCK_BALCONY");
-    runUntil(e, 14.1);
+    runUntil(e, 6 + config.nights[1].repelTime);
     expect(e.state.ram.state).toBe("RETREATING");
   });
 

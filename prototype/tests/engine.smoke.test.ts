@@ -319,11 +319,12 @@ describe("edge-controls brace flow", () => {
   });
 
   it("HOLD_MAX ends a brace (armsGaveOut while he is there), the player stays and can re-brace after the rest", () => {
-    // pressed during the dash: the brace starts on arrival at 13.5, the arms give out at 19.5 (window 16..21)
-    const gaveOut = goAt(12).e;
+    // Start one tick before 13 s, so the arms give out just shy of 3 s into the attempt (16..21).
+    const dashAt = 13 - CONFIG.TRAVEL_TIME - T;
+    const gaveOut = goAt(dashAt).e;
     gaveOut.startBrace();
     run(gaveOut, CONFIG.TRAVEL_TIME);
-    expect(gaveOut.state.player.position).toMatchObject({ kind: "HOLDING", since: 12 + CONFIG.TRAVEL_TIME });
+    expect(gaveOut.state.player.position).toMatchObject({ kind: "HOLDING", since: expect.closeTo(dashAt + CONFIG.TRAVEL_TIME) });
     const ended: GameEvent[] = [];
     run(gaveOut, CONFIG.HOLD_MAX + T, (ev) => ev.type === "HOLD_ENDED" && ended.push(ev));
     expect(ended).toEqual([{ type: "HOLD_ENDED", entry: gaveOut.state.ram.target, reason: "arms" }]);
@@ -333,9 +334,9 @@ describe("edge-controls brace flow", () => {
     expect(gaveOut.state.phase).toBe("BREACH");
     expect(gaveOut.state.loss).toMatchObject({ cause: "ARMS_GAVE_OUT", reason: "ARRIVED" });
 
-    const rebrace = goAt(12).e;
+    const rebrace = goAt(dashAt).e;
     rebrace.startBrace();
-    runUntil(rebrace, 12 + CONFIG.TRAVEL_TIME + CONFIG.HOLD_MAX + CONFIG.BRACE_REST);
+    runUntil(rebrace, dashAt + CONFIG.TRAVEL_TIME + CONFIG.HOLD_MAX + CONFIG.BRACE_REST);
     rebrace.startBrace();
     expect(rebrace.state.player.position.kind).toBe("HOLDING");
     run(rebrace, 3);
