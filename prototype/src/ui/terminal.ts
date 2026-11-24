@@ -86,6 +86,8 @@ export class Terminal {
 
     const question = chud.pendingQuestion;
     this.question.hidden = !power.chudOnline || !question;
+    // A question is open: the face leans in and the chat cursor blinks faster (ChudGPT is waiting for the keeper).
+    this.root.classList.toggle("awaiting", power.chudOnline && !!question);
     if (question && power.chudOnline) {
       const progress = Math.max(0, 1 - (state.clock.elapsed - question.askedAt) / CONFIG.QUESTION_TIMEOUT);
       this.question.style.transform = `scaleX(${progress})`;

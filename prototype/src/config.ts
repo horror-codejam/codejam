@@ -33,6 +33,17 @@ export interface Config {
   HOLD_COOLDOWN: number;
   BRACE_REST: number; // edge-controls flow: rest at the entry after a brace ends before the next one
   QUESTION_TIMEOUT: number;
+  LIGHT_QUESTION_TIMEOUT_PENALTY: number; // suspicion when a quiet-limit light question times out
+  QUIET_LIMIT: number[]; // seconds ChudGPT may stay silent while calm before it asks a light question, by night
+  PACING: {
+    WORDS_PER_SECOND: number; // speech length estimate: words / this + BASE
+    BASE: number;
+    UNPROMPTED_GAP: number; // min seconds between unprompted lines
+    EXCHANGE_HOLD_MAX: number; // a due scheduled question is held by the exchange rule at most this long
+    EXCHANGE_GAP: number; // a question never lands within this long of the keeper's last exchange
+    LOW_DROP_AFTER: number; // lowest priority lines are dropped if they cannot play within this long
+    TYPING_HOLD: number; // the UI keeps "typing" on this long after a key
+  };
   SILENCE_LIMIT: number;
   SILENCE_PULL: number; // fraction of remaining AWAY time cut per silence tick
   MIN_AWAY_GAP: number;
@@ -179,7 +190,10 @@ export const CONFIG: Config = {
   HOLD_MAX: 6,
   HOLD_COOLDOWN: 4,
   BRACE_REST: 1.0,
-  QUESTION_TIMEOUT: 10,
+  QUESTION_TIMEOUT: 15,
+  LIGHT_QUESTION_TIMEOUT_PENALTY: 5,
+  QUIET_LIMIT: [30, 35, 40, 45, 50],
+  PACING: { WORDS_PER_SECOND: 2.6, BASE: 0.6, UNPROMPTED_GAP: 12, EXCHANGE_GAP: 15, EXCHANGE_HOLD_MAX: 20, LOW_DROP_AFTER: 3, TYPING_HOLD: 3 },
   SILENCE_LIMIT: 45,
   SILENCE_PULL: 0.25,
   MIN_AWAY_GAP: 4,

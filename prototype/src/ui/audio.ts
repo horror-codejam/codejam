@@ -38,7 +38,14 @@ export type SpeechPlayback = {
   cancelPending: () => void;
 };
 
-type SpeechJob = { text: string; band: Band; playback: SpeechPlayback; signal: AbortSignal };
+type SpeechJob = {
+  text: string;
+  band: Band;
+  playback: SpeechPlayback;
+  signal: AbortSignal;
+  buffer?: Promise<AudioBuffer | undefined>; // prefetched as soon as the line exists
+  staleAt?: number; // performance.now() ms: if the audio is ready only after this, the subtitle is gone and it is skipped
+};
 
 export class Sound {
   private ctx: AudioContext | null = null;
@@ -524,7 +531,42 @@ export class Sound {
     this.speechPan.pan.setTargetAtTime(pan, this.ctx.currentTime, 0.06);
   }
 
-  speak(text: string, band: Band): SpeechPlayback {
+  // One tiny request on the title screen so a cold hosted function is warm by the first line. Silent if unavailable.
+  private warmed = false;
+  warmSpeech(): void {
+    if (this.warmed) return;
+    this.warmed = true;
+    void fetch("/api/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "Hm.", band: "WARM" }),
+      signal: AbortSignal.timeout(CHUD_SPEECH.HOSTED_TIMEOUT_MS),
+    }).then((r) => r.arrayBuffer()).catch(() => undefined);
+  }
+
+  // A recorded clip if the line has one, else the speech service. Resolves undefined when there is no audio.
+  private async prepareSpeech(ctx: AudioContext, text: string, band: Band, signal: AbortSignal): Promise<AudioBuffer | undefined> {
+    try {
+      const timeout = import.meta.env.DEV ? CHUD_SPEECH.REQUEST_TIMEOUT_MS : CHUD_SPEECH.HOSTED_TIMEOUT_MS;
+      const voiceIndex = await import("./audioDialogue").catch(() => undefined);
+      if (signal.aborted) return undefined;
+      const clip = voiceIndex?.cannedClip(text, band);
+      const recorded = clip ? await this.loadClip(clip.name, clip.url) : undefined;
+      if (recorded || signal.aborted) return recorded;
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text, band }),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
+      });
+      if (!response.ok || response.headers.get("content-type") !== "audio/wav") return undefined;
+      return await ctx.decodeAudioData(await response.arrayBuffer());
+    } catch {
+      return undefined; // Keep the subtitle and chime if the speech service or decoding fails.
+    }
+  }
+
+  speak(text: string, band: Band, staleAt?: number): SpeechPlayback {
     const request = new AbortController();
     const playback: SpeechPlayback = {
       state: "queued",
@@ -535,7 +577,9 @@ export class Sound {
       },
     };
     if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift()?.playback.cancelPending();
-    this.speechQueue.push({ text, band, playback, signal: request.signal });
+    const job: SpeechJob = { text, band, playback, signal: request.signal, staleAt };
+    if (this.ctx) job.buffer = this.prepareSpeech(this.ctx, text, band, request.signal); // prefetch, in parallel with playback
+    this.speechQueue.push(job);
     this.startSpeech();
     return playback;
   }
@@ -558,28 +602,16 @@ export class Sound {
   }
 
   private async playSpeech(ctx: AudioContext, run: AbortController): Promise<void> {
-    const timeout = import.meta.env.DEV ? CHUD_SPEECH.REQUEST_TIMEOUT_MS : CHUD_SPEECH.HOSTED_TIMEOUT_MS;
     while (!run.signal.aborted && this.speechQueue.length > 0) {
       const line = this.speechQueue.shift()!;
       const signal = AbortSignal.any([run.signal, line.signal]);
       try {
-        const voiceIndex = await import("./audioDialogue").catch(() => undefined);
-        if (signal.aborted) continue;
-        const clip = voiceIndex?.cannedClip(line.text, line.band);
-        let buffer = clip ? await this.loadClip(clip.name, clip.url) : undefined;
-        if (!buffer && !signal.aborted) {
-          const response = await fetch("/api/tts", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ text: line.text, band: line.band }),
-            signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
-          });
-          if (!response.ok || response.headers.get("content-type") !== "audio/wav") continue;
-          buffer = await ctx.decodeAudioData(await response.arrayBuffer());
-        }
-        if (!buffer) continue;
+        const buffer = await (line.buffer ?? this.prepareSpeech(ctx, line.text, line.band, signal));
+        if (!buffer || signal.aborted) continue;
         if (this.radioFinished) await this.radioFinished;
         if (signal.aborted) continue;
+        // The subtitle is already gone: a late voice would be talking about nothing.
+        if (line.staleAt !== undefined && performance.now() > line.staleAt) continue;
 
         const source = ctx.createBufferSource();
         this.speechSource = source;
@@ -595,7 +627,7 @@ export class Sound {
         if (this.speechSource === source) this.speechSource = null;
         if (!signal.aborted) line.playback.state = "finished";
       } catch {
-        // Keep the existing subtitle and chime if Piper or audio decoding fails.
+        // Keep the existing subtitle and chime if audio playback fails.
       } finally {
         if (line.playback.state !== "finished") line.playback.state = "unavailable";
       }

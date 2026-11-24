@@ -20,3 +20,8 @@ art/refs/fnaf/
 # Blender autosave backups
 *.blend1
 *.blend2
+
+# Local Piper venv and downloaded voice models
+.venv/
+prototype/tools/chud-tts/models/
+__pycache__/

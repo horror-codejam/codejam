@@ -6,6 +6,7 @@ import { judge, lastJudgeSource } from "./chud/judgeClient";
 import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { offlineJudge } from "./chud/offlineJudge";
 import { CONFIG } from "./config";
+import { LONG_LINE_WORDS } from "./chud/lines";
 import { GameEngine } from "./sim/engine";
 import { slotEntry, type Band, type Entry, type GameEvent, type InsideTrigger, type LossInfo, type Phase, type PowerSlot, type QuickCommand } from "./sim/types";
 import { loadArt } from "./ui/art";
@@ -105,6 +106,8 @@ let dialogueToken = 0; // drops LLM replies from before a reset, power cut or in
 let convo: string[] = []; // recent "Keeper: ..." / "ChudGPT: ..." lines, context for the voice
 let edges: EdgeTurner;
 let lastTypedAt = -Infinity;
+let lastKeyAt = -Infinity; // last key typed into the chat, for the typing state ChudGPT waits on (GAME_LOGIC 8.10)
+let reportedTyping: { engine: unknown; on: boolean } = { engine: null, on: false };
 const TYPING_TAIL = 0.45; // keep the hands moving between keystrokes
 let braceDown = false; // left mouse button held down (edge controls: holding it braces)
 let pressSpent = false; // this press's brace already ended by HOLD_MAX: a new press is needed to brace again
@@ -130,6 +133,7 @@ async function boot(): Promise<void> {
   $("stage").appendChild(app.canvas);
   const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
+  sound.warmSpeech();
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);
   scene.onThunder = () => { if (engine.state.phase === "PLAYING") sound.thunder(); };
@@ -220,11 +224,22 @@ function frame(dt: number): void {
     tutorial.update(engine, t, (line) => showChud(line.text, line.band, t), clearPracticeSpeech);
   }
   const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
+  reportTyping(t);
   const typing = document.activeElement === terminal.chat && t - lastTypedAt < TYPING_TAIL;
   if (!paused && animateStage) scene.update(engine, t, typing);
   else scene.pauseMedia();
   renderHud(t);
   if (paused || !animateStage) app.ticker.stop();
+}
+
+// ChudGPT never talks over the keeper: tell the engine while the chat has text (up to 12 s after the last key) or a key
+// was typed in the last 3 s.
+function reportTyping(t: number): void {
+  const sinceKey = t - lastKeyAt;
+  const on = !paused && (sinceKey < CONFIG.PACING.TYPING_HOLD || (terminal.chat.value !== "" && sinceKey < 12));
+  if (reportedTyping.engine === engine && reportedTyping.on === on) return;
+  reportedTyping = { engine, on };
+  engine.setTyping(on);
 }
 
 function onEvent(ev: GameEvent, t: number): void {
@@ -310,6 +325,7 @@ function onEvent(ev: GameEvent, t: number): void {
         showChud(ev.text, ev.band, t);
         break;
       }
+      const calmNow = engine.state.ram.state === "AWAY" || engine.state.ram.state === "RETREATING";
       // Code already decided the outcome; the LLM only words it. Canned line if it fails or is slow.
       const token = dialogueToken;
       void voiceRemote({
@@ -323,7 +339,12 @@ function onEvent(ev: GameEvent, t: number): void {
         recent: convo.slice(-6),
       }).then((text) => {
         if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
-          showChud(text ?? ev.text, ev.band, now());
+          // Long lines only while calm (GAME_LOGIC 8.10): a long reworded reply during a visit falls back to the short canned one.
+          const stillCalm = calmNow && (engine.state.ram.state === "AWAY" || engine.state.ram.state === "RETREATING");
+          const long = text !== null && text.trim().split(/\s+/).length > LONG_LINE_WORDS;
+          const shown = text !== null && (stillCalm || !long) ? text : ev.text;
+          showChud(shown, ev.band, now());
+          engine.noteSpoken(shown); // the engine counts it as speech, so nothing is asked over it
         }
       });
       break;
@@ -391,11 +412,15 @@ function clearPracticeSpeech(): void {
 }
 
 function showChud(text: string, band: Band, t: number): SpeechPlayback | undefined {
-  chudCaption = { text, until: t + Math.max(PRACTICE_UI.MIN_READ_TIME, text.length * PRACTICE_UI.READ_SECONDS_PER_CHARACTER) };
+  const display = Math.max(PRACTICE_UI.MIN_READ_TIME, text.length * PRACTICE_UI.READ_SECONDS_PER_CHARACTER);
+  chudCaption = { text, until: t + display };
   terminal.addLine("chud", text, t);
   convo.push(`ChudGPT: ${text}`);
   sound.chime();
-  const playback = engine.state.power.chudOnline ? sound.speak(text, band) : undefined;
+  // A new line cuts off the one still speaking and drops anything queued. Practice lines keep their own sequencing.
+  if (!engine.isPracticing) sound.stopSpeech();
+  const staleAt = engine.isPracticing ? undefined : performance.now() + display * 1000;
+  const playback = engine.state.power.chudOnline ? sound.speak(text, band, staleAt) : undefined;
   if (engine.isPracticing) chudCaption.playback = playback;
   return playback;
 }
@@ -743,6 +768,7 @@ function wireInput(): void {
     convo.push(`Keeper: ${text}`);
     terminal.chat.value = "";
     lastTypedAt = -Infinity;
+    lastKeyAt = -Infinity;
     const ticket = res.ticket;
     if (engine.isPracticing) {
       tutorial.messageSent();
@@ -759,6 +785,7 @@ function wireInput(): void {
   });
   terminal.chat.addEventListener("input", () => {
     lastTypedAt = now();
+    lastKeyAt = lastTypedAt;
     sound.keyboard();
   });
   terminal.chat.addEventListener("blur", () => { lastTypedAt = -Infinity; });

@@ -102,7 +102,7 @@ export const CODE_PAPERS: { id: string; label: string; rect: { x: number; y: num
   { id: "paper0", label: "Scrawled paper 1", rect: { x: 150, y: 382, w: 46, h: 36 }, tilt: -5, line: "it hears everything. keep this." },
   { id: "paper1", label: "Scrawled paper 2", rect: { x: 226, y: 386, w: 46, h: 36 }, tilt: 4, line: "i am not the one at your door." },
   { id: "paper2", label: "Scrawled paper 3", rect: { x: 634, y: 380, w: 46, h: 36 }, tilt: 3, line: "the boat is real. it will not let you take it." },
-  { id: "paper3", label: "Scrawled paper 4", rect: { x: 702, y: 385, w: 46, h: 36 }, tilt: -4, line: "all four. into the machine. before light." },
+  { id: "paper3", label: "Scrawled paper 4", rect: { x: 702, y: 385, w: 46, h: 36 }, tilt: -4, line: "all four. type them to the machine. before light." },
 ];
 
 // The slip Ram leaves at an entry (engine.floorPaper()). One rect per view, chosen by where the player is: `view` is the

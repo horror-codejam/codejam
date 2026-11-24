@@ -160,6 +160,7 @@ export class EveningTutorial {
     this.nudged = false;
     if (step === "farewell") {
       engine.sayPracticeLine("chatReply");
+      engine.sayPracticeLine("answerMe");
       engine.sayPracticeLine("lonely");
     } else {
       engine.sayPracticeLine(step);

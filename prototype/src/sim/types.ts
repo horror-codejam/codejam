@@ -53,7 +53,7 @@ export type PlayerPosition =
 
 export interface PendingQuestion {
   id: number;
-  origin: "SCHEDULED" | "SCRIPT";
+  origin: "SCHEDULED" | "SCRIPT" | "QUIET"; // QUIET: a light question after ChudGPT was silent too long
   type: QuestionType;
   factKey: string | null; // SEED: key the answer will be stored under. MEMORY: key being checked.
   text: string;
@@ -225,17 +225,17 @@ export type Outcome =
   | { kind: "power_off" } // unlock / power off request
   | { kind: "lock_refused"; entry: Entry } // CHUD hijacks the lock: a malicious smile, no lock
   | { kind: "light_cut" } // CHUD forced the player's light off: a short possessive line
-  | { kind: "refuse_furious"; request: "LOCK" }
+  | { kind: "refuse_furious"; request: "LOCK"; entry?: Entry }
   | { kind: "location_claim"; entry: LocationClaim } // never told whether it is a lie
   | { kind: "entry_warning"; entry: Entry } // Night 1 arrival, independent of location questions
   | { kind: "entry_repelled" }
   | { kind: "question"; question: string; type: QuestionType }
-  | { kind: "answer_ack"; pass: boolean; type: QuestionType }
+  | { kind: "answer_ack"; pass: boolean; type: QuestionType; value?: string } // value: a stored fact to echo back
   | { kind: "question_timeout" }
   | { kind: "manipulation_hurt" }
   | { kind: "offensive_deflect" }
   | { kind: "rude_reply" }
-  | { kind: "leaving_reply" } // player mentioned leaving outside a question
+  | { kind: "leaving_reply"; topic?: "coast" | "boat" } // player mentioned leaving outside a question
   | { kind: "warm_reply" }
   | { kind: "small_talk" }
   | { kind: "silence" }
@@ -271,7 +271,7 @@ export type GameEvent =
   | { type: "SILENCE_PULL"; newEndsAt: number | null }
   | { type: "POWER_REQUESTED"; target: PowerSlot; landsAt: number }
   | { type: "POWER_CHANGED"; slot: PowerSlot; cause: PowerCause }
-  | { type: "CHUD_SAY"; outcome: Outcome; text: string; band: Band }
+  | { type: "CHUD_SAY"; outcome: Outcome; text: string; band: Band; lineClass: "question" | "info" | "reaction"; unprompted: boolean }
   | { type: "QUESTION_ASKED"; question: PendingQuestion }
   | { type: "QUESTION_RESOLVED"; questionId: number; result: "pass" | "fail" | "timeout" | "cancelled" }
   | { type: "FACT_STORED"; key: string; value: string }
@@ -375,6 +375,8 @@ export interface IGameEngine {
   pressQuick(cmd: QuickCommand): void;
   toggleGenerator(): void;
   submitMessage(text: string): SubmitResult;
+  setTyping(on: boolean): void; // UI input: the keeper is typing (chat not empty, or a key in the last 3 s). Holds unprompted lines
+  noteSpoken(text: string): void; // UI input: a reworded line was shown now, so ChudGPT is busy for its length
   applyJudge(ticketId: number, result: JudgeResult | null): void;
 
   // Queries

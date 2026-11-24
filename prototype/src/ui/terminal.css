@@ -108,6 +108,12 @@
   animation: terminal-cursor 0.92s steps(1, end) infinite;
 }
 @keyframes terminal-cursor { 50% { opacity: 0; } }
+/* Expectant: a question is open. The existing mood face leans in and waits, and the chat cursor beats faster. */
+@keyframes terminal-expect { 0%, 100% { transform: translateY(0) rotate(0deg) scale(1); } 50% { transform: translateY(-3px) rotate(-3.5deg) scale(1.04); } }
+#terminal.awaiting #t-face { animation: terminal-expect 1.4s ease-in-out infinite; }
+#terminal.awaiting #t-face.glitch { animation: terminal-glitch 0.2s steps(1, end); }
+#terminal.awaiting #chat-form:has(#chat:placeholder-shown)::after { animation-duration: 0.46s; }
+#terminal.awaiting #chat-form > span { color: var(--green); }
 #question {
   flex: none;
   height: 1px;
@@ -178,5 +184,5 @@
 #terminal[inert] #log .typing::after,
 #terminal[inert] #chat-form:has(#chat:placeholder-shown)::after { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
-  #log .typing::after, #chat-form:has(#chat:placeholder-shown)::after, #t-face.glitch { animation: none; }
+  #log .typing::after, #chat-form:has(#chat:placeholder-shown)::after, #t-face.glitch, #terminal.awaiting #t-face { animation: none; }
 }

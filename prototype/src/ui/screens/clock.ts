@@ -5,7 +5,7 @@ const CARD_FADE = 800;
 const NIGHT_TIPS = [
   "Brace or lock the entry until he gives up.",
   "The more ChudGPT thinks you'll leave, the more it lies and refuses.",
-  "The noises aren't him. He makes no sound.",
+  "ChudGPT remembers your answers and will test you.",
   "Ask where he is too often and ChudGPT stops answering for a while.",
   "Too much flattery makes ChudGPT suspicious.",
 ];

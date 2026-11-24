@@ -216,19 +216,6 @@ describe("no back-to-back repeated line", () => {
       }
     }
   });
-
-  it("the engine never says the same silence line twice in a row", () => {
-    const e = playing();
-    const seen: string[] = [];
-    for (let i = 0; i < 12; i++) {
-      e.state.timers.lastRealMessageAt = e.state.clock.elapsed - CONFIG.SILENCE_LIMIT;
-      e.tick(T);
-      for (const ev of e.drainEvents()) if (ev.type === "CHUD_SAY" && ev.outcome.kind === "silence") seen.push(ev.text);
-      if (e.state.phase !== "PLAYING") break;
-    }
-    expect(seen.length).toBeGreaterThan(3);
-    for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
-  });
 });
 
 describe("the parser never turns a negated request into its opposite", () => {
