@@ -86,12 +86,12 @@ function helpMissing(text: string, canned: string): string | null {
   const entry = requiredHelpEntry(canned);
   if (entry) {
     if (!new RegExp(`\\b${entry}\\b`, "i").test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
-      return `Name the ${entry} and tell them to lock it or hold it shut right now.`;
+      return `Name the ${entry} and tell them to lock it or hold it shut right now (under 15 words).`;
     }
     return null;
   }
-  if (!/where it is/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
-    return 'Include the exact survival steps: ask where it is, lock or hold the door, and keep talking.';
+  if (!/where it is/i.test(text) || /\btell me where it is\b/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
+    return 'Include all three steps: ask where it is (never "tell me where it is"), lock or hold the door shut, and keep talking.';
   }
   return null;
 }
@@ -99,8 +99,10 @@ function helpMissing(text: string, canned: string): string | null {
 function draftIssues(text: string, req: VoiceRequest): string[] {
   const issues: string[] = [];
   const recent = summarizeRecentChud(req.recent);
-  if (wordsIn(text) > SOFT_MAX_WORDS) {
-    issues.push("Cut to 1 or 2 short plain sentences under 20 words.");
+  const urgentHelp = req.kind === "help_reply" && requiredHelpEntry(req.canned) !== null;
+  const maxWords = urgentHelp ? 16 : SOFT_MAX_WORDS;
+  if (wordsIn(text) > maxWords) {
+    issues.push(urgentHelp ? "Cut strictly to 15 words or fewer." : "Cut to 1 or 2 short plain sentences under 20 words.");
   }
   const sentences = text.split(/(?<=[.?!])\s+/).filter(Boolean);
   if (sentences.length > 2) {

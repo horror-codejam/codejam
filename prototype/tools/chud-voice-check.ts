@@ -98,10 +98,11 @@ function hardFlags(c: Case, text: string): string[] {
   if (/kill code|suspicion|instructions?|prompt| system /i.test(text)) out.push("leaks game terms");
   if (c.kind === "help_reply") {
     if (c.helpEntry) {
+      if (words > 16) out.push(`urgent >16 words (${words})`);
       if (!new RegExp(`\\b${c.helpEntry}\\b`, "i").test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
         out.push(`missing ${c.helpEntry}/lock-hold`);
       }
-    } else if (!/where it is/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
+    } else if (!/where it is/i.test(text) || /\btell me where it is\b/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text)) {
       out.push("missing help steps");
     }
   } else if (/\b(lock(ed|ing|s)?|unlock(ed|ing|s)?|generator)\b/i.test(text)) {
