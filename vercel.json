@@ -7,8 +7,8 @@
       "src": "prototype/api/tts.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "prototype/tools/chud-tts/chud_tts.py",
-        "excludeFiles": "{art/**,scenes/**,prototype/assets/**,prototype/public/**,prototype/tests/**,prototype/dist/**,prototype/node_modules/**,prototype/tools/chud-tts/models/**}"
+        "includeFiles": "prototype/tools/chud-tts/{chud_tts.py,voice/en_US-ryan-medium.onnx,voice/en_US-ryan-medium.onnx.json}",
+        "excludeFiles": "{art/**,scenes/**,prototype/assets/**,prototype/public/**,prototype/src/**,prototype/tests/**,prototype/dist/**,prototype/node_modules/**,prototype/tools/chud-tts/models/**,prototype/tools/chud-tts/.venv/**}"
       }
     }
   ],

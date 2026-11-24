@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/tts.py": {
-      "includeFiles": "tools/chud-tts/chud_tts.py",
+      "includeFiles": "tools/chud-tts/{chud_tts.py,voice/en_US-ryan-medium.onnx,voice/en_US-ryan-medium.onnx.json}",
       "excludeFiles": "{assets/**,public/**,src/**,tests/**,dist/**,node_modules/**,tools/chud-tts/models/**,tools/chud-tts/.venv/**}",
       "maxDuration": 30
     }

@@ -15,7 +15,7 @@ The voice is Piper's `en_US-ryan-medium`, the model used by the Local provider i
 
 The presets use Piper's speaking-rate control plus pitch, level, tone, and saturation processing on the same voice. Piper synthesizes the dialogue as supplied.
 
-Sources: [Verity JE 6.0.0](https://www.curseforge.com/minecraft/mc-mods/verity-je/files/9300987), [pinned Ryan voice and config](https://huggingface.co/rhasspy/piper-voices/tree/b145f2ac26522d6a2ccde0164b7b0e48b1e3199c/en/en_US/ryan/medium), [Piper Python API](https://github.com/OHF-Voice/piper1-gpl/blob/v1.4.2/docs/API_PYTHON.md). The Piper runtime and voice files are downloaded separately. [Piper licensing](https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/LICENSING.md) · [Ryan model card](https://huggingface.co/rhasspy/piper-voices/blob/v1.0.0/en/en_US/ryan/medium/MODEL_CARD)
+The unchanged upstream model and config are bundled in `voice/`. The RyanSpeech dataset is credited in the bundled model card under CC BY-NC-SA 4.0. [Pinned Ryan voice and model card](https://huggingface.co/rhasspy/piper-voices/tree/b145f2ac26522d6a2ccde0164b7b0e48b1e3199c/en/en_US/ryan/medium) · [RyanSpeech dataset](https://www.kaggle.com/datasets/roholazandie/ryanspeech) · [Piper licensing](https://github.com/OHF-Voice/piper1-gpl/blob/main/docs/LICENSING.md) · [Verity JE 6.0.0](https://www.curseforge.com/minecraft/mc-mods/verity-je/files/9300987) · [Piper Python API](https://github.com/OHF-Voice/piper1-gpl/blob/v1.4.2/docs/API_PYTHON.md)
 
 ## Run and audition
 
@@ -25,19 +25,16 @@ From the repo root, with Python 3.10–3.13:
 cd prototype/tools/chud-tts
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-mkdir -p models
-ryan_url='https://huggingface.co/rhasspy/piper-voices/resolve/b145f2ac26522d6a2ccde0164b7b0e48b1e3199c/en/en_US/ryan/medium'
-curl --fail --location "$ryan_url/en_US-ryan-medium.onnx" -o models/en_US-ryan-medium.onnx
-curl --fail --location "$ryan_url/en_US-ryan-medium.onnx.json" -o models/en_US-ryan-medium.onnx.json
 .venv/bin/python chud_tts.py
 ```
 
-On Windows, use `py -m venv .venv`, run `.venv\Scripts\python.exe` in place of `.venv/bin/python`, and download the two files from the pinned model link into `models/`.
+On Windows, use `py -m venv .venv` and run `.venv\Scripts\python.exe` in place of `.venv/bin/python`.
 
 In another terminal, run this from the repo root to audition one line in every mood. The WAVs go in the ignored `models/` directory.
 
 ```sh
 cd prototype/tools/chud-tts
+mkdir -p models
 for band in WARM HURT JEALOUS FURIOUS; do
   curl --fail --silent --show-error http://127.0.0.1:5100/tts \
     -H 'Content-Type: application/json' \
@@ -62,7 +59,7 @@ Piper runs with or without an Anthropic key. Claude can rewrite certain conversa
 
 ## Vercel deployment
 
-The repository root Vercel configuration deploys the Vite frontend and both API functions from `prototype/`. A project whose Root Directory is `prototype` uses that folder's configuration and requires access to the shared `scenes/` files outside it. Both configurations serve `POST /api/tts` from the Python function. On a cold instance, Piper downloads and verifies the pinned model into temporary storage. It reuses the initialized model on warm requests.
+The repository root Vercel configuration deploys the Vite frontend and both API functions from `prototype/`. A project whose Root Directory is `prototype` uses that folder's configuration and requires access to the shared `scenes/` files outside it. Both configurations include the model and config in the Python function for `POST /api/tts`. The handler verifies the SHA-256 hashes and loads Piper once at module import.
 
 Set `ANTHROPIC_API_KEY` as a server-side Vercel environment variable if you want the Claude judge and generated dialogue. The Python speech function works with the game's canned dialogue without a key.
 
@@ -75,4 +72,4 @@ curl --fail --show-error --max-time 35 https://YOUR_DEPLOYMENT/api/tts \
   -o /tmp/chud-vercel.wav
 ```
 
-The first request may take longer while the model downloads. The game shows the subtitle and chime immediately. A `404` indicates a missing Vercel route. A `503` indicates Piper could not initialize. Check the Python function logs for download, checksum or dependency errors.
+The first request may take longer while the function initializes. The game shows the subtitle and chime immediately. A `404` indicates a missing Vercel route. A `503` indicates Piper could not initialize. Check the Python function logs for packaging, checksum or dependency errors.

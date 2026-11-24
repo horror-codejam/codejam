@@ -1,28 +1,24 @@
 """Vercel's same-origin speech function."""
 
 import sys
-from functools import lru_cache
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from tempfile import gettempdir
-from threading import Lock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "chud-tts"))
-from chud_tts import VOICE, VOICE_REVISION, download_voice, load_voice, serve_speech
+from chud_tts import BUNDLED_VOICE, load_voice, serve_speech
 
-_models = Path(gettempdir()) / f"chud-piper-{VOICE}-{VOICE_REVISION[:12]}"
-_load_lock = Lock()
-
-
-@lru_cache(maxsize=1)
-def _load():
-    download_voice(_models)
-    return load_voice(_models)
+try:
+    _voice = load_voice(BUNDLED_VOICE)
+    _load_error = None
+except Exception as error:
+    _voice = None
+    _load_error = str(error)
 
 
 def get_voice():
-    with _load_lock:
-        return _load()
+    if _load_error is not None:
+        raise RuntimeError(_load_error)
+    return _voice
 
 
 class handler(BaseHTTPRequestHandler):

@@ -12,43 +12,15 @@ from array import array
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from urllib.request import urlopen
 
 
 VOICE = "en_US-ryan-medium"
-VOICE_REVISION = "b145f2ac26522d6a2ccde0164b7b0e48b1e3199c"
-VOICE_URL = f"https://huggingface.co/rhasspy/piper-voices/resolve/{VOICE_REVISION}/en/en_US/ryan/medium"
+BUNDLED_VOICE = Path(__file__).resolve().parent / "voice"
 VOICE_HASHES = {
     f"{VOICE}.onnx": "abf4c274862564ed647ba0d2c47f8ee7c9b717d27bdad9219100eb310db4047a",
     f"{VOICE}.onnx.json": "44034c056cb15681b2ad494307c7f3f2e4499d1253c700c711fa0a4607ffe78d",
 }
 FORBIDDEN_NAME = re.compile(r"\b(?:ram|altman)\b", re.IGNORECASE | re.ASCII)
-
-
-def download_voice(model_dir):
-    """Fill a cold function's cache with verified model files."""
-    model_dir.mkdir(parents=True, exist_ok=True)
-    for filename, expected in VOICE_HASHES.items():
-        path = model_dir / filename
-        if path.is_file():
-            continue
-
-        # Download to a temporary file so an interrupted request cannot leave a partial model.
-        with TemporaryDirectory(dir=model_dir) as staging:
-            partial = Path(staging) / filename
-            digest = hashlib.sha256()
-            received = 0
-            with urlopen(f"{VOICE_URL}/{filename}?download=true", timeout=10) as source, partial.open("wb") as dest:
-                for block in iter(lambda: source.read(1024 * 1024), b""):
-                    received += len(block)
-                    if received > 64 * 1024 * 1024:
-                        raise ValueError(f"Ryan voice file is too large: {filename}.")
-                    digest.update(block)
-                    dest.write(block)
-            if digest.hexdigest() != expected:
-                raise ValueError(f"Wrong Ryan revision: {filename}.")
-            partial.replace(path)
 
 
 @dataclass(frozen=True)
@@ -74,13 +46,13 @@ def load_voice(model_dir):
     for filename, expected in VOICE_HASHES.items():
         path = model_dir / filename
         if not path.is_file():
-            raise ValueError(f"Missing {path}. Download the voice files listed in README.md.")
+            raise ValueError(f"Missing {path}. See README.md for the pinned voice files.")
         with path.open("rb") as source:
             digest = hashlib.sha256()
             for block in iter(lambda: source.read(1024 * 1024), b""):
                 digest.update(block)
         if digest.hexdigest() != expected:
-            raise ValueError(f"Wrong Ryan revision: {path}. Download the pinned voice files.")
+            raise ValueError(f"Wrong Ryan revision: {path}. See README.md for the pinned voice files.")
     return PiperVoice.load(model_dir / f"{VOICE}.onnx")
 
 
@@ -188,7 +160,7 @@ class SpeechHandler(BaseHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--models", type=Path, default=Path(__file__).resolve().parent / "models")
+    parser.add_argument("--models", type=Path, default=BUNDLED_VOICE)
     parser.add_argument("--port", type=int, default=5100)
     args = parser.parse_args()
     try:
