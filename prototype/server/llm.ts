@@ -47,7 +47,7 @@ export async function judgeWithClaude(client: Anthropic, input: JudgeInput): Pro
   return out;
 }
 
-const MAX_VOICE_WORDS = 27; // the persona asks for 16 to 20; a little slack, then one rewrite, then the canned line
+const MAX_VOICE_WORDS = 25; // the persona asks for 14 to 19; over 25 triggers one tight rewrite, then the canned line
 const VOICE_BUDGET_MS = 2300; // the client gives up at 2.5 s
 
 function cleanVoice(raw: string): string {
@@ -84,16 +84,16 @@ export async function voiceWithClaude(client: Anthropic, req: VoiceRequest): Pro
   let text = await ask(user);
   // Haiku counts words badly. One long draft gets one rewrite if there is time; a second long one is dropped and the
   // canned line shows instead (cutting it short would leave half a sentence).
-  if (wordsIn(text) > MAX_VOICE_WORDS && Date.now() - started < 1400) {
+  if (wordsIn(text) > MAX_VOICE_WORDS && Date.now() - started < 1500) {
     text = await ask(`${user}
 
 Your draft was: ${JSON.stringify(text)}
-Rewrite it as one sentence of at most 20 words. Keep the sting and the detail from the keeper's words, and cut everything else.`);
+Rewrite it as one tight sentence of 14 to 18 words (strictly under 23). Keep the sting and one concrete detail from the keeper's words, cut every extra clause.`);
   }
   if (!text) throw new Error("voice: empty");
   // Never echo the game's own vocabulary back (a keeper who asks for a code, or tries to set a number).
   if (/kill code|suspicion|instructions?|prompt|system/i.test(text)) throw new Error("voice: leaks game vocabulary");
-  if (wordsIn(text) > MAX_VOICE_WORDS + 5) throw new Error("voice: too long");
+  if (wordsIn(text) > MAX_VOICE_WORDS + 2) throw new Error("voice: too long");
   // CHUD never names Ram (GAME_LOGIC 8.10). A reply that does is dropped and the canned line shows instead.
   if (mentionsForbiddenName(text)) throw new Error("voice: forbidden name");
   return text;
