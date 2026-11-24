@@ -167,6 +167,7 @@
 
 .screen-clock { text-align: center; font: clamp(48px, 8vw, 96px)/0.9 var(--screen-mono); }
 .screen-clock p { margin: 16px 0 0; color: #909895; font: clamp(18px, 2.25vw, 26px)/1 var(--screen-mono); }
+.screen-clock .night-card-tip { max-width: 88vw; margin: 22px auto 0; color: #757d7a; font-size: clamp(16px, 1.9vw, 21px); line-height: 1.2; text-wrap: balance; }
 #screen.night-card-fading { opacity: 0; transition: opacity 0.8s ease; }
 
 #hud {

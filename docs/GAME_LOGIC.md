@@ -121,7 +121,12 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
      - power `NONE` (nothing locked), light off, CHUD online, Ram `AWAY` with the first visit delay
      - player at `DESK` facing `DESK`, Shift not held, not reading, no pending question
      - the decoy stream reseeded for this night
-   - Show "12:00 AM" and "Night N" on a timed midnight card.
+   - Show "12:00 AM" and "Night N" above a short tip for 4 s, then start play and fade the card over 0.8 s. Continue and retries use the same card for the selected night.
+     - Night 1: "Lock it, or hold it shut. Ask ChudGPT if you don't know where he is."
+     - Night 2: "The more ChudGPT thinks you'll leave, the more it lies and refuses."
+     - Night 3: "The noises aren't him. He makes no sound."
+     - Night 4: "Ask where he is too often and ChudGPT stops answering for a while."
+     - Night 5: "Too much flattery makes ChudGPT suspicious."
 2. **During the night:** the clock runs. Ram, CHUD, the decoys and the player act by the rules below. Esc toggles the player pause: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10). Reading a desk artifact does **not** pause (6.6).
 3. **At 6:00 AM:**
    - If Ram is `INSIDE`: the scare fires (reason `DAWN`) and the night is lost. Surviving to dawn is not enough if he is already in the room.
