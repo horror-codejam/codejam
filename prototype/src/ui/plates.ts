@@ -7,13 +7,14 @@
 import type { Entry, RamVisual } from "../sim/types";
 import { ENTRIES } from "../sim/types";
 
-// Entry view at the desk. Locked and dark gives "none" from engine.ramVisual, so the plain dark view (locked = blind).
+// Entry view at the desk. The dark plate is always empty.
 export function entryPlate(entry: Entry, lit: boolean, vis: RamVisual): string {
   const k = entry.toLowerCase();
-  if (vis === "inside") return `inside_${k}_on`; // only ever visible with the light on
-  if (vis === "tell_faint" || vis === "tell_clear") return `tell_${k}_${lit ? "on" : "off"}`;
-  if (vis === "approach_silhouette") return `approach_${k}_on`; // only ever visible with the light on
-  return `view_${k}_${lit ? "on" : "off"}`;
+  if (!lit) return `view_${k}_off`;
+  if (vis === "inside") return `inside_${k}_on`;
+  if (vis === "tell_clear") return `tell_${k}_on`;
+  if (vis === "approach_silhouette") return `approach_${k}_on`;
+  return `view_${k}_on`;
 }
 
 // Close-up at the entry (standing or bracing). The brace plates include the player's arms.

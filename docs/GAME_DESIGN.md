@@ -57,7 +57,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - Ram makes no sound at any entry. The house creaks, knocks and rattles all night (decoys), and none of it is him.
 - Forward desk view (`cam_desk`): ChudGPT's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot can run either one magnetic lock or one entry light. Each entry has its own light. Hold Shift and the light of the entry you are looking at comes on, instantly, and any lock drops. Release and the slot is empty. A locked entry is dark and shows nothing (locked = blind). Seeing and locking never happen together.
+- One power slot runs one magnetic lock. Hold Shift to light the entry you are looking at and release it to go dark. The light and lock work independently.
 - The lights are the player's, not ChudGPT's: ChudGPT cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
 - Entry locks are magnetic locks. Select an entry mark on ChudGPT's map to request its lock.
@@ -78,7 +78,7 @@ The release uses final room plates and per-entry scare sequences. Missing run fo
 |---|---|---|
 | 1. In the caves | Out of reach | Nothing (the storm, the house settling) |
 | 2. Approaching | Heading for one entry | Nothing to hear. With that entry lit: a hint of him |
-| 3. At the entry | Trying to break in | Nothing to hear. A faint tell in the dark, clear with that entry's light, nothing if it is locked. Right hatch: fingers over the lifting lid. Left window: a hand on the glass. Rear balcony: the door ajar, a head in the gap |
+| 3. At the entry | Trying to break in | Nothing to hear. A clear tell with the entry's light, even when locked. At the desk a dark entry looks empty. Up close the tell is faint in the dark. Right hatch: fingers over the lifting lid. Left window: a hand on the glass. Rear balcony: the door ajar, a head in the gap |
 | Result | Locked or held: he leaves, silently. Open: he gets in, silently | He is in the room. The scare comes when you light his entry and look, put down what you are reading, or on its own. 6 AM with him inside is a loss |
 
 Pacing: constant fear, low frequency. Few visits (3 or 4 on night 1, 7 or 8 on night 5), long and uneven gaps (lulls and sudden quick returns), slow early in the night and tighter toward dawn. Ram never speaks.
@@ -185,7 +185,7 @@ The watch room is damp stone and worn marine hardware. The forward view is ancho
 
 What makes it scary (design rules):
 - Darkness, one harsh light source per view, near-black ambient.
-- Silence over sound: Ram is never heard, the house is always heard. The player has to look, and looking costs the lock.
+- Silence over sound: Ram is never heard, the house is always heard. From the desk the player needs the entry's light to see what is there.
 - Low frequency, high tension: few visits, long uneven gaps, attempt windows of 5 to 11 seconds.
 - Show as much of Ram as reads and scares best in each shot. The tells are partial by nature (fingers, a hand, a face at the glass, a shadow under the door); the jumpscare shows him in full.
 

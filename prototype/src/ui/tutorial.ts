@@ -1,4 +1,4 @@
-import type { Entry, GameState, Outcome, PowerSlot, QuickCommand } from "../sim/types";
+import type { Entry, GameState, Outcome, QuickCommand } from "../sim/types";
 
 const views = [
   { entry: "WINDOW", label: "window", edge: "left" },
@@ -7,7 +7,7 @@ const views = [
 ] as const;
 
 const steps = [
-  "views", "light", "lock", "tradeoff", "release-light", "dash", "brace",
+  "views", "light", "lock", "dash", "brace",
   "release-brace", "return", "location", "relock", "unlock", "chat", "pause", "ready",
 ] as const;
 type Step = typeof steps[number];
@@ -32,7 +32,6 @@ export class EveningTutorial {
   private visited = new Set<Entry>();
   private highlighted?: HTMLElement;
   private usedLight = false;
-  private demonstratedTradeoff = false;
   private askedLocation = false;
   private requestedUnlock = false;
   private wroteMessage = false;
@@ -55,7 +54,6 @@ export class EveningTutorial {
     this.index = 0;
     this.visited.clear();
     this.usedLight = false;
-    this.demonstratedTradeoff = false;
     this.askedLocation = false;
     this.requestedUnlock = false;
     this.wroteMessage = false;
@@ -69,11 +67,8 @@ export class EveningTutorial {
     this.highlight();
   }
 
-  powerChanged(before: PowerSlot, after: PowerSlot): void {
-    if (this.step === "light" && after.startsWith("LIGHT_")) this.usedLight = true;
-    if (this.step === "tradeoff" && before === "LOCK_HATCH" && after === "LIGHT_HATCH") {
-      this.demonstratedTradeoff = true;
-    }
+  usedEntryLight(): void {
+    if (this.step === "light") this.usedLight = true;
   }
 
   reply(outcome: Outcome): void {
@@ -105,16 +100,14 @@ export class EveningTutorial {
   }
 
   private completed(state: GameState): boolean {
-    const { position, view, lightHeld } = state.player;
+    const { position, view, lightEntry } = state.player;
     const { slot } = state.power;
     const facingDesk = position.kind === "DESK" && view === "DESK";
     switch (this.step) {
       case "views": return this.visited.size === views.length && facingDesk;
-      case "light": return this.usedLight || slot.startsWith("LIGHT_");
+      case "light": return this.usedLight || lightEntry !== null;
       case "lock":
       case "relock": return slot === "LOCK_HATCH";
-      case "tradeoff": return this.demonstratedTradeoff;
-      case "release-light": return !lightHeld;
       case "dash": return position.kind === "TRAVELING" || position.kind === "STANDING" || position.kind === "HOLDING";
       case "brace": return position.kind === "HOLDING";
       case "release-brace": return position.kind !== "HOLDING";
@@ -142,14 +135,6 @@ export class EveningTutorial {
         return { text: state.player.view === "DESK" ? "Look at an entry, then hold Shift to light it." : "Hold Shift to light the entry you're looking at." };
       case "lock":
         return deskControl("Click H on ChudGPT's map to lock the hatch. W is the window and B is the balcony.", "LOCK_HATCH");
-      case "tradeoff":
-        if (state.power.slot !== "LOCK_HATCH") {
-          return deskControl("Click H to lock the hatch again, then try its light.", "LOCK_HATCH");
-        }
-        if (state.player.view === "HATCH") return { text: "The hatch is locked and dark. Hold Shift to light it and see the lock drop." };
-        return { text: back ?? "Hold your pointer at the right edge to face the locked hatch." };
-      case "release-light":
-        return { text: "One power slot runs a light or a lock. Release Shift. The lock stays off until you lock it again." };
       case "dash":
         return { text: approach };
       case "brace":
@@ -164,7 +149,7 @@ export class EveningTutorial {
       case "relock":
         return deskControl("Click H to lock the hatch again.", "LOCK_HATCH");
       case "unlock":
-        return deskControl("Click “unlock all” to clear the lock. You'll still be able to use the lights.", "POWER_OFF");
+        return deskControl("Click “unlock all” to clear the lock.", "POWER_OFF");
       case "chat":
         return deskControl("ChudGPT asks: “Are you ready for the night?” Type a reply in the chat box and press Enter.", "chat");
       case "pause":

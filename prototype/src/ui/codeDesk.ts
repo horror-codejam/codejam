@@ -132,7 +132,7 @@ export function createCodeDesk(root: HTMLElement, scene: Scene, getEngine: () =>
       floor.classList.remove("hidden");
       place(floor, r, r.tilt);
       floor.classList.toggle("passive", !atEntry);
-      floor.classList.toggle("lit", s.power.slot === `LIGHT_${fp.entry}`);
+      floor.classList.toggle("lit", s.player.lightEntry === fp.entry);
       floor.textContent = "~";
     },
     // Mirrors state.player.reading every frame, so any engine close (scare, dawn, night change) closes the overlay.

@@ -17,9 +17,7 @@ import {
 import { Rng } from "./rng";
 import {
   NEUTRAL_JUDGE,
-  isLightSlot,
   isLockSlot,
-  lightSlot,
   lockSlot,
   slotEntry,
   type Band,
@@ -91,7 +89,7 @@ interface Ticket {
 }
 
 function freshVisitLog(): GameState["log"]["visit"] {
-  return { sabotaged: false, furiousCut: false, armsGaveOut: false, claimThisVisit: null, peekedFrom: null, refusedEntry: null };
+  return { sabotaged: false, furiousCut: false, armsGaveOut: false, claimThisVisit: null, refusedEntry: null };
 }
 
 export class GameEngine implements IGameEngine {
@@ -174,17 +172,16 @@ export class GameEngine implements IGameEngine {
     return (s.power.slot === lockSlot(entry) && s.power.chudOnline) || (p.kind === "HOLDING" && p.entry === entry);
   }
 
-  // Section 7.4. A light only lights its own entry view. Locked = blind: the locked entry shows nothing at all.
-  // Without its light an entry's tell is faint. The desk is lit only by CHUD's screen.
+  // Section 7.4. The light reveals the entry from the desk. Close up, the tell is faint in the dark.
   ramVisual(view: View): RamVisual {
     if (view === "DESK") return "none";
-    const r = this.state.ram;
-    const slot = this.state.power.slot;
-    const lit = slot === lightSlot(view);
+    const { ram: r, player } = this.state;
+    const lit = player.lightEntry === view;
     if (r.state === "INSIDE") return r.inside?.entry === view && lit ? "inside" : "none";
     if (r.state === "AT_ENTRY" && r.target === view) {
       if (lit) return "tell_clear";
-      return slot === lockSlot(view) ? "none" : "tell_faint";
+      const p = player.position;
+      return (p.kind === "STANDING" || p.kind === "HOLDING") && p.entry === view ? "tell_faint" : "none";
     }
     if (r.state === "APPROACHING" && r.target === view && lit) return "approach_silhouette";
     return "none";
@@ -371,6 +368,7 @@ export class GameEngine implements IGameEngine {
         lastQuickAt: -Infinity,
         reading: null,
         lightHeld: false,
+        lightEntry: null,
       },
       // Night start: dark. Nothing powered (GAME_LOGIC 5.1).
       power: { slot: "NONE", pending: null, chudOnline: true, generatorOn: true, rebootingUntil: null, lightCutAt: null },
@@ -457,7 +455,6 @@ export class GameEngine implements IGameEngine {
     if (!s.power.generatorOn || s.power.rebootingUntil !== null) cause = "POWER_OFF";
     else if (v.furiousCut) cause = "FURIOUS";
     else if (v.sabotaged) cause = "SABOTAGE";
-    else if (v.peekedFrom === entry) cause = "PEEKED";
     else if (v.armsGaveOut) cause = "ARMS_GAVE_OUT";
     else if (heldOther) cause = "WRONG_HOLD";
     else if (v.refusedEntry === entry) cause = "REFUSED";
@@ -512,11 +509,11 @@ export class GameEngine implements IGameEngine {
     this.emit({ type: "BREACH", loss: { ...s.loss } });
   }
 
-  // Looking at his entry with its light on: at the desk, not reading, facing that entry, its light landed.
+  // Looking at his entry with its light on: at the desk, facing that entry with the reader closed.
   private lookingAtLit(entry: Entry): boolean {
     const s = this.state;
     return (
-      s.player.reading === null && s.player.position.kind === "DESK" && s.player.view === entry && s.power.slot === lightSlot(entry)
+      s.player.reading === null && s.player.position.kind === "DESK" && s.player.view === entry && s.player.lightEntry === entry
     );
   }
 
@@ -527,7 +524,7 @@ export class GameEngine implements IGameEngine {
     if (!inside) return;
     const p = s.player.position;
     if ((p.kind === "STANDING" || p.kind === "HOLDING") && p.entry === inside.entry) {
-      this.scare("ARRIVED", s.power.slot === lightSlot(inside.entry));
+      this.scare("ARRIVED", s.player.lightEntry === inside.entry);
     } else if (this.lookingAtLit(inside.entry)) {
       this.scare("LOOK", true);
     } else if (inside.timerAt !== null && this.due(inside.timerAt)) {
@@ -667,7 +664,6 @@ export class GameEngine implements IGameEngine {
     if (p.pending && this.due(p.pending.landsAt)) {
       p.slot = p.pending.target;
       p.pending = null;
-      if (isLockSlot(p.slot)) this.state.player.lightHeld = false; // a landed lock wins; press Shift again to look
       this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: this.pendingPowerCause });
     }
   }
@@ -687,6 +683,7 @@ export class GameEngine implements IGameEngine {
       s.power.rebootingUntil = null;
       this.emit({ type: "GENERATOR", on: false });
       this.cutPower("kill_switch");
+      this.syncLight();
       if (s.power.chudOnline) {
         s.power.chudOnline = false;
         this.emit({ type: "CHUD_ONLINE", online: false });
@@ -733,8 +730,7 @@ export class GameEngine implements IGameEngine {
     this.onPlayerMove();
   }
 
-  // Lights (section 6.1): the player's, never CHUD's. Hold Shift: the light of the entry you are looking at is on,
-  // instantly, and it takes the one power slot (any lock drops at once). Release: the slot goes to NONE.
+  // Lights (section 6.1): Shift immediately lights the entry in view independently of the locks.
   setLight(on: boolean): void {
     const s = this.state;
     if (s.phase !== "PLAYING") return;
@@ -742,28 +738,18 @@ export class GameEngine implements IGameEngine {
     this.syncLight();
   }
 
-  // Keeps the slot in line with the held light: on the viewed entry while held and powered, off otherwise.
+  // Keep the light on the viewed entry while held and powered.
   private syncLight(): void {
-    const s = this.state;
-    const p = s.power;
-    const v = s.player.view;
-    const powered = p.generatorOn && p.rebootingUntil === null;
-    const want: PowerSlot | null = s.player.lightHeld && powered && v !== "DESK" && s.player.reading === null ? lightSlot(v) : null;
-    if (want) {
-      if (p.slot === want && !p.pending) return;
-      // PEEKED (section 11): a lock on Ram's entry dropped for a light while he is on his way or at it.
-      const r = s.ram;
-      const from = slotEntry(p.slot);
-      if (isLockSlot(p.slot) && (r.state === "APPROACHING" || r.state === "AT_ENTRY") && r.target === from) s.log.visit.peekedFrom = from;
-      p.pending = null;
-      p.slot = want;
-      this.emit({ type: "POWER_CHANGED", slot: want, cause: "light" });
-      this.rollLightCut();
-    } else if (isLightSlot(p.slot)) {
-      p.slot = "NONE";
-      p.lightCutAt = null;
-      this.emit({ type: "POWER_CHANGED", slot: "NONE", cause: "light" });
-    }
+    const { player, power } = this.state;
+    const p = player.position;
+    const view = p.kind === "STANDING" || p.kind === "HOLDING" ? p.entry : player.view;
+    const powered = power.generatorOn && power.rebootingUntil === null;
+    const entry = player.lightHeld && powered && view !== "DESK" && player.reading === null ? view : null;
+    if (player.lightEntry === entry) return;
+    player.lightEntry = entry;
+    if (entry) this.rollLightCut();
+    else power.lightCutAt = null;
+    this.emit({ type: "LIGHT_CHANGED", entry });
   }
 
   // CHUD can never stop a light coming on, but it can force it off (section 6.1). One roll per light-on, by band.
@@ -779,12 +765,11 @@ export class GameEngine implements IGameEngine {
     const p = s.power;
     if (p.lightCutAt === null || !this.due(p.lightCutAt)) return;
     p.lightCutAt = null;
-    if (!isLightSlot(p.slot) || !p.chudOnline || p.rebootingUntil !== null || s.chud.band === "WARM") return;
-    const entry = slotEntry(p.slot)!;
-    p.slot = "NONE";
+    const entry = s.player.lightEntry;
+    if (!entry || !p.chudOnline || p.rebootingUntil !== null || s.chud.band === "WARM") return;
+    s.player.lightEntry = null;
     // Holding Shift through the cut stays dark: the player has to release and press again.
     s.player.lightHeld = false;
-    this.emit({ type: "POWER_CHANGED", slot: "NONE", cause: "light_cut" });
     this.emit({ type: "LIGHT_CUT", entry, band: s.chud.band });
     if (this.now - s.chud.lastLightCutLineAt >= this.cfg.LIGHT_CUT_LINE_GAP - EPS) {
       s.chud.lastLightCutLineAt = this.now;
@@ -907,6 +892,7 @@ export class GameEngine implements IGameEngine {
     }
     this.emit({ type: "HOLD_ENDED", entry: p.entry, reason });
     this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+    this.syncLight();
   }
 
   // ---- Edge-controls flow (docs/CONTROLS_PROPOSAL.md, IMPLEMENTATION_NOTES "Edge controls") ----
@@ -962,6 +948,7 @@ export class GameEngine implements IGameEngine {
       if (p.stay && !p.braceOnArrival) s.player.position = { kind: "STANDING", entry: p.entry, restUntil: p.until };
       else s.player.position = { kind: "HOLDING", entry: p.entry, since: p.until, ...(p.stay ? { stay: true } : {}) };
       this.emit({ type: "PLAYER_MOVED", position: { ...s.player.position } });
+      this.syncLight();
     } else if (p.kind === "HOLDING" && this.due(p.since + this.cfg.HOLD_MAX)) {
       this.endHold("arms");
     } else if (p.kind === "RETURNING" && this.due(p.until)) {
@@ -1177,12 +1164,10 @@ export class GameEngine implements IGameEngine {
     if (r.state !== "AT_ENTRY" || s.chud.furiousVisitId !== r.visitId) return;
     if (this.windowLeft() < this.cutMargin() - EPS) return;
     s.chud.furiousCutDone = true;
-    // The cut only hits a lock (engaged or on its way). The player's light is not CHUD's to cut.
+    // This cut only hits locks, including a lock on its way.
     const p = s.power;
-    if (isLockSlot(p.slot) || (p.pending && isLockSlot(p.pending.target))) {
-      p.pending = null;
-      if (isLockSlot(p.slot)) p.slot = "NONE";
-      this.emit({ type: "POWER_CHANGED", slot: p.slot, cause: "furious" });
+    if (p.slot !== "NONE" || (p.pending && p.pending.target !== "NONE")) {
+      this.cutPower("furious");
       s.log.visit.furiousCut = true;
     }
     this.emit({ type: "FURIOUS_CUT", entry: r.target! });

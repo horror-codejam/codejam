@@ -1,9 +1,9 @@
-// The new loop (GAME_LOGIC 4, 7.4, 7.6, 7.7, 11, 12): pacing, decoys, one light per entry, locked = blind, PEEKED,
+// The new loop (GAME_LOGIC 4, 7.4, 7.6, 7.7, 11, 12): pacing, decoys, independent entry lights and locks,
 // the silent breach and its scare triggers, desk artifacts. Uses an inline judge stub, never offlineJudge.
 import { describe, expect, it } from "vitest";
 import { CONFIG, nightLength, type Config, type NightParams } from "../src/config";
 import { GameEngine } from "../src/sim/engine";
-import { ENTRIES, lightSlot, lockSlot, type Entry, type GameEvent, type InsideTrigger } from "../src/sim/types";
+import { ENTRIES, lockSlot, type Entry, type GameEvent, type InsideTrigger } from "../src/sim/types";
 
 const T = CONFIG.TICK;
 
@@ -271,29 +271,37 @@ describe("decoy noises (section 7.4): never correlated with Ram", () => {
   });
 });
 
-describe("Shift light (section 6.1), one power slot, locked = blind, PEEKED", () => {
-  it("holding Shift lights the viewed entry instantly and drops the lock at once; release goes to NONE", () => {
-    const e = playing();
-    e.pressQuick("LOCK_HATCH");
-    run(e, 1);
-    expect(e.state.power.slot).toBe("LOCK_HATCH");
-    e.turn("HATCH");
+describe("Shift light and locks (section 6.1)", () => {
+  it("holding or releasing Shift preserves an active lock and the entry stays defended", () => {
+    const config = cfgWith(2, { atEntryTime: [8, 8], approachTime: 6, fakeOutChance: 0 }, quiet);
+    const e = playing({ startNight: 2, config });
+    e.devSetSuspicion(0);
+    e.devSendRam("BALCONY");
+    e.pressQuick("LOCK_BALCONY");
+    runUntil(e, 8);
+    expect(e.state.ram.state).toBe("AT_ENTRY");
+    e.turn("BALCONY");
     e.setLight(true);
-    expect(e.state.power.slot).toBe("LIGHT_HATCH"); // no relay delay
-    expect(e.isDefended("HATCH")).toBe(false);
+    expect(e.state.player.lightEntry).toBe("BALCONY");
+    expect(e.state.power.slot).toBe("LOCK_BALCONY");
+    expect(e.isDefended("BALCONY")).toBe(true);
     e.setLight(false);
-    expect(e.state.power.slot).toBe("NONE"); // the lock does not come back by itself
+    expect(e.state.player.lightEntry).toBeNull();
+    expect(e.state.power.slot).toBe("LOCK_BALCONY");
+    runUntil(e, 14.1);
+    expect(e.state.ram.state).toBe("RETREATING");
   });
 
   it("Shift at the desk does nothing; turning while held moves the light; the desk turns it off", () => {
     const e = playing();
     e.setLight(true);
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
     e.turn("WINDOW");
-    expect(e.state.power.slot).toBe("LIGHT_WINDOW");
+    expect(e.state.player.lightEntry).toBe("WINDOW");
     e.turn("BALCONY");
-    expect(e.state.power.slot).toBe("LIGHT_BALCONY");
+    expect(e.state.player.lightEntry).toBe("BALCONY");
     e.turn("DESK");
+    expect(e.state.player.lightEntry).toBeNull();
     expect(e.state.power.slot).toBe("NONE");
   });
 
@@ -304,7 +312,9 @@ describe("Shift light (section 6.1), one power slot, locked = blind, PEEKED", ()
     run(e, CONFIG.TRAVEL_TIME + 0.2);
     expect(e.state.player.position.kind).toBe("STANDING");
     e.setLight(true);
-    expect(e.state.power.slot).toBe("LIGHT_WINDOW");
+    expect(e.state.player.lightEntry).toBe("WINDOW");
+    e.startBrace();
+    expect(e.state.player.lightEntry).toBe("WINDOW");
   });
 
   it("generator off or rebooting means no light", () => {
@@ -312,109 +322,79 @@ describe("Shift light (section 6.1), one power slot, locked = blind, PEEKED", ()
     e.toggleGenerator();
     e.turn("HATCH");
     e.setLight(true);
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
     e.setLight(false);
     e.turn("DESK");
     e.toggleGenerator(); // rebooting
     e.turn("HATCH");
     e.setLight(true);
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
     run(e, CONFIG.REBOOT_TIME + 0.2);
-    expect(e.state.power.slot).toBe("LIGHT_HATCH"); // still held when power returns
+    expect(e.state.player.lightEntry).toBe("HATCH"); // still held when supply returns
   });
 
-  it("CHUD cannot light anything: no light command, no light quick button, typed light requests do nothing", () => {
+  it("CHUD cannot light anything: typed light requests and invalid quick buttons do nothing", () => {
     const e = playing();
     const r = e.submitMessage("turn on the hatch light");
     expect(r.ok && r.ticket.parsed).toEqual({ command: "NONE", entry: null });
     run(e, 2);
-    expect(e.state.power.slot).toBe("NONE");
-    // @ts-expect-error LIGHT_* quick commands no longer exist
+    // @ts-expect-error LIGHT_* quick commands do not exist
     e.pressQuick("LIGHT_HATCH");
     run(e, 2);
+    expect(e.state.player.lightEntry).toBeNull();
     expect(e.state.power.slot).toBe("NONE");
   });
 
-  it("a light cancels a lock still on its way; a lock that lands while Shift is held wins until Shift is pressed again", () => {
+  it("a pending lock lands on schedule while Shift lights the entry", () => {
     const e = playing();
     e.pressQuick("LOCK_WINDOW");
     e.turn("WINDOW");
     e.setLight(true);
-    expect(e.state.power.pending).toBeNull();
-    run(e, CONFIG.RELAY_DELAY + T);
-    expect(e.state.power.slot).toBe("LIGHT_WINDOW");
-    // A lock landing under a held light (e.g. a slow typed request): the lock wins
-    e.state.power.pending = { target: "LOCK_WINDOW", landsAt: e.state.clock.elapsed + 0.1 };
-    run(e, 0.2);
+    expect(e.state.power.pending).toEqual({ target: "LOCK_WINDOW", landsAt: CONFIG.RELAY_DELAY });
+    expect(e.state.player.lightEntry).toBe("WINDOW");
+    run(e, CONFIG.RELAY_DELAY - T);
+    expect(e.state.power.slot).toBe("NONE");
+    e.tick(T);
     expect(e.state.power.slot).toBe("LOCK_WINDOW");
-    expect(e.state.player.lightHeld).toBe(false);
-    e.setLight(true);
-    expect(e.state.power.slot).toBe("LIGHT_WINDOW");
+    expect(e.state.power.pending).toBeNull();
+    expect(e.state.player.lightEntry).toBe("WINDOW");
+    expect(e.state.player.lightHeld).toBe(true);
   });
 
-  it("ramVisual: a light lights only its own entry, locked = blind, the desk is never lit", () => {
-    const e = playing({ startNight: 2 });
-    e.devRamAway();
-    e.state.ram.stateEndsAt = Infinity;
-    e.devSendRam("HATCH");
-    e.devSetPower("NONE");
-    expect(e.ramVisual("HATCH")).toBe("none"); // approaching in the dark
-    e.devSetPower("LIGHT_HATCH");
-    expect(e.ramVisual("HATCH")).toBe("approach_silhouette");
-    expect(e.ramVisual("WINDOW")).toBe("none");
+  it.each(ENTRIES)("the desk view of %s needs light even when the entry is locked", (entry) => {
+    const e = playing({ config: cfgWith(1, { fakeOutChance: 0 }, quiet) });
+    e.devSendRam(entry);
+    e.turn(entry);
+    expect(e.ramVisual(entry)).toBe("none"); // approaching in the dark
+    e.devSetPower(lockSlot(entry));
+    e.setLight(true);
+    expect(e.ramVisual(entry)).toBe("approach_silhouette");
+    expect(e.ramVisual("DESK")).toBe("none");
+    for (const other of ENTRIES.filter((other) => other !== entry)) expect(e.ramVisual(other)).toBe("none");
+
     runUntil(e, e.state.ram.stateEndsAt + T);
     expect(e.state.ram.state).toBe("AT_ENTRY");
-    const cases: [string, string][] = [
-      ["LIGHT_HATCH", "tell_clear"],
-      ["NONE", "tell_faint"],
-      ["LIGHT_WINDOW", "tell_faint"], // another entry's light does not light this one
-      ["LOCK_WINDOW", "tell_faint"],
-      ["LOCK_HATCH", "none"], // locked = blind
-    ];
-    for (const [slot, vis] of cases) {
-      e.devSetPower(slot as never);
-      expect(e.ramVisual("HATCH"), slot).toBe(vis);
-      expect(e.ramVisual("DESK")).toBe("none");
-      expect(e.ramVisual("WINDOW")).toBe("none");
-    }
+    expect(e.ramVisual(entry)).toBe("tell_clear");
+    e.setLight(false);
+    expect(e.ramVisual(entry)).toBe("none"); // locked and dark
+    e.devSetPower("NONE");
+    expect(e.ramVisual(entry)).toBe("none"); // unlocked and dark
+    e.setLight(true);
+    expect(e.ramVisual(entry)).toBe("tell_clear");
   });
 
-  it("PEEKED via Shift: dropping his entry's lock for a light, then the window ends before the lock is back", () => {
-    const config = cfgWith(2, { atEntryTime: [8, 8], approachTime: 6 }, { ...quiet, LIGHT_CUT: { WARM: 0, HURT: 0, JEALOUS: 0, FURIOUS: 0 } });
-    const e = playing({ startNight: 2, config });
-    e.devSetSuspicion(0); // WARM: no refusals in the way
-    e.devRamAway();
-    e.state.ram.stateEndsAt = Infinity;
-    e.devSendRam("BALCONY");
-    e.pressQuick("LOCK_BALCONY");
-    runUntil(e, 8); // AT_ENTRY from 6 to 14
-    expect(e.state.ram.state).toBe("AT_ENTRY");
-    e.turn("BALCONY");
-    e.setLight(true);
-    e.setLight(false);
-    expect(e.state.log.visit.peekedFrom).toBe("BALCONY");
-    runUntil(e, 14.1);
-    expect(e.state.ram.state).toBe("INSIDE");
-    expect(e.state.ram.inside?.cause).toBe("PEEKED");
-  });
-
-  it("peeking and re-locking in time is safe", () => {
-    const config = cfgWith(2, { atEntryTime: [8, 8], approachTime: 6 }, quiet);
-    const e = playing({ startNight: 2, config });
-    e.devSetSuspicion(0);
-    e.devRamAway();
-    e.state.ram.stateEndsAt = Infinity;
-    e.devSendRam("BALCONY");
-    e.pressQuick("LOCK_BALCONY");
-    runUntil(e, 8);
-    e.turn("BALCONY");
-    e.setLight(true);
-    run(e, 1);
-    e.setLight(false);
-    e.turn("DESK");
-    e.pressQuick("LOCK_BALCONY");
-    runUntil(e, 15);
-    expect(e.state.ram.state).toBe("RETREATING");
+  it("keeps the faint tell in dark standing and bracing views", () => {
+    const e = playing();
+    e.devSendRam("WINDOW");
+    e.turn("WINDOW");
+    runUntil(e, e.state.ram.stateEndsAt + T);
+    e.goToEntry("WINDOW");
+    run(e, CONFIG.TRAVEL_TIME);
+    expect(e.state.player.position.kind).toBe("STANDING");
+    expect(e.ramVisual("WINDOW")).toBe("tell_faint");
+    e.startBrace();
+    expect(e.state.player.position.kind).toBe("HOLDING");
+    expect(e.ramVisual("WINDOW")).toBe("tell_faint");
   });
 
   it("fairness 12.1 and 12.2: every attempt window is at least 5 s and longer than TRAVEL_TIME + 1 s, tell clear with its light", () => {
@@ -432,10 +412,10 @@ describe("Shift light (section 6.1), one power slot, locked = blind, PEEKED", ()
         if (r.state === "AT_ENTRY") {
           if (start < 0) start = e.state.clock.elapsed;
           // with that entry's light on, the tell is clear for the whole window
-          const keep = e.state.power.slot;
-          e.state.power.slot = lightSlot(r.target!);
+          const keep = e.state.player.lightEntry;
+          e.state.player.lightEntry = r.target;
           expect(e.ramVisual(r.target!)).toBe("tell_clear");
-          e.state.power.slot = keep;
+          e.state.player.lightEntry = keep;
         }
       }
       if (e.state.ram.state === "INSIDE") expect(e.state.ram.inside!.since - start).toBeGreaterThanOrEqual(5 - T);
@@ -507,7 +487,7 @@ describe("silent breach: Ram INSIDE (section 7.7)", () => {
     e.turn("HATCH");
     expect(e.ramVisual("HATCH")).toBe("none");
     expect(e.state.phase).toBe("PLAYING");
-    e.devSetPower("LIGHT_HATCH");
+    e.setLight(true);
     expect(e.ramVisual("HATCH")).toBe("inside");
     run(e, T);
     expect(e.state.loss).toMatchObject({ reason: "LOOK", flash: true });
@@ -795,9 +775,9 @@ describe("CHUD forces the light off (section 6.1)", () => {
         cuts++;
         expect(at).toBeGreaterThanOrEqual(CONFIG.LIGHT_CUT_DELAY[0] - T);
         expect(at).toBeLessThanOrEqual(CONFIG.LIGHT_CUT_DELAY[1] + T);
-        expect(e.state.power.slot).toBe("NONE");
+        expect(e.state.player.lightEntry).toBeNull();
       } else {
-        expect(e.state.power.slot).toBe("LIGHT_HATCH");
+        expect(e.state.player.lightEntry).toBe("HATCH");
       }
     }
     return cuts / seeds;
@@ -817,25 +797,27 @@ describe("CHUD forces the light off (section 6.1)", () => {
     e.devSetSuspicion(50);
     e.turn("BALCONY");
     e.setLight(true);
-    expect(e.state.power.slot).toBe("LIGHT_BALCONY"); // CHUD can never stop it coming on
+    expect(e.state.player.lightEntry).toBe("BALCONY"); // CHUD can never stop it coming on
     run(e, CONFIG.LIGHT_CUT_DELAY[1] + 0.2);
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
     run(e, 3); // still holding: no relight by itself
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
     e.setLight(false);
     e.setLight(true);
-    expect(e.state.power.slot).toBe("LIGHT_BALCONY");
+    expect(e.state.player.lightEntry).toBe("BALCONY");
     expect(e.state.power.lightCutAt).not.toBeNull(); // the new press rolls again
   });
 
-  it("a cut goes to NONE: a lock dropped for the light does not come back", () => {
+  it("a light cut preserves an engaged lock", () => {
     const e = playing({ startNight: 2, config: alwaysCut });
     e.devSetPower("LOCK_WINDOW");
     e.devSetSuspicion(50);
     e.turn("WINDOW");
     e.setLight(true);
     run(e, CONFIG.LIGHT_CUT_DELAY[1] + 0.2);
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
+    expect(e.state.power.slot).toBe("LOCK_WINDOW");
+    expect(e.isDefended("WINDOW")).toBe(true);
   });
 
   it("never while CHUD is offline or rebooting", () => {
@@ -846,9 +828,9 @@ describe("CHUD forces the light off (section 6.1)", () => {
     run(e, CONFIG.REBOOT_TIME - 1);
     e.turn("HATCH");
     e.setLight(true);
-    expect(e.state.power.slot).toBe("NONE");
+    expect(e.state.player.lightEntry).toBeNull();
     run(e, 1.2); // back online, light comes on, and now CHUD rolls
-    expect(e.state.power.slot).toBe("LIGHT_HATCH");
+    expect(e.state.player.lightEntry).toBe("HATCH");
   });
 
   it("each cut says a short possessive line, rate limited, that never names anyone", () => {

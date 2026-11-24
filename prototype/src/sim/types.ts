@@ -5,20 +5,12 @@
 export type Entry = "WINDOW" | "HATCH" | "BALCONY";
 export const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
 export type View = "DESK" | Entry;
-// One power slot, one thing at a time (GAME_LOGIC 2): a light for one entry, or a lock for one entry, or nothing.
-export type PowerSlot =
-  | "NONE"
-  | "LIGHT_WINDOW"
-  | "LIGHT_HATCH"
-  | "LIGHT_BALCONY"
-  | "LOCK_WINDOW"
-  | "LOCK_HATCH"
-  | "LOCK_BALCONY";
-export const lockSlot = (e: Entry): PowerSlot => `LOCK_${e}` as PowerSlot;
-export const lightSlot = (e: Entry): PowerSlot => `LIGHT_${e}` as PowerSlot;
-export const slotEntry = (slot: PowerSlot): Entry | null => (slot === "NONE" ? null : (slot.slice(slot.indexOf("_") + 1) as Entry));
-export const isLockSlot = (slot: PowerSlot): boolean => slot.startsWith("LOCK_");
-export const isLightSlot = (slot: PowerSlot): boolean => slot.startsWith("LIGHT_");
+// The power slot holds one magnetic lock at a time (GAME_LOGIC 2).
+type LockSlot = `LOCK_${Entry}`;
+export type PowerSlot = "NONE" | LockSlot;
+export const lockSlot = (e: Entry): LockSlot => `LOCK_${e}`;
+export const slotEntry = (slot: LockSlot): Entry => slot.slice(5) as Entry;
+export const isLockSlot = (slot: string): slot is LockSlot => slot.startsWith("LOCK_");
 export type Band = "WARM" | "HURT" | "JEALOUS" | "FURIOUS";
 // INSIDE: the attempt ended undefended and he is in the room, silent, until the scare (GAME_LOGIC 7.7).
 export type RamState = "AWAY" | "APPROACHING" | "AT_ENTRY" | "RETREATING" | "INSIDE";
@@ -87,7 +79,8 @@ export interface GameState {
     lastMessageAt: number; // -Infinity if none, for the rate limit
     lastQuickAt: number;
     reading: string | null; // id of the desk artifact being read (full-screen), null if none
-    lightHeld: boolean; // Shift held: the light of the viewed entry is on (section 6.1)
+    lightHeld: boolean; // Shift light input, cleared by a forced cut until the next press
+    lightEntry: Entry | null; // the currently lit entry, independent of the lock slot (section 6.1)
   };
   power: {
     slot: PowerSlot;
@@ -143,7 +136,6 @@ export interface GameState {
       furiousCut: boolean;
       armsGaveOut: boolean; // a hold of the target entry ended by HOLD_MAX during AT_ENTRY
       claimThisVisit: LocationClaim | null;
-      peekedFrom: Entry | null; // a lock on this entry was dropped for a light while he was on this visit
       refusedEntry: Entry | null; // CHUD refused to lock this entry (his target) during this visit
     };
     scriptedFired: string[];
@@ -155,7 +147,7 @@ export interface GameState {
   ending: "KILL_CODE" | null; // set when the kill code is accepted
 }
 
-export type LossCause = "UNLOCKED" | "LIED" | "SABOTAGE" | "FURIOUS" | "WRONG_HOLD" | "PEEKED" | "REFUSED" | "ARMS_GAVE_OUT" | "POWER_OFF";
+export type LossCause = "UNLOCKED" | "LIED" | "SABOTAGE" | "FURIOUS" | "WRONG_HOLD" | "REFUSED" | "ARMS_GAVE_OUT" | "POWER_OFF";
 
 // Ram in the room after a silent breach. The cause is decided at the breach moment; the scare comes later.
 export interface InsideInfo {
@@ -254,7 +246,7 @@ export type Outcome =
   | { kind: "answer_first" } // a command was blocked by a pending question
   | { kind: "busy_holding" }; // never spoken by CHUD, reserved
 
-export type PowerCause = "player" | "light" | "light_cut" | "sabotage" | "furious" | "kill_switch" | "reboot";
+export type PowerCause = "player" | "sabotage" | "furious" | "kill_switch" | "reboot";
 
 export type GameEvent =
   | { type: "NIGHT_CARD"; night: number }
@@ -270,6 +262,7 @@ export type GameEvent =
   | { type: "DECOY"; sound: DecoySound; pan: number } // pan -1 (left) .. 1 (right)
   | { type: "ARTIFACT"; id: string | null } // picked up (id) or put down (null)
   | { type: "LOCK_REFUSED"; entry: Entry } // CHUD hijacked a lock request: the malicious smile
+  | { type: "LIGHT_CHANGED"; entry: Entry | null }
   | { type: "LIGHT_CUT"; entry: Entry; band: Band } // CHUD forced the light off: flicker, tick, smile in JEALOUS/FURIOUS
   | { type: "SILENCE_PULL"; newEndsAt: number | null }
   | { type: "POWER_REQUESTED"; target: PowerSlot; landsAt: number }

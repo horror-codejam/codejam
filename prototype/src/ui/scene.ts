@@ -34,7 +34,7 @@ interface EntryLayers {
   tell: Container;
   approach: Container;
   inside: Container; // Ram in the room, just inside this entry (`ram_inside_<entry>`), only with its light on
-  plates: Map<string, Container>; // final state plates: tell_<e>_<on|off>, approach_<e>_on, inside_<e>_on
+  plates: Map<string, Container>; // final state plates: tell_<e>_on, approach_<e>_on, inside_<e>_on
   render: boolean;
 }
 
@@ -209,7 +209,7 @@ export class Scene {
       const tell = render ? slot(`tell_${k}`, P.onRenderTell(e), "plate") : slot(`tell_${k}`, P.tell(e), "stage");
       const inside = slot(`ram_inside_${k}`, P.ramInside(e), "plate");
       inside.visible = false;
-      const plates = finalPlates([`tell_${k}_off`, `tell_${k}_on`, `approach_${k}_on`, `inside_${k}_on`]);
+      const plates = finalPlates([`tell_${k}_on`, `approach_${k}_on`, `inside_${k}_on`]);
       const root = new Container();
       root.addChild(dark);
       if (lit) root.addChild(lit);
@@ -410,7 +410,7 @@ export class Scene {
     if (s.phase === "PLAYING") this.prepareClips();
     const pos = s.player.position;
     // The player's light (Shift) lights only the entry it is on (GAME_LOGIC 6.1).
-    const litEntry: Entry | null = this.scareEntry ?? (s.power.slot.startsWith("LIGHT_") ? (s.power.slot.slice(6) as Entry) : null);
+    const litEntry = this.scareEntry ?? s.player.lightEntry;
     const dt = Math.min(0.1, Math.max(0, t - this.lastT));
     this.lastT = t;
     const fdt = this.paused ? 0 : dt;
@@ -468,7 +468,7 @@ export class Scene {
       if (!on) continue;
       const lit = litEntry === e;
       const vis = this.scareEntry === e ? "inside" : engine.ramVisual(e);
-      const tellUp = vis === "tell_faint" || vis === "tell_clear";
+      const tellUp = lit && vis === "tell_clear";
       // the final full plate for this state, else the view with a coded overlay
       const want = entryPlate(e, lit, vis);
       const plate = L.plates.get(want) ?? null;
@@ -479,12 +479,9 @@ export class Scene {
       if (L.litOverlay) L.litOverlay.visible = !plate && lit;
       if (plate || isFinal(useLit ? `view_${L.k}_beam` : `view_${L.k}`)) grade = GRADE_NONE;
       else if (L.render) grade = lit ? GRADE_LIT : GRADE_DARK;
-      L.inside.visible = !plate && vis === "inside";
+      L.inside.visible = !plate && lit && vis === "inside";
       L.tell.visible = !plate && tellUp;
-      // faint tells need a boost on graded renders, otherwise the night grade swallows them
-      const faint = L.render ? 0.45 : 0.22;
-      L.tell.alpha = vis === "tell_clear" ? 1 : faint + 0.08 * Math.sin(t * 9);
-      L.approach.visible = !plate && vis === "approach_silhouette";
+      L.approach.visible = !plate && lit && vis === "approach_silhouette";
       // hatch lid shudders while he is at it
       L.root.y = e === "HATCH" && tellUp ? Math.sin(t * 60) * 1.5 : 0;
     }

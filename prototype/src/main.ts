@@ -7,7 +7,7 @@ import { checkLlm, llm, VOICED, voiceRemote } from "./chud/llmClient";
 import { offlineJudge } from "./chud/offlineJudge";
 import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
-import type { Band, Entry, GameEvent, InsideTrigger, LossInfo, Phase, PowerSlot, QuickCommand } from "./sim/types";
+import { slotEntry, type Band, type Entry, type GameEvent, type InsideTrigger, type LossInfo, type Phase, type PowerSlot, type QuickCommand } from "./sim/types";
 import { loadArt } from "./ui/art";
 import type { Sound } from "./ui/audio";
 import { EdgeTurner } from "./ui/edges";
@@ -253,31 +253,26 @@ function onEvent(ev: GameEvent, t: number): void {
     case "POWER_CHANGED": {
       const previous = previousPowerSlot;
       previousPowerSlot = ev.slot;
-      if (engine.isPracticing) tutorial.powerChanged(previous, ev.slot);
       powerFlicker ||= previous !== ev.slot;
-      if ((ev.cause === "sabotage" || ev.cause === "furious") && previous.startsWith("LOCK_")) {
-        powerAlarmEntry = previous.slice(5) as Entry;
+      if ((ev.cause === "sabotage" || ev.cause === "furious") && previous !== "NONE") {
+        powerAlarmEntry = slotEntry(previous);
         powerAlarmUntil = t + 2.5;
       }
-      if (ev.cause === "light") {
-        if (previous !== ev.slot) sound.relay(false);
-        sound.lightClick(ev.slot !== "NONE");
-        break;
-      }
-      if (ev.cause === "light_cut") break; // LIGHT_CUT plays the tick
       sound.relay(ev.cause === "sabotage" || ev.cause === "furious" || ev.cause === "kill_switch");
-      if (previous !== ev.slot && ev.slot.startsWith("LOCK_")) sound.lockEngage();
+      if (previous !== ev.slot && ev.slot !== "NONE") sound.lockEngage();
       if (ev.cause === "sabotage") maliciousUntil = Math.max(maliciousUntil, t + MALICE.SABOTAGE_TIME);
       break;
     }
+    case "LIGHT_CHANGED":
+      sound.lightClick(ev.entry !== null);
+      if (engine.isPracticing && ev.entry) tutorial.usedEntryLight();
+      break;
     case "LOCK_REFUSED":
       maliciousUntil = t + MALICE.REFUSE_TIME;
       break;
     case "LIGHT_CUT":
-      sound.relay(false);
       sound.lightTick();
-      powerAlarmEntry = ev.entry;
-      lightCutUntil = powerAlarmUntil = t + 0.9;
+      lightCutUntil = t + 0.9;
       scene.lightFlickerUntil = t + 0.18;
       if (ev.band === "JEALOUS" || ev.band === "FURIOUS") maliciousUntil = Math.max(maliciousUntil, t + MALICE.LIGHT_CUT_TIME);
       break;
@@ -960,7 +955,7 @@ function devSkipClock(): void {
   const evs = engine.drainEvents();
   const mute = new Set<GameEvent["type"]>([
     "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "HINT", "SILENCE_PULL",
-    "DECOY", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
+    "DECOY", "LIGHT_CHANGED", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
   ]);
   sound.stopCues();
   for (const ev of evs) if (!mute.has(ev.type)) onEvent(ev, t);
@@ -1043,8 +1038,8 @@ function buildDevButtons(): void {
   }, "The threat silently gets in, trigger rolled by INSIDE_TRIGGER_WEIGHTS");
 
   const power = group("Power");
-  for (const slot of ["NONE", "LOCK_WINDOW", "LOCK_HATCH", "LOCK_BALCONY", "LIGHT_WINDOW", "LIGHT_HATCH", "LIGHT_BALCONY"] as PowerSlot[])
-    add(power, slot.replace("LOCK_", "L:").replace("LIGHT_", "*:"), () => {
+  for (const slot of ["NONE", "LOCK_WINDOW", "LOCK_HATCH", "LOCK_BALCONY"] as const)
+    add(power, slot.replace("LOCK_", "L:"), () => {
       if (devEnsurePlaying()) engine.devSetPower(slot);
     }, `Set the slot to ${slot} (no relay delay)`);
 
@@ -1074,7 +1069,7 @@ function renderDev(): void {
     `    visit ${r.visitId} fake ${r.fakedThisVisit ? "yes" : r.fakeOutAt !== null ? "planned" : "no"} pulls ${r.pendingPull}`,
     `SUSPICION ${s.chud.suspicion}  band ${s.chud.band}${s.chud.furiousActive ? " (episode)" : ""}`,
     `POWER ${s.power.slot}${s.power.pending ? " -> " + s.power.pending.target : ""}  online ${s.power.chudOnline}`,
-    `LIGHT ${s.power.slot.startsWith("LIGHT_") ? "ON " + s.power.slot.slice(6) : "off"}  shift ${s.player.lightHeld ? "held" : "-"}  cut at ${s.power.lightCutAt === null ? "-" : s.power.lightCutAt.toFixed(1)}`,
+    `LIGHT ${s.player.lightEntry ? "ON " + s.player.lightEntry : "off"}  shift ${s.player.lightHeld ? "held" : "-"}  cut at ${s.power.lightCutAt === null ? "-" : s.power.lightCutAt.toFixed(1)}`,
     `CHUD odds (${s.chud.band}): refuse lock ${Math.round((s.chud.band === "FURIOUS" ? 1 : CONFIG.LOCK_REFUSAL[s.chud.band]) * 100)}%  cut light ${Math.round(CONFIG.LIGHT_CUT[s.chud.band] * 100)}%  refused this visit ${s.log.visit.refusedEntry ?? "-"}`,
     `LOSS ${s.loss ? s.loss.cause + " / " + s.loss.reason : "-"}`,
     `INSIDE ${r.inside ? `${r.inside.entry} since ${r.inside.since.toFixed(1)} cause ${r.inside.cause} trigger ${r.inside.trigger}${r.inside.timerAt !== null ? " at " + r.inside.timerAt.toFixed(1) : ""}` : "-"}`,

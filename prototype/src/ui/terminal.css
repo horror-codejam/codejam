@@ -164,8 +164,8 @@
 #t-map [data-entry="WINDOW"] { left: 11%; top: 50%; }
 #t-map [data-entry="HATCH"] { left: 89%; top: 50%; }
 #t-map [data-entry="BALCONY"] { left: 50%; top: 89%; }
-#t-map button.locked { color: var(--green); border-color: currentColor; text-shadow: 0 0 5px currentColor; }
 #t-map button.lit { color: var(--light); border-color: currentColor; text-shadow: 0 0 5px currentColor; }
+#t-map button.locked { color: var(--green); border-color: currentColor; text-shadow: 0 0 5px currentColor; }
 #t-map button.alert { color: var(--alert); border-color: currentColor; }
 #t-map button.pending, #t-power .pending { border-style: dashed; }
 #t-power { display: grid; grid-template-columns: repeat(3, 1fr) 1.7fr; width: 100%; gap: 4px; font-size: 19px; }

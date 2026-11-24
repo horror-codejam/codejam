@@ -33,9 +33,11 @@ describe("the practice evening", () => {
 
     engine.turn("HATCH");
     engine.setLight(true);
-    expect(engine.state.power.slot).toBe("LIGHT_HATCH");
+    expect(engine.state.player.lightEntry).toBe("HATCH");
+    expect(engine.state.power.slot).toBe("LOCK_HATCH");
     engine.setLight(false);
-    expect(engine.state.power.slot).toBe("NONE");
+    expect(engine.state.player.lightEntry).toBeNull();
+    expect(engine.state.power.slot).toBe("LOCK_HATCH");
 
     engine.goToEntry("HATCH");
     engine.tick(CONFIG.TRAVEL_TIME);

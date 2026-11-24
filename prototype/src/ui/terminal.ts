@@ -78,7 +78,7 @@ export class Terminal {
     t: number,
     effects: { malicious: boolean; flicker: boolean; alertEntry: Entry | null; alert: boolean; lightCut: boolean },
   ): void {
-    const { power, chud } = state;
+    const { power, chud, player } = state;
     this.chat.disabled = !power.chudOnline;
     for (const button of this.quick) button.disabled = !power.chudOnline;
     this.root.classList.toggle("offline", !power.chudOnline);
@@ -99,12 +99,13 @@ export class Terminal {
     this.renderFace(chud.band, power.chudOnline, effects.malicious, t, power.rebootingUntil !== null);
     updateText(this.clock, clock);
 
-    const alert = effects.alert && (REDUCED.matches || Math.floor(t * 6) % 2 === 0);
+    const flash = REDUCED.matches || Math.floor(t * 6) % 2 === 0;
+    const alert = effects.alert && flash;
     for (const marker of this.map) {
       const entry = marker.dataset.entry!;
       const locked = power.slot === `LOCK_${entry}`;
       marker.classList.toggle("locked", locked);
-      marker.classList.toggle("lit", power.slot === `LIGHT_${entry}`);
+      marker.classList.toggle("lit", player.lightEntry === entry);
       marker.classList.toggle("pending", power.pending?.target === `LOCK_${entry}`);
       marker.classList.toggle("alert", alert && entry === effects.alertEntry);
       marker.setAttribute("aria-pressed", String(locked));
@@ -112,9 +113,9 @@ export class Terminal {
     for (const cell of this.cells) {
       const key = cell.dataset.cell!;
       const light = key === "LIGHT";
-      cell.classList.toggle("on", light ? power.slot.startsWith("LIGHT_") : power.slot === key);
+      cell.classList.toggle("on", light ? player.lightEntry !== null : power.slot === key);
       cell.classList.toggle("pending", power.pending?.target === key);
-      cell.classList.toggle("alert", alert && (light ? effects.lightCut : `LOCK_${effects.alertEntry}` === key));
+      cell.classList.toggle("alert", light ? effects.lightCut && flash : alert && `LOCK_${effects.alertEntry}` === key);
     }
   }
 
