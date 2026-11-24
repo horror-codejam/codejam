@@ -232,6 +232,7 @@ function frame(dt: number): void {
     tutorial.update(engine, t, (line) => showChud(line.text, line.band, t), clearPracticeSpeech);
   }
   const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
+  if (phase === "PLAYING" && !paused) sound.keepSpeechWarm();
   const lampActive = phase === "PLAYING" && !paused && engine.isLampOn();
   sound.setLampHum(lampActive, lampActive ? engine.beamViewIntensity(engine.state.player.view, engine.visualTime) : 0);
   reportTyping(t);

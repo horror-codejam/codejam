@@ -5,7 +5,8 @@ import type { DeskArtifact } from "./sim/engine";
 
 export const CHUD_SPEECH = {
   REQUEST_TIMEOUT_MS: 3000,
-  HOSTED_TIMEOUT_MS: 32000, // a cold Python function may need to fetch the pinned model
+  HOSTED_TIMEOUT_MS: 32000, // allow for cold Python worker initialization
+  KEEP_WARM_MS: 4 * 60 * 1000,
   MAX_WAITING_LINES: 4,
   DESK: { gain: 0.9, pan: 0 },
   WINDOW: { gain: 0.58, pan: 0.55 },

@@ -635,6 +635,7 @@ export class Sound {
   // One tiny request on the title screen so a cold hosted function is warm by the first line. Silent if unavailable.
   private voiceIndexPromise: Promise<typeof import("./audioDialogue") | undefined> | null = null;
   private warmed = false;
+  private lastSpeechRequestAt = -Infinity;
 
   private voiceIndex(): Promise<typeof import("./audioDialogue") | undefined> {
     if (!this.voiceIndexPromise) {
@@ -647,10 +648,20 @@ export class Sound {
     if (this.warmed) return;
     this.warmed = true;
     void this.voiceIndex();
+    this.pingSpeech();
+  }
+
+  keepSpeechWarm(): void {
+    if (document.hidden || performance.now() - this.lastSpeechRequestAt < CHUD_SPEECH.KEEP_WARM_MS) return;
+    this.pingSpeech();
+  }
+
+  private pingSpeech(): void {
+    this.lastSpeechRequestAt = performance.now();
     void fetch("/api/tts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: "Hm.", band: "WARM" }),
+      body: JSON.stringify({ text: "I'm here.", band: "WARM" }),
       signal: AbortSignal.timeout(CHUD_SPEECH.HOSTED_TIMEOUT_MS),
     }).then((r) => r.arrayBuffer()).catch(() => undefined);
   }
@@ -665,6 +676,7 @@ export class Sound {
       if (signal.aborted) return undefined;
       const recorded = clip ? await this.loadClip(clip.name, clip.url) : undefined;
       if (recorded || signal.aborted) return recorded;
+      this.lastSpeechRequestAt = performance.now();
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "content-type": "application/json" },
