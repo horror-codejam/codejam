@@ -729,7 +729,9 @@ export class Scene {
     this.fadeAlpha = this.jumpActive ? 0 : black;
     this.fade.alpha = this.jumpActive ? 0 : Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
-    this.rain.visible = !this.jumpActive && !transition && !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
+    // Authored beam plates already carry their own glass and weather detail. The old
+    // additive overlays lift the black floor and draw streaks across interior surfaces.
+    this.rain.visible = !beamActive && !this.jumpActive && !transition && !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
     this.rain.x = -PAN_X * 1.6 - this.pan.x * 1.6;
     this.rain.tilePosition.y = (t * 900) % 512;
     this.rain.tilePosition.x = (t * 60) % 512;
@@ -779,8 +781,11 @@ export class Scene {
       target.position.set(W / 2 + sx, H / 2 + JUMPSCARE.FACE_OFFSET_Y * punch + sy);
     }
 
-    this.grain.x = -Math.random() * 256;
-    this.grain.y = -Math.random() * 256;
+    this.grain.visible = !beamActive || dashing || Boolean(transition) || this.jumpActive;
+    if (this.grain.visible) {
+      this.grain.x = -Math.random() * 256;
+      this.grain.y = -Math.random() * 256;
+    }
   }
 }
 

@@ -12,6 +12,8 @@ Yacine's playtest verdict on 424064b (priority order for tomorrow):
 
 Living tracker for R.A.M. improvements after CodeJam 16 (started 2026-11-23). Yacine is now working solo. Keep this file current after every change.
 
+- Dark room fix complete. The full-screen additive grain and rain sat above the beam render and raised the dark floor. The room now uses the authored weather detail. See `prototype/screenshots/darkfix_*.png`.
+
 ## Branches and folders
 - `main`: the hackathon submission (live at codejam-rouge.vercel.app). Nothing below is merged into main yet.
 - `clarity-pass`: branched off main (4eae21e). Clarity pass commits.
