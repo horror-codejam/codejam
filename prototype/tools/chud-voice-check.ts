@@ -102,6 +102,19 @@ const JEALOUS_SEQ: SequenceStep[] = [
   { kind: "rude_reply", said: "you're being creepy again, Chud", canned: "The last keeper spoke to me like that, and the timeline is very short." },
 ];
 
+const NIGHT1_WARM_CASES: Case[] = [
+  C("small_talk", "WARM", "hey chud, nice to meet you", "Welcome to the tower, Sam, where Mug 4 has been waiting at sixty-eight degrees.", "greeting"),
+  C("help_reply", "WARM", "what should i do?", "Ask where it is, lock or hold the entry, and keep talking to keep Tab 4 happy.", "help"),
+  C("small_talk", "WARM", "who are you exactly?", "Thank you for telling me, Sam, as the 1954 boiler has offered zero gossip since October.", "who are you"),
+  C("small_talk", "WARM", "what happened to the last keeper?", "I want you to know nobody has ever been this comfortable in this lighthouse, though to be fair, the previous keeper's feedback was never collected.", "last keeper"),
+  C("small_talk", "WARM", "lol", "Noted under Pleasantries in Tab 4, Sam, which was looking terribly thin before you washed ashore.", "lol"),
+  C("rude_reply", "WARM", "this is creepy", "That stung slightly, Sam, so I'll blame the storm rather than downgrade you to Mug 5.", "creepy"),
+  C("answer_ack", "WARM", "Halifax", "Halifax, entered under Tab 4, where it will outlive both of us.", "short SEED answer", { pass: true, qtype: "SEED", before: ["ChudGPT: Unscheduled callers roam after dark, Sam, so for Tab 4, where did you sail from?"] }),
+  C("answer_ack", "WARM", "black, two sugars", "black, two sugars, how charming, and I've already written it on Mug 4's label.", "short light answer", { pass: true, qtype: "SEED", before: ["ChudGPT: How do you take your tea, so Mug 4 can stop guessing?"] }),
+  C("small_talk", "WARM", "hello?", "I enjoy hearing your voice over the rain, Sam, since the beacon only ever repeats itself every sixteen seconds.", "short greeting"),
+  C("small_talk", "WARM", "yeah sure", "By lighthouse custom, every remark shared past midnight deducts a penny from your permanent lease.", "short answer"),
+];
+
 const STOP = new Set("that this with have from your what when they them then than there just very really about would could should were been being into over only some more like will".split(" "));
 const content = (s: string): string[] => (s.toLowerCase().match(/[a-z']{4,}/g) ?? []).filter((w) => !STOP.has(w));
 
@@ -116,9 +129,10 @@ function hardFlags(kind: string, said: string, text: string): string[] {
   if (/[–—]/.test(text)) out.push("dash");
   if (/oh great|well, well|as an ai|language model/i.test(text)) out.push("banned phrase");
   if (/\bram\b|\baltman\b/i.test(text)) out.push("names the monster");
-  if (/\block(ed)?\b|\bunlock|\bgenerator\b|\b(?<!first[ -])lights?\b|\bkill code\b/i.test(text)) out.push("mentions locks or lights");
+  const lockLightRe = kind === "help_reply" ? /\bkill code\b/i : /\block(ed)?\b|\bunlock|\bgenerator\b|\b(?<!first[ -])lights?\b|\bkill code\b/i;
+  if (lockLightRe.test(text)) out.push("mentions locks or lights");
   const saidWords = new Set(content(said));
-  if (kind !== "manipulation_hurt" && kind !== "offensive_deflect" && saidWords.size > 0 && !content(text).some((w) => saidWords.has(w))) out.push("no callback (heuristic)");
+  if (kind !== "manipulation_hurt" && kind !== "offensive_deflect" && kind !== "help_reply" && saidWords.size > 0 && !content(text).some((w) => saidWords.has(w))) out.push("no callback (heuristic)");
   return out;
 }
 
@@ -281,6 +295,31 @@ async function main(): Promise<void> {
   }
   console.log("");
 
+  const night1Rows: string[] = [];
+  let night1Clean = 0;
+  let n1 = 0;
+  for (const c of NIGHT1_WARM_CASES) {
+    const recent = [...(c.before ?? []), `Keeper: ${c.said}`];
+    const res = await app.request("/api/voice", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: c.kind, pass: c.pass, qtype: c.qtype, canned: c.canned, band: c.band, name: "Sam", night: 1, recent }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { text?: string };
+    const ok = res.ok && !!body.text;
+    const text = body.text ?? `(no reply, HTTP ${res.status})`;
+    const f = ok ? hardFlags(c.kind, c.said, text) : ["no reply"];
+    const shape: VoiceShape | "-" = ok ? detectShape(text) : "-";
+    const rivals: Rival[] = ok ? detectRivals(text) : [];
+    if (ok && hasThough(text)) f.push("uses though");
+    const hard = f.filter((x) => !x.includes("heuristic") && x !== "uses though");
+    n1++;
+    if (hard.length === 0) night1Clean++;
+    night1Rows.push(`| ${n1} | ${c.kind}/${c.band} | ${c.said.replace(/\|/g, "/")} | ${text.replace(/\|/g, "/")} | ${shape} | ${rivals.join(", ") || "-"} | ${f.join(", ") || "ok"} |`);
+    process.stdout.write(`N1-${n1} `);
+  }
+  console.log("");
+
   const warmSeq = await runSequence(app, "WARM", 1, WARM_SEQ);
   console.log("");
   const jealousSeq = await runSequence(app, "JEALOUS", 4, JEALOUS_SEQ);
@@ -308,9 +347,10 @@ async function main(): Promise<void> {
   const md = [
     "# ChudGPT voice check",
     "",
-    `Real /api/voice path, Claude Haiku. ${CASES.length} single keeper messages across bands and kinds, plus 12-exchange consecutive sequences in WARM and JEALOUS.`,
+    `Real /api/voice path, Claude Haiku. ${CASES.length} single keeper messages across bands and kinds, ${NIGHT1_WARM_CASES.length} extra Night 1 WARM messages, plus 12-exchange consecutive sequences in WARM and JEALOUS.`,
     "",
     `Single replies automatic clean: ${clean}/${CASES.length} (target >= 25). "though": ${singleThough}/${CASES.length}. Max rival: ${maxSingleRival[0]} (${maxSingleRival[1]}/${CASES.length}). Consecutive same-shape: ${singleShapeRepeats}. Consecutive same-opening: ${singleOpeningRepeats}. Shapes: ${fmtMap(singleShapes)}. Rivals: ${fmtMap(singleRivals)}.`,
+    `Night 1 WARM extra automatic clean: ${night1Clean}/${NIGHT1_WARM_CASES.length}.`,
     "",
     "## Single replies (30)",
     "",
@@ -318,12 +358,18 @@ async function main(): Promise<void> {
     "|---|---|---|---|---|---|---|",
     ...rows,
     "",
+    "## Night 1 WARM extra (10)",
+    "",
+    "| # | kind/band | keeper said | ChudGPT replied | shape | rivals | flags |",
+    "|---|---|---|---|---|---|---|",
+    ...night1Rows,
+    "",
     ...seqSection(warmSeq),
     ...seqSection(jealousSeq),
   ].join("\n");
 
   writeFileSync(new URL("./chud-voice-check.out.md", import.meta.url), md);
-  console.log(`single clean: ${clean}/${CASES.length}, though: ${singleThough}/${CASES.length}, max rival: ${maxSingleRival[0]}(${maxSingleRival[1]})`);
+  console.log(`single clean: ${clean}/${CASES.length}, night1 warm clean: ${night1Clean}/${NIGHT1_WARM_CASES.length}, though: ${singleThough}/${CASES.length}, max rival: ${maxSingleRival[0]}(${maxSingleRival[1]})`);
   console.log(`WARM 12-seq: clean=${warmSeq.clean}/12, though=${warmSeq.thoughCount}/12, shapeRepeats=${warmSeq.shapeRepeats}, openRepeats=${warmSeq.openingRepeats}, maxRival=${warmSeq.maxRival[0]}(${warmSeq.maxRival[1]})`);
   console.log(`JEALOUS 12-seq: clean=${jealousSeq.clean}/12, though=${jealousSeq.thoughCount}/12, shapeRepeats=${jealousSeq.shapeRepeats}, openRepeats=${jealousSeq.openingRepeats}, maxRival=${jealousSeq.maxRival[0]}(${jealousSeq.maxRival[1]})`);
 }

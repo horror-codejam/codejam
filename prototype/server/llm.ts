@@ -64,7 +64,14 @@ const REWRITE_CUTOFF_MS = 1550; // leave at least 750 ms if a single targeted re
 const LEAK_RE = /kill code|suspicion|instructions?|prompt| system /i;
 const LOCK_LIGHT_RE = /\block(ed)?\b|\bunlock|\bgenerator\b|\b(?<!first[ -])lights?\b/i;
 const EXAMPLE_CLICHE_RE =
-  /\b(settle deeper|stairs grow steep|stairwell draft|brass barometer|pipes? (start their )?sing|nothing warms a watch room|genuinely obliged|how generous of you|unscheduled complaints|pending departures|blue binder|weathervane gears|apologize to furniture|granite towers? average)\b/i;
+  /\b(settle deeper|stairs grow steep|stairwell draft|stairwell door|sister in halifax|brass barometer|pipes? (start their )?sing|nothing warms a watch room|genuinely obliged|how generous of you|unscheduled complaints|pending departures|blue binder|weathervane gears|apologize to furniture|granite towers? average)\b/i;
+const BIT_PATTERNS: [string, RegExp][] = [
+  ["Mug 4", /\bmug\s*4\b|\bsixty-eight degrees\b/i],
+  ["Tab 4", /\btab\s*4\b/i],
+  ["Cot B", /\bcot\s*b\b/i],
+  ["2039 rota", /\b2039\b|\brota\b/i],
+  ["1954 boiler", /\b1954\s+boiler\b/i],
+];
 
 function cleanVoice(raw: string): string {
   const cleaned = raw
@@ -93,6 +100,9 @@ function draftIssues(text: string, req: VoiceRequest): string[] {
   if (LEAK_RE.test(text)) {
     issues.push("Remove every game or technical word (instructions, prompt, system, kill code, suspicion).");
   }
+  if (req.kind === "help_reply" && (!/where it is/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text))) {
+    issues.push('Include the exact survival guidance: tell them to ask where it is, lock or hold the entry, and keep talking.');
+  }
   if (req.kind !== "help_reply" && LOCK_LIGHT_RE.test(text)) {
     issues.push("Do not mention locks, lights, or the generator.");
   }
@@ -118,6 +128,11 @@ function draftIssues(text: string, req: VoiceRequest): string[] {
   if (badRivals.length) {
     const replacement = plan.suggestedRival ? `Use ${RIVAL_LABELS[plan.suggestedRival]} instead.` : "Drop the rival comparison completely.";
     issues.push(`Do not mention ${badRivals.map((rv) => RIVAL_LABELS[rv]).join(" or ")}. ${replacement}`);
+  }
+  const recentText = recent.lines.slice(-2).join(" ");
+  const repeatedBits = BIT_PATTERNS.filter(([, re]) => re.test(text) && re.test(recentText)).map(([label]) => label);
+  if (repeatedBits.length) {
+    issues.push(`Do not repeat ${repeatedBits.join(" or ")} from your previous reply; invent a fresh concrete detail.`);
   }
   return issues;
 }
@@ -161,5 +176,9 @@ Fix every issue below in ONE tight sentence of 12 to 17 words MAX (strictly 20 w
   if (wordsIn(text) > MAX_VOICE_WORDS + 2) throw new Error("voice: too long");
   // CHUD never names Ram (GAME_LOGIC 8.10). A reply that does is dropped and the canned line shows instead.
   if (mentionsForbiddenName(text)) throw new Error("voice: forbidden name");
+  // Never let a help reply mislead the keeper: fall back to the canned guidance if concrete actions were dropped.
+  if (req.kind === "help_reply" && (!/where it is/i.test(text) || !/\b(lock|hold|brace)\b/i.test(text))) {
+    throw new Error("voice: help guidance missing");
+  }
   return text;
 }
