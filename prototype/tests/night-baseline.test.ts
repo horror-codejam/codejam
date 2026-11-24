@@ -30,7 +30,6 @@ it("keeps the fixed-seed night simulation identical to the repel baseline", asyn
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Updated for playtest fixes: rewritten per-band night openers, Night 1 opening SEED question at 12:00 AM,
-  // and 20 s Night 1 pre-visit quiet limit (Ram RNG stream untouched).
-  expect(hash).toBe("1d240b7ded6dd5db1dd87488fab4ba3e821f5560f392bcee89291f1ba27cc839");
+  // Updated for playtest fixes + chud-pass canned-pool variety merge (Ram RNG stream untouched).
+  expect(hash).toBe("7c9f1f93d728077a9e2a4369f3a61a050230bf5a70e939d99db5ece0010511a0");
 });
