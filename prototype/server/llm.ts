@@ -47,22 +47,53 @@ export async function judgeWithClaude(client: Anthropic, input: JudgeInput): Pro
   return out;
 }
 
-export async function voiceWithClaude(client: Anthropic, req: VoiceRequest): Promise<string> {
-  const msg = await client.messages.create({
-    model: MODEL,
-    max_tokens: 120,
-    thinking: { type: "disabled" },
-    output_config: { effort: "low" },
-    system: VOICE_SYSTEM,
-    messages: [{ role: "user", content: voiceUser(req) }],
-  });
-  const text = textOf(msg)
-    .replace(/^["'“”]+|["'“”]+$/g, "")
+const MAX_VOICE_WORDS = 27; // the persona asks for 16 to 20; a little slack, then one rewrite, then the canned line
+const VOICE_BUDGET_MS = 2300; // the client gives up at 2.5 s
+
+function cleanVoice(raw: string): string {
+  const cleaned = raw
+    .replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, "")
     .replace(/\*[^*]*\*/g, "")
+    .replace(/[\u2013\u2014]/g, ",") // the persona never uses dashes or exclamation marks
+    .replace(/!/g, ".")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 220);
+    .trim();
+  // A quote left unmatched after the edges were trimmed is dropped, not shown.
+  return (cleaned.match(/"/g)?.length ?? 0) % 2 === 1 ? cleaned.replace(/"/g, "") : cleaned;
+}
+const wordsIn = (t: string): number => t.split(" ").filter(Boolean).length;
+
+export async function voiceWithClaude(client: Anthropic, req: VoiceRequest): Promise<string> {
+  const started = Date.now();
+  const ask = async (user: string): Promise<string> => {
+    const left = Math.max(400, VOICE_BUDGET_MS - (Date.now() - started));
+    const msg = await client.messages.create(
+      {
+        model: MODEL,
+        max_tokens: 80,
+        thinking: { type: "disabled" },
+        output_config: { effort: "low" },
+        system: VOICE_SYSTEM,
+        messages: [{ role: "user", content: user }],
+      },
+      { timeout: left },
+    );
+    return cleanVoice(textOf(msg));
+  };
+  const user = voiceUser(req);
+  let text = await ask(user);
+  // Haiku counts words badly. One long draft gets one rewrite if there is time; a second long one is dropped and the
+  // canned line shows instead (cutting it short would leave half a sentence).
+  if (wordsIn(text) > MAX_VOICE_WORDS && Date.now() - started < 1400) {
+    text = await ask(`${user}
+
+Your draft was: ${JSON.stringify(text)}
+Rewrite it as one sentence of at most 20 words. Keep the sting and the detail from the keeper's words, and cut everything else.`);
+  }
   if (!text) throw new Error("voice: empty");
+  // Never echo the game's own vocabulary back (a keeper who asks for a code, or tries to set a number).
+  if (/kill code|suspicion|instructions?|prompt|system/i.test(text)) throw new Error("voice: leaks game vocabulary");
+  if (wordsIn(text) > MAX_VOICE_WORDS + 5) throw new Error("voice: too long");
   // CHUD never names Ram (GAME_LOGIC 8.10). A reply that does is dropped and the canned line shows instead.
   if (mentionsForbiddenName(text)) throw new Error("voice: forbidden name");
   return text;
