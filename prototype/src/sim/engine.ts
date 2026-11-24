@@ -7,6 +7,9 @@ import { CONFIG, ENDING, nightLength, type Config, type NightParams } from "../c
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
+  lightQuestion,
+  lineClass,
+  speechSeconds,
   RADIO_LINES,
   SEED_TOPICS,
   RADIO_TOPIC,
@@ -66,6 +69,18 @@ const NO_REPEAT_TARGET_NIGHT = 1; // section 7.2
 const DECOY_SOUNDS: DecoySound[] = ["creak", "knock", "metal", "glass"];
 const INSIDE_TRIGGERS: InsideTrigger[] = ["TIMER", "NONE", "MOVE"];
 const DECOY_SEED_SALT = 0x5bd1e995; // the decoy stream is seeded apart from the game stream
+const LINE_SEED_SALT = 0x1f3d5b79; // line wording has its own stream, so changing a pool never moves Ram or the lies
+
+// Pacing (GAME_LOGIC 8.10). Priority 1 and 2 lines play at once. Priority 3 (questions) wait for a free moment.
+// Priority 4 lines are dropped if they cannot play within LOW_DROP_AFTER seconds.
+const LOW_PRIORITY = new Set<Outcome["kind"]>(["entry_repelled"]);
+// Lines ChudGPT starts on its own (everything else answers the keeper). They count for the unprompted gap.
+const UNPROMPTED = new Set<Outcome["kind"]>([
+  "entry_warning", "entry_repelled", "light_cut", "sabotage", "furious_start", "furious_cut", "reboot_back",
+  "radio_reaction", "night_opener", "question_timeout", "silence", "question",
+]);
+const COAST_RE = /coast|guard|rescue|helicopter|pickup|pick up|chopper/i;
+const BOAT_RE = /(boat|ship|sail|sailing|yacht|vessel)/i;
 
 // Section 10 radio beats. The text comes from RADIO_LINES.
 const RADIO_BEATS: { night: number; hour: number; asksQuestion: boolean }[] = [
@@ -121,6 +136,16 @@ export class GameEngine implements IGameEngine {
   private readonly practiceBeforeNight: boolean;
   private practiceElapsed: number | null = null;
   private practiceReply = false;
+  // Pacing state (not game state). See GAME_LOGIC 8.10.
+  private lineRng: Rng;
+  private busyUntil = 0; // ChudGPT is still speaking its last line until this time (estimated from its length)
+  private lastLineAt = 0; // any line, for the quiet limit
+  private lastUnpromptedAt = -Infinity;
+  private lastQuestionAt = -Infinity;
+  private lastExchangeAt = -Infinity; // the keeper's last message, or ChudGPT's last answer to them
+  private typing = false;
+  private lowQueue: { outcome: Outcome; dropAt: number }[] = [];
+  private lastLightQuestion: string | undefined;
 
   constructor(opts: EngineOptions = {}) {
     this.cfg = opts.config ?? CONFIG;
@@ -128,6 +153,7 @@ export class GameEngine implements IGameEngine {
     this.seed = opts.seed ?? DEFAULT_SEED;
     this.rng = new Rng(this.seed);
     this.decoyRng = new Rng(this.seed ^ DECOY_SEED_SALT);
+    this.lineRng = new Rng(this.seed ^ LINE_SEED_SALT);
     this.state = {} as GameState;
     this.initPapers = clamp(Math.floor(opts.papersCheckpoint ?? 0) || 0, 0, ENDING.CODE_LETTERS + ENDING.CODE_DIGITS);
     this.killCode = this.validCode(opts.killCode) ? opts.killCode!.toUpperCase() : this.makeKillCode();
@@ -388,6 +414,15 @@ export class GameEngine implements IGameEngine {
     this.pendingPowerCause = "player";
     this.memoryChecked = [];
     this.nightStarts++;
+    this.lineRng = new Rng((this.seed ^ LINE_SEED_SALT) + this.nightStarts * 104729);
+    this.busyUntil = 0;
+    this.lastLineAt = 0;
+    this.lastUnpromptedAt = -Infinity;
+    this.lastQuestionAt = -Infinity;
+    this.lastExchangeAt = -Infinity;
+    this.typing = false;
+    this.lowQueue = [];
+    this.lastLightQuestion = undefined;
     this.decoyRng = new Rng((this.seed ^ DECOY_SEED_SALT) + this.nightStarts * 7919);
     this.state.decoy = { nextAt: this.rollDecoyInterval(), count: 0 };
     this.emit({ type: "NIGHT_CARD", night });
@@ -650,6 +685,7 @@ export class GameEngine implements IGameEngine {
     this.stepDecoys();
     this.stepQuestionTimeouts();
     this.stepSilence();
+    this.stepLowLines();
     this.stepQuestions();
     this.tryFuriousCut();
     this.stepSabotage();
@@ -1317,7 +1353,7 @@ export class GameEngine implements IGameEngine {
     s.timers.silenceTicks++;
     this.changeSuspicion(this.cfg.suspicion.silenceTick, ["silence"]);
     this.silencePull();
-    this.say({ kind: "silence" });
+    // No spoken remark: ChudGPT's voice during silence is the quiet-limit light question (GAME_LOGIC 8.10).
   }
 
   // =========================================================================
@@ -1387,25 +1423,77 @@ export class GameEngine implements IGameEngine {
 
   private askQuestion(q: PendingQuestion, speak: boolean): void {
     q.askedAt = this.now;
+    this.lastQuestionAt = this.now;
     this.state.chud.pendingQuestion = q;
     this.emit({ type: "QUESTION_ASKED", question: { ...q } });
-    if (speak) this.say({ kind: "question", question: q.text, type: q.type });
+    if (speak) this.emitLine({ kind: "question", question: q.text, type: q.type });
+  }
+
+  // True while the keeper is at the desk with text in the chat (the UI reports it with setTyping).
+  private get keeperTyping(): boolean {
+    const p = this.state.player;
+    return this.typing && p.position.kind === "DESK" && p.view === "DESK";
+  }
+
+  private get calm(): boolean {
+    const st = this.state.ram.state;
+    return st === "AWAY" || st === "RETREATING";
+  }
+
+  // The common holds on anything ChudGPT starts on its own (GAME_LOGIC 8.10 rule 1).
+  private canStartUnprompted(needGap: boolean): boolean {
+    const s = this.state;
+    if (!s.power.chudOnline || s.chud.pendingQuestion) return false;
+    if (this.now < this.busyUntil - EPS || this.keeperTyping) return false;
+    return !needGap || this.now - this.lastUnpromptedAt >= this.cfg.PACING.UNPROMPTED_GAP - EPS;
+  }
+
+  // Priority 3. A question waits for a free moment: not while speaking, typing or another question is open, not within
+  // 12 s of its last unprompted line, not within 15 s of the keeper's last exchange. Scheduled ones are also at least
+  // scheduledQuestionMinSpacing after the last question. The radio question skips the exchange and spacing holds.
+  private questionFree(kind: "SCHEDULED" | "SCRIPT" | "QUIET", dueAt = this.now): boolean {
+    if (!this.canStartUnprompted(true)) return false;
+    // A talkative keeper cannot dodge a due question forever: the exchange hold ends EXCHANGE_HOLD_MAX after it fell due.
+    const overdue = this.now - dueAt >= this.cfg.PACING.EXCHANGE_HOLD_MAX - EPS;
+    if (kind !== "SCRIPT" && !overdue && this.now - this.lastExchangeAt < this.cfg.PACING.EXCHANGE_GAP - EPS) return false;
+    if (kind === "SCHEDULED" && this.now - this.lastQuestionAt < this.cfg.scheduledQuestionMinSpacing - EPS) return false;
+    return true;
   }
 
   private stepQuestions(): void {
     const s = this.state;
     if (!s.power.chudOnline || s.chud.pendingQuestion) return;
     if (s.chud.queuedScriptQuestion) {
+      if (!this.questionFree("SCRIPT")) return;
       const q = s.chud.queuedScriptQuestion;
       s.chud.queuedScriptQuestion = null;
       this.askQuestion(q, true);
       return;
     }
     const item = s.chud.questionPlan.find((it) => !it.asked && this.due(it.dueAt));
-    if (!item) return;
-    if (!this.np.questionsMayLandDuringAttempt && s.ram.state === "AT_ENTRY") return;
-    item.asked = true;
-    this.askQuestion(this.makeQuestion(item.type, "SCHEDULED"), true);
+    if (item && (this.np.questionsMayLandDuringAttempt || s.ram.state !== "AT_ENTRY")) {
+      if (!this.questionFree("SCHEDULED", item.dueAt)) return;
+      item.asked = true;
+      this.askQuestion(this.makeQuestion(item.type, "SCHEDULED"), true);
+      return;
+    }
+    this.stepQuietQuestion();
+  }
+
+  // Never too distant (GAME_LOGIC 8.10 rule 4): after the night's quiet limit without a ChudGPT line, and only while
+  // calm, ChudGPT asks one light question. It stores no fact: any real answer passes.
+  private stepQuietQuestion(): void {
+    const s = this.state;
+    if (!this.calm || s.chud.queuedScriptQuestion) return;
+    const limit = this.cfg.QUIET_LIMIT[s.run.night - 1] ?? 50;
+    if (this.now - this.lastLineAt < limit - EPS) return;
+    if (!this.questionFree("QUIET")) return;
+    const text = lightQuestion(s.chud.band, () => this.lineRng.next(), this.lastLightQuestion);
+    this.lastLightQuestion = text;
+    this.askQuestion(
+      { id: this.nextQuestionId++, origin: "QUIET", type: "SEED", factKey: null, text, askedAt: this.now },
+      true,
+    );
   }
 
   private stepQuestionTimeouts(): void {
@@ -1416,7 +1504,8 @@ export class GameEngine implements IGameEngine {
 
   private timeoutQuestion(q: PendingQuestion): void {
     this.removeQuestion(q);
-    this.changeSuspicion(this.cfg.suspicion.questionTimeout, ["question_timeout"]);
+    const penalty = q.origin === "QUIET" ? this.cfg.LIGHT_QUESTION_TIMEOUT_PENALTY : this.cfg.suspicion.questionTimeout;
+    this.changeSuspicion(penalty, ["question_timeout"]);
     this.emit({ type: "QUESTION_RESOLVED", questionId: q.id, result: "timeout" });
     this.say({ kind: "question_timeout" });
   }
@@ -1444,8 +1533,11 @@ export class GameEngine implements IGameEngine {
     s.log.scriptedFired.push(id);
     this.emit({ type: "RADIO", text: RADIO_LINES[s.run.night] ?? "" });
     this.changeSuspicion(this.cfg.suspicion.radioBeat, ["radio"]);
-    if (s.power.chudOnline) this.say({ kind: "radio_reaction" });
-    if (!asksQuestion) return;
+    if (!asksQuestion) {
+      if (s.power.chudOnline) this.say({ kind: "radio_reaction" });
+      return;
+    }
+    // The radio question is the reaction. It waits for a free moment (stepQuestions) instead of stacking on a line.
     const q: PendingQuestion = {
       id: this.nextQuestionId++,
       origin: "SCRIPT",
@@ -1454,8 +1546,7 @@ export class GameEngine implements IGameEngine {
       text: RADIO_TOPIC.question,
       askedAt: this.now,
     };
-    if (s.power.chudOnline && !s.chud.pendingQuestion) this.askQuestion(q, true);
-    else s.chud.queuedScriptQuestion = q;
+    s.chud.queuedScriptQuestion = q;
   }
 
   // =========================================================================
@@ -1510,7 +1601,7 @@ export class GameEngine implements IGameEngine {
         if (chance > 0 && (chance >= 1 || this.rng.chance(chance))) {
           this.recordLockRefusal(entry);
           this.emit({ type: "LOCK_REFUSED", entry });
-          return band === "FURIOUS" ? { kind: "refuse_furious", request: "LOCK" } : { kind: "lock_refused", entry };
+          return band === "FURIOUS" ? { kind: "refuse_furious", request: "LOCK", entry } : { kind: "lock_refused", entry };
         }
         this.requestPower(lockSlot(entry), "player");
         return { kind: "locked", entry };
@@ -1616,6 +1707,7 @@ export class GameEngine implements IGameEngine {
       return { ok: true, ticket };
     }
     s.player.lastMessageAt = this.now;
+    this.lastExchangeAt = this.now;
 
     // Step 2: repeat check.
     const recent = s.log.recentMessages;
@@ -1750,7 +1842,8 @@ export class GameEngine implements IGameEngine {
       if (seedPassed && pq.factKey) {
         this.storeFact(pq.factKey, r.new_fact?.value ?? t.text.trim().slice(0, FACT_VALUE_MAX));
       }
-      answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type };
+      const echo = pq.factKey && (seedPassed || pq.type === "MEMORY") ? s.chud.facts[pq.factKey] : undefined;
+      answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type, value: echo };
     }
     if (r.new_fact && !seedPassed) this.storeFact(r.new_fact.key, r.new_fact.value);
 
@@ -1768,7 +1861,7 @@ export class GameEngine implements IGameEngine {
     else if (t.ranImmediately) line = answerOutcome;
     else if (commandOutcome) line = commandOutcome;
     else if (answerOutcome) line = answerOutcome;
-    else if (r.mentions_leaving) line = { kind: "leaving_reply" };
+    else if (r.mentions_leaving) line = { kind: "leaving_reply", topic: COAST_RE.test(t.text) ? "coast" : BOAT_RE.test(t.text) ? "boat" : undefined };
     else if (r.rude) line = { kind: "rude_reply" };
     else if (r.warm) line = { kind: flattery ? "flattery_reply" : "warm_reply" };
     else line = { kind: "small_talk" };
@@ -1785,7 +1878,29 @@ export class GameEngine implements IGameEngine {
   // Helpers
   // =========================================================================
 
+  // Entry point for every ChudGPT line except questions. Priority 1 and 2 play at once, priority 4 waits up to 3 s.
   private say(outcome: Outcome): void {
+    if (this.isPracticing || !LOW_PRIORITY.has(outcome.kind)) {
+      this.emitLine(outcome);
+      return;
+    }
+    if (this.lowQueue.some((l) => l.outcome.kind === outcome.kind)) return;
+    this.lowQueue.push({ outcome, dropAt: this.now + this.cfg.PACING.LOW_DROP_AFTER });
+    this.stepLowLines();
+  }
+
+  // Lowest priority lines (idle silence remark, "it's gone" after a repel) play only in a free moment, else are dropped.
+  private stepLowLines(): void {
+    if (this.lowQueue.length === 0) return;
+    const keep: typeof this.lowQueue = [];
+    for (const item of this.lowQueue) {
+      if (this.canStartUnprompted(false)) this.emitLine(item.outcome);
+      else if (this.now < item.dropAt - EPS && this.state.power.chudOnline) keep.push(item);
+    }
+    this.lowQueue = keep;
+  }
+
+  private emitLine(outcome: Outcome): void {
     const { chud, ram, log } = this.state;
     if (outcome.kind === "location_claim" && (ram.state === "APPROACHING" || ram.state === "AT_ENTRY") && ram.target) {
       log.visit.locationLie = chud.visitDecision?.lie && outcome.entry !== "INSIDE"
@@ -1793,14 +1908,36 @@ export class GameEngine implements IGameEngine {
         : null;
     }
     const band = this.state.chud.band;
+    const practicing = this.isPracticing;
+    const calm = outcome.kind === "location_claim" && ram.state === "APPROACHING" ? true : this.calm;
+    const active = this.np.activeEntries;
     const text = cannedLine(outcome, {
       band,
       name: this.state.chud.facts.name ?? null,
-      rand: () => this.isPracticing ? 0 : this.rng.next(),
-      avoid: this.isPracticing ? undefined : this.lastLineByKind.get(outcome.kind),
+      rand: () => (practicing ? 0 : this.lineRng.next()),
+      avoid: practicing ? undefined : this.lastLineByKind.get(outcome.kind),
+      calm: practicing ? true : calm,
+      entryHint: practicing ? undefined : active[Math.floor(this.lineRng.next() * active.length)],
     });
-    if (!this.isPracticing) this.lastLineByKind.set(outcome.kind, text);
-    this.emit({ type: "CHUD_SAY", outcome, text, band });
+    const unprompted = UNPROMPTED.has(outcome.kind);
+    if (!practicing) {
+      this.lastLineByKind.set(outcome.kind, text);
+      this.busyUntil = this.now + speechSeconds(text);
+      this.lastLineAt = this.now;
+      if (unprompted) this.lastUnpromptedAt = this.now;
+      else this.lastExchangeAt = this.now;
+    }
+    this.emit({ type: "CHUD_SAY", outcome, text, band, lineClass: lineClass(outcome.kind), unprompted });
+  }
+
+  setTyping(on: boolean): void {
+    this.typing = on;
+  }
+
+  // The UI reworded a line (the voice model) and showed it now: ChudGPT is busy for its length.
+  noteSpoken(text: string): void {
+    this.busyUntil = Math.max(this.busyUntil, this.now + speechSeconds(text));
+    this.lastLineAt = Math.max(this.lastLineAt, this.now);
   }
 
   private emit(e: GameEvent): void {

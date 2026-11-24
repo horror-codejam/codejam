@@ -331,6 +331,6 @@ describe("ChudGPT's practice lessons", () => {
     expect(tutorial.step).toBe("farewell");
     settleSpeech();
     expect(tutorial.step).toBe("ready");
-    expect(spoken.slice(-3)).toEqual([PRACTICE_LINES.chatReply.replace("{n}", "Morgan"), PRACTICE_LINES.lonely, PRACTICE_LINES.ready]);
+    expect(spoken.slice(-4)).toEqual([PRACTICE_LINES.chatReply.replace("{n}", "Morgan"), PRACTICE_LINES.answerMe, PRACTICE_LINES.lonely, PRACTICE_LINES.ready]);
   });
 });

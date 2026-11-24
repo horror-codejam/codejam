@@ -38,10 +38,12 @@ describe("repelling a visit", () => {
     expect(e.ramVisual("HATCH")).toBe("none");
     expect(e.state.player.position.kind).toBe("HOLDING");
     const events = e.drainEvents();
+    e.tick(3); // the "it's gone" line waits until the warning has finished speaking (GAME_LOGIC 8.10)
+    events.push(...e.drainEvents());
     expect(events.filter((event) => event.type === "RAM_REPELLED")).toEqual([repelEvent("brace")]);
     const lines = events.filter((event) => event.type === "CHUD_SAY" && event.outcome.kind === "entry_repelled");
     expect(lines).toHaveLength(night === 1 ? 1 : 0);
-    if (night === 1) expect(lines[0]).toMatchObject({ text: "Good. It's gone.", band: "WARM" });
+    if (night === 1) expect(lines[0]).toMatchObject({ text: "It's gone, and I'd like the record to show that I helped.", band: "WARM" });
   });
 
   it("counts a lock only from relay landing and schedules the next visit from the early retreat", () => {

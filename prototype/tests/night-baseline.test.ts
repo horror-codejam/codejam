@@ -32,6 +32,6 @@ it("keeps the fixed-seed night simulation identical to the repel baseline", asyn
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Sustained locks end visits early, changing event and visit timing from the previous trace.
-  expect(hash).toBe("6b9a9dba1e626359ea66d513e27f4e6356b41d0b6e8d6e9783aaf8d3b72ea16f");
+  // Updated for the pacing pass: line wording has its own random stream, and CHUD_SAY carries lineClass and unprompted.
+  expect(hash).toBe("6980e727ccf236077da85673bf3bab93599a4c3aca7201d501522d377c22c3c3");
 });

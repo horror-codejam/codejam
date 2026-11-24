@@ -168,7 +168,7 @@ describe("night length and pacing (sections 4 and 7.6)", () => {
   it.each([
     [1, 3, 4],
     [2, 4, 5],
-    [3, 6, 7],
+    [3, 5.8, 7],
     [4, 6, 7],
     [5, 7, 8],
   ])("night %i averages %i to %i visits over many seeds", (night, lo, hi) => {

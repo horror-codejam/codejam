@@ -150,7 +150,9 @@ describe("night 5 last slip", () => {
   };
 
   it("waits for LAST_PAPER_AFTER, then drops after a defended attempt", () => {
-    const e = playing(5, 7, { papersCheckpoint: 3 });
+    // No fake-out, so the lock set on the first target is on the right entry whatever the random draws are.
+    const config = { ...CONFIG, nights: CONFIG.nights.map((n) => ({ ...n, fakeOutChance: 0 })) };
+    const e = playing(5, 7, { papersCheckpoint: 3, config });
     e.devSetSuspicion(0); // WARM: no sabotage of the test locks
     const early = defended(e, "HATCH");
     expect(e.state.clock.elapsed).toBeLessThan(ENDING.LAST_PAPER_AFTER);
