@@ -28,7 +28,7 @@ import { renderSafetyPause } from "./ui/screens/safety";
 import { clearSave, readSave, writeSave, type SavedRun } from "./ui/screens/save";
 import { GAME_TITLE, renderTitle } from "./ui/screens/title";
 import type { createArtifacts } from "./ui/artifacts";
-import { MALICE, PRACTICE_UI, RING, SCARE } from "./uiConfig";
+import { MALICE, PRACTICE_UI, RING, SCARE, type JumpscareVariant } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -100,7 +100,12 @@ let devOpen = false; // panel open
 let devNextAt = 0;
 let devSkipCard = false; // N buttons go straight into PLAYING
 let previewing = false; // a dev screen preview is up: the night is frozen behind it
-const devRefs: { speed: HTMLButtonElement[]; skip?: HTMLButtonElement; llm?: HTMLButtonElement } = { speed: [] };
+const devRefs: {
+  speed: HTMLButtonElement[];
+  skip?: HTMLButtonElement;
+  llm?: HTMLButtonElement;
+  scareSfx: Partial<Record<JumpscareVariant, HTMLButtonElement>>;
+} = { speed: [], scareSfx: {} };
 let paused = false; // UI-level pause: engine.tick is skipped, audio suspended
 let skipDt = false; // first frame after a resume gets dt 0
 let dialogueToken = 0; // drops LLM replies from before a reset, power cut or interruption
@@ -140,7 +145,7 @@ async function boot(): Promise<void> {
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);
   scene.onThunder = () => { if (engine.state.phase === "PLAYING") sound.thunder(); };
-  if (import.meta.env.DEV) Object.assign(window, { scene });
+  if (import.meta.env.DEV) Object.assign(window, { app, scene });
   edges = new EdgeTurner($("stage"));
   fit();
   window.addEventListener("resize", fit);
@@ -699,14 +704,15 @@ function startScare(l: LossInfo): void {
   }
   after(snap + (l.flash ? SCARE.FLASH_TIME : 0), () => {
     const duration = scene.playScare(l.entry, now());
-    sound.jumpscare(l.entry);
+    sound.jumpscare(l.entry, duration);
     after(duration, () => {
+      // Hard cut straight to black on the last frame with the jumpscare sound stopping at the same moment.
+      sound.stopJumpscare();
       scene.clearScare();
       if (engine.state.phase === "BREACH" && !breachShown) {
         breachShown = true;
         sound.setAmbientPlaying(false);
-        sound.fadeStorm(0, 0.65);
-        sound.lossStatic();
+        sound.fadeStorm(0, 0.04);
         showScreen("BREACH");
       }
     });
@@ -716,6 +722,7 @@ function startScare(l: LossInfo): void {
 function endScare(): void {
   for (const id of scareTimers) window.clearTimeout(id);
   scareTimers = [];
+  sound?.stopJumpscare();
   scene?.clearScare();
 }
 
@@ -1099,6 +1106,16 @@ function buildDevButtons(): void {
     if (devEnsurePlaying()) engine.devForceBreach();
   }, "The threat silently gets in, trigger rolled by INSIDE_TRIGGER_WEIGHTS");
 
+  const scareSfx = group("Scare SFX");
+  for (const [v, tip] of [
+    ["A", "Pitched up and trimmed to 0.6 s"],
+    ["B", "Variant A + harsh high screech layer (default)"],
+    ["C", "Sharp attack, low rumble filtered out"],
+  ] as const) {
+    devRefs.scareSfx[v] = add(scareSfx, v, () => sound.setJumpscareVariant(v), tip);
+  }
+  add(scareSfx, "Play", () => sound.previewJumpscare(), "Hear the selected jumpscare SFX on the scare bus");
+
   const power = group("Power");
   for (const slot of ["NONE", "LOCK_WINDOW", "LOCK_HATCH", "LOCK_BALCONY"] as const)
     add(power, slot.replace("LOCK_", "L:"), () => {
@@ -1233,6 +1250,8 @@ function renderDev(): void {
   devRefs.speed.forEach((b, i) => b.classList.toggle("on", speed === [1, 3, 8][i]));
   devRefs.skip?.classList.toggle("on", devSkipCard);
   devRefs.llm?.classList.toggle("on", llm.enabled);
+  const activeVariant = sound.getJumpscareVariant();
+  for (const v of ["A", "B", "C"] as const) devRefs.scareSfx[v]?.classList.toggle("on", activeVariant === v);
 }
 
 void boot();

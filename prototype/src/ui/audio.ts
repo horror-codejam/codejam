@@ -1,7 +1,9 @@
 // Web Audio for the room, player, CHUD, and screen transitions.
 import { RADIO_LINES } from "../chud/lines";
 import type { Band, Entry, View } from "../sim/types";
-import { CHUD_SPEECH } from "../uiConfig";
+import { CHUD_SPEECH, JUMPSCARE, type JumpscareVariant } from "../uiConfig";
+
+const JUMPSCARE_VARIANTS: JumpscareVariant[] = ["A", "B", "C"];
 
 // Baseline for every sound but the jumpscare (was 0.8). Kept low so players turn their volume up for the room.
 export const MASTER_LEVEL = 0.4;
@@ -67,8 +69,10 @@ export class Sound {
   private cueGeneration = 0;
   private ambientPlaying = false;
   private suspended = false;
-  private jumpData: ArrayBuffer | null = null;
-  private jumpBuf: AudioBuffer | null = null;
+  private jumpVariant: JumpscareVariant = JUMPSCARE.DEFAULT_VARIANT;
+  private jumpData = new Map<JumpscareVariant, ArrayBuffer>();
+  private jumpBufs = new Map<JumpscareVariant, AudioBuffer>();
+  private scareSources = new Set<AudioScheduledSourceNode>();
   private speechGain!: GainNode;
   private speechPan!: StereoPannerNode;
   private speechDuck!: GainNode;
@@ -100,14 +104,16 @@ export class Sound {
         // A missing recording leaves the synthesized fallback available.
       }
     });
-    const jumpscare = fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare.wav`)
-      .then((response) => {
-        if (!response.ok) throw new Error(String(response.status));
-        return response.arrayBuffer();
-      })
-      .then((data) => { this.jumpData = data; })
-      .catch((err) => console.warn("jumpscare.wav failed to load, using the synth burst", err));
-    await Promise.all([...recordings, jumpscare]);
+    const jumpscares = JUMPSCARE_VARIANTS.map((variant) =>
+      fetch(`${import.meta.env.BASE_URL}audio/sfx/jumpscare_${variant.toLowerCase()}.wav`)
+        .then((response) => {
+          if (!response.ok) throw new Error(String(response.status));
+          return response.arrayBuffer();
+        })
+        .then((data) => { this.jumpData.set(variant, data); })
+        .catch((err) => console.warn(`jumpscare_${variant.toLowerCase()}.wav failed to load`, err)),
+    );
+    await Promise.all([...recordings, ...jumpscares]);
   }
 
   unlock(): void {
@@ -155,12 +161,12 @@ export class Sound {
     this.initLampHum(ctx);
     this.syncBeds();
     this.startSpeech();
-    if (this.jumpData) {
-      void ctx.decodeAudioData(this.jumpData)
-        .then((buffer) => { this.jumpBuf = buffer; })
-        .catch((err) => console.warn("jumpscare.wav failed to decode, using the synth burst", err));
-      this.jumpData = null;
+    for (const [variant, data] of this.jumpData) {
+      void ctx.decodeAudioData(data)
+        .then((buffer) => { this.jumpBufs.set(variant, buffer); })
+        .catch((err) => console.warn(`jumpscare_${variant.toLowerCase()}.wav failed to decode`, err));
     }
+    this.jumpData.clear();
   }
 
   private async fetchClip(url: string): Promise<ArrayBuffer> {
@@ -537,13 +543,53 @@ export class Sound {
     this.burst(this.master, 0.18, "highpass", 4000, 0.05, 1, undefined, 0.12);
   }
 
-  // The jumpscare (GAME_LOGIC 5.4): jumpscare.wav, or the synth burst until it has loaded.
-  jumpscare(entry: Entry): void {
+  getJumpscareVariant(): JumpscareVariant {
+    return this.jumpVariant;
+  }
+
+  setJumpscareVariant(variant: JumpscareVariant): void {
+    this.jumpVariant = variant;
+  }
+
+  stopJumpscare(): void {
+    for (const source of this.scareSources) {
+      try { source.stop(); } catch { /* already stopped */ }
+    }
+    this.scareSources.clear();
+  }
+
+  private trackScare(source: AudioScheduledSourceNode | undefined, stopAt: number): void {
+    if (!source) return;
+    this.scareSources.add(source);
+    source.addEventListener("ended", () => this.scareSources.delete(source), { once: true });
+    try { source.stop(stopAt); } catch { /* fallback if already scheduled */ }
+  }
+
+  private activeJumpBuffer(): AudioBuffer | undefined {
+    return this.jumpBufs.get(this.jumpVariant) ?? this.jumpBufs.get(JUMPSCARE.DEFAULT_VARIANT) ?? this.jumpBufs.values().next().value;
+  }
+
+  // Live preview of the selected jumpscare SFX variant from the dev panel, on the full-volume scare bus.
+  previewJumpscare(duration = JUMPSCARE.DURATION): void {
+    this.unlock();
+    if (!this.ctx) return;
+    this.stopJumpscare();
+    const stopAt = this.ctx.currentTime + duration;
+    const buf = this.activeJumpBuffer();
+    if (buf) this.trackScare(this.playBuffer(this.ctx, buf, { dest: this.scareBus }), stopAt);
+    else this.scareFallback(duration);
+  }
+
+  // The jumpscare (GAME_LOGIC 5.4): selected 0.6 s variant on the scare bus + entry impact, cut dead at `duration`.
+  jumpscare(entry: Entry, duration = JUMPSCARE.DURATION): void {
     if (!this.ctx) return;
     this.stopCues();
-    if (this.jumpBuf) this.playBuffer(this.ctx, this.jumpBuf, { dest: this.scareBus });
-    else this.scareFallback();
-    this.play(`breach_${entry.toLowerCase()}`, { level: 0.24, dest: this.scareBus });
+    this.stopJumpscare();
+    const stopAt = this.ctx.currentTime + duration;
+    const buf = this.activeJumpBuffer();
+    if (buf) this.trackScare(this.playBuffer(this.ctx, buf, { dest: this.scareBus }), stopAt);
+    else this.scareFallback(duration);
+    this.trackScare(this.play(`breach_${entry.toLowerCase()}`, { level: 0.24, dest: this.scareBus }), stopAt);
   }
 
   // A faint sting under the creepy flash before the scare (not Ram's voice: a sound of the picture).
@@ -553,10 +599,10 @@ export class Sound {
     this.burst(this.master, 0.3, "highpass", 6000, 0.05);
   }
 
-  private scareFallback(): void {
-    this.burst(this.scareBus, 1.4, "lowpass", 3000, 0.9, 0.5, 200);
-    this.tone(this.scareBus, 60, 1.2, "sawtooth", 0.5, 0, 35);
-    this.tone(this.scareBus, 1100, 0.6, "square", 0.15, 0, 700);
+  private scareFallback(duration = JUMPSCARE.DURATION): void {
+    this.burst(this.scareBus, duration, "bandpass", 2400, 0.9, 0.7, 900);
+    this.tone(this.scareBus, 1850, duration, "sawtooth", 0.32, 0, 1300);
+    this.tone(this.scareBus, 2750, duration, "square", 0.22, 0, 2100);
   }
 
   // --- room -------------------------------------------------------------------

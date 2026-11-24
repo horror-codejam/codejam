@@ -83,8 +83,25 @@ export const ARTIFACTS = {
 export const SCARE = {
   SNAP_TIME: 0.15, // presentation only, turn to an off-camera breach
   FLASH_TIME: 0.4, // the creepy full-frame flash of Ram inside the lit entry, before the jumpscare (0.3 to 0.5)
-  FRAME_TIME: 0.11, // each of the four jumpscare frames; the last one holds
-  HOLD_TIME: 0.75, // the last frame stays up this long before the loss screen
+  FRAME_TIME: 0.15, // legacy 4-frame fallback: 4 * 0.15 = 0.6 s total
+  HOLD_TIME: 0, // hard cut straight to black on the last frame
+};
+
+export type JumpscareVariant = "A" | "B" | "C";
+
+// FNAF-inspired jumpscare presentation: short 0.6 s 24-frame lunge, 1-frame white impact flash, violent shake,
+// zoom punch toward his face, hard cut to black on the last frame.
+export const JUMPSCARE = {
+  DURATION: 0.6, // total seconds for the 24-frame sequence (40 fps)
+  FPS: 40, // 24 frames / 0.6 s
+  IMPACT_FLASH_TIME: 0.025, // 1-frame stark white flash on impact (1 / 40 s), hard on and off
+  SHAKE_X: 38, // violent horizontal camera shake amplitude (stage px)
+  SHAKE_Y: 26, // violent vertical camera shake amplitude (stage px)
+  SHAKE_ROT: 0.042, // sharp camera roll jerk (radians)
+  ZOOM_START: 1.12, // base scale at frame 0 (covers shake and rotation margins cleanly)
+  ZOOM_PUNCH: 0.22, // zoom punch toward his face across the sequence (1.12 -> 1.34)
+  FACE_OFFSET_Y: -22, // slight upward anchor bias toward his face as zoom punches in (stage px)
+  DEFAULT_VARIANT: "B" as JumpscareVariant,
 };
 
 // CHUD's malicious smile (lock refusals, sabotage, forced light cuts in JEALOUS and FURIOUS), real seconds.

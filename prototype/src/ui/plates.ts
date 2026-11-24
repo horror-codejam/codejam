@@ -30,12 +30,18 @@ export function holdBeamSlot(entry: Entry, bracing: boolean, tell: boolean): str
   return `hold_${entry.toLowerCase()}_${bracing ? "brace" : "stand"}_${tell ? "tell" : "empty"}`;
 }
 
-// The 24 fps jumpscare sequence for the breach entry: jumpscare_<entry>_0001.webp ...
+// The 24-frame jumpscare sequence for the breach entry: jumpscare_<entry>_0001.webp ...
+// Played fast (40 fps -> 0.6 s for 24 frames) with a hard cut straight to black on the last frame.
 export function jumpscareJob(entry: Entry): string {
   return `jumpscare_${entry.toLowerCase()}`;
 }
-export const JUMPSCARE_FPS = 24;
+export const JUMPSCARE_FPS = 40;
 export const JUMPSCARE_MIN_FRAMES = 24;
+
+// Total playback duration of a jumpscare sequence (seconds). Hard cut on the last frame (no tail hold).
+export function jumpscareDuration(count: number, fps = JUMPSCARE_FPS): number {
+  return count > 0 ? count / fps : 0;
+}
 
 // Frame index (0-based) of a sequence `secs` after it started, holding the last frame.
 export function sequenceFrame(secs: number, fps: number, count: number): number {

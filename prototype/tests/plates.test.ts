@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { beamEntryState, beamSlot, FINAL_ALIASES, holdBeamSlot, jumpscareJob, sequenceFrame } from "../src/ui/plates";
+import { beamEntryState, beamSlot, FINAL_ALIASES, holdBeamSlot, JUMPSCARE_FPS, JUMPSCARE_MIN_FRAMES, jumpscareDuration, jumpscareJob, sequenceFrame } from "../src/ui/plates";
+import { JUMPSCARE, SCARE } from "../src/uiConfig";
 
 describe("final beam slot per state", () => {
   it("maps desk and entry states to final_beam manifest slots", () => {
@@ -27,10 +28,18 @@ describe("final beam slot per state", () => {
     expect(FINAL_ALIASES.view_hatch).toBe("view_hatch_off");
     expect(FINAL_ALIASES.ram_inside_window).toBe("inside_window_on");
   });
-  it("the jumpscare sequence plays at its fps and holds the last frame", () => {
+  it("the jumpscare sequence plays 24 frames in 0.6 s at 40 fps and cuts straight to black on the last frame", () => {
     expect(jumpscareJob("BALCONY")).toBe("jumpscare_balcony");
-    expect(sequenceFrame(0, 24, 24)).toBe(0);
-    expect(sequenceFrame(0.5, 24, 24)).toBe(12);
-    expect(sequenceFrame(1.08, 24, 24)).toBe(23);
+    expect(JUMPSCARE_FPS).toBe(40);
+    expect(JUMPSCARE.FPS).toBe(JUMPSCARE_FPS);
+    expect(jumpscareDuration(JUMPSCARE_MIN_FRAMES)).toBeCloseTo(0.6, 5);
+    expect(JUMPSCARE.DURATION).toBeCloseTo(0.6, 5);
+    expect(SCARE.HOLD_TIME).toBe(0);
+    expect(JUMPSCARE.IMPACT_FLASH_TIME).toBeCloseTo(1 / JUMPSCARE_FPS, 5);
+    expect(JUMPSCARE.DEFAULT_VARIANT).toBe("B");
+    expect(sequenceFrame(0, JUMPSCARE_FPS, 24)).toBe(0);
+    expect(sequenceFrame(0.3, JUMPSCARE_FPS, 24)).toBe(12);
+    expect(sequenceFrame(0.58, JUMPSCARE_FPS, 24)).toBe(23);
+    expect(sequenceFrame(0.6, JUMPSCARE_FPS, 24)).toBe(23);
   });
 });

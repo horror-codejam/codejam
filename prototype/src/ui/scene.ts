@@ -12,7 +12,7 @@ import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Mesh, 
 import type { ColorMatrix } from "pixi.js";
 import { CONFIG } from "../config";
 import type { BeamParams } from "../sim/beam";
-import { BRACE, CONTROLS, SCARE } from "../uiConfig";
+import { BRACE, CONTROLS, JUMPSCARE, SCARE } from "../uiConfig";
 import type { GameEngine } from "../sim/engine";
 import type { Entry, View } from "../sim/types";
 import { ENTRIES } from "../sim/types";
@@ -33,7 +33,7 @@ import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./l
 import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
 import { VideoPlate } from "./videoPlate";
-import { beamEntryState, beamSlot, holdBeamSlot, JUMPSCARE_FPS, jumpscareJob, sequenceFrame } from "./plates";
+import { beamEntryState, beamSlot, holdBeamSlot, JUMPSCARE_FPS, jumpscareDuration, jumpscareJob, sequenceFrame } from "./plates";
 
 interface EntryLayers {
   root: Container;
@@ -134,10 +134,13 @@ export class Scene {
   private jumpSeqSprite = new Sprite(Texture.EMPTY);
   private jumpSeqFrames: Texture[] = [];
   private jumpStartedAt = 0;
+  private jumpDuration = JUMPSCARE.DURATION;
   private jumpActive = false;
+  private jumpImpactFlashed = false;
   private scareEntry: Entry | null = null;
   private snapUntil = 0;
   private flashLayer = new Graphics();
+  private impactFlash = new Graphics();
   private fade = new Graphics();
   private grain: Sprite;
   private lastView: View | null = null;
@@ -312,6 +315,10 @@ export class Scene {
     this.jumpSeq.visible = false;
     app.stage.addChild(this.jumpSeq);
 
+    this.impactFlash.rect(0, 0, W, H).fill(0xffffff);
+    this.impactFlash.alpha = 0;
+    app.stage.addChild(this.impactFlash);
+
     this.fade.rect(0, 0, W, H).fill(0x000000);
     this.fade.alpha = 0;
     app.stage.addChild(this.fade);
@@ -420,8 +427,10 @@ export class Scene {
     this.jumpSeqFrames = artFrames(jumpscareJob(entry));
     this.jumpStartedAt = t;
     this.jumpActive = true;
+    this.jumpImpactFlashed = false;
     const count = this.jumpSeqFrames.length;
-    return count ? count / JUMPSCARE_FPS + SCARE.HOLD_TIME : 3 * SCARE.FRAME_TIME + SCARE.HOLD_TIME;
+    this.jumpDuration = count ? jumpscareDuration(count, JUMPSCARE_FPS) : JUMPSCARE.DURATION;
+    return this.jumpDuration;
   }
 
   clearScare(): void {
@@ -429,6 +438,14 @@ export class Scene {
     this.snapUntil = 0;
     this.flashStartedAt = Infinity;
     this.jumpActive = false;
+    this.jumpImpactFlashed = false;
+    this.jumpSeq.visible = false;
+    this.jumpSeq.rotation = 0;
+    this.impactFlash.alpha = 0;
+    for (const j of this.jumps) {
+      j.visible = false;
+      j.rotation = 0;
+    }
   }
 
   repelImpact(entry: Entry): void {
@@ -707,12 +724,12 @@ export class Scene {
     this.warpPrevCurved.visible = sliding && !this.warpPrevIsFlat;
     this.views.visible = !transition;
     this.views.filters = sliding ? [this.turnBlur] : null;
-    if (t < this.snapUntil) black = Math.max(black, (this.snapUntil - t) / SCARE.SNAP_TIME);
+    if (!this.jumpActive && t < this.snapUntil) black = Math.max(black, (this.snapUntil - t) / SCARE.SNAP_TIME);
     if (!this.jumpActive && t < this.lightFlickerUntil) black = Math.max(black, Math.random() < 0.5 ? 0.55 : 0.15);
-    this.fadeAlpha = black;
-    this.fade.alpha = Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
+    this.fadeAlpha = this.jumpActive ? 0 : black;
+    this.fade.alpha = this.jumpActive ? 0 : Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
-    this.rain.visible = !transition && !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
+    this.rain.visible = !this.jumpActive && !transition && !this.scareEntry && !dashing && !holding && (view === "DESK" || view === "WINDOW");
     this.rain.x = -PAN_X * 1.6 - this.pan.x * 1.6;
     this.rain.tilePosition.y = (t * 900) % 512;
     this.rain.tilePosition.x = (t * 60) % 512;
@@ -727,24 +744,39 @@ export class Scene {
       this.flashLayer.alpha = 0;
       this.views.x = 0;
     }
-    const jumpTime = t - this.jumpStartedAt;
+    const jumpTime = Math.max(0, t - this.jumpStartedAt);
     const seq = this.jumpActive && this.jumpSeqFrames.length > 0;
-    const legacyFrame = this.jumpActive && !seq ? sequenceFrame(jumpTime, 1 / SCARE.FRAME_TIME, this.jumps.length) : -1;
+    const legacyFrame = this.jumpActive && !seq ? sequenceFrame(jumpTime, this.jumps.length / this.jumpDuration, this.jumps.length) : -1;
     this.jumpSeq.visible = seq;
     this.jumps.forEach((j, i) => (j.visible = legacyFrame === i));
-    if (seq) {
-      const tex = this.jumpSeqFrames[sequenceFrame(jumpTime, JUMPSCARE_FPS, this.jumpSeqFrames.length)];
-      const sp = this.jumpSeqSprite;
-      sp.texture = tex;
-      const k = Math.max(W / tex.width, H / tex.height);
-      sp.scale.set(k);
-      sp.position.set((W - tex.width * k) / 2, (H - tex.height * k) / 2);
-      this.jumpSeq.scale.set(1.03 + Math.random() * 0.015);
-      this.jumpSeq.position.set(W / 2 + (Math.random() - 0.5) * 12, H / 2 + (Math.random() - 0.5) * 12);
-    } else if (legacyFrame >= 0) {
-      const j = this.jumps[legacyFrame];
-      j.scale.set(1.02 + Math.random() * 0.04);
-      j.position.set(W / 2 + (Math.random() - 0.5) * 30, H / 2 + (Math.random() - 0.5) * 30);
+    // Exact 1-frame stark white flash on impact, hard cut off on the next frame (no fade).
+    if (this.jumpActive && !this.jumpImpactFlashed) {
+      this.impactFlash.alpha = 0.95;
+      this.jumpImpactFlashed = true;
+    } else {
+      this.impactFlash.alpha = 0;
+    }
+    if (seq || legacyFrame >= 0) {
+      const p = clamp(jumpTime / Math.max(0.001, this.jumpDuration), 0, 1);
+      const punch = Math.pow(p, 0.72);
+      const amp = 0.75 + 0.35 * p;
+      const shake = !this.reducedMotion.matches;
+      const scale = JUMPSCARE.ZOOM_START + JUMPSCARE.ZOOM_PUNCH * punch + (shake ? (Math.random() - 0.5) * 0.045 : 0);
+      const sx = shake ? (Math.random() * 2 - 1) * JUMPSCARE.SHAKE_X * amp : 0;
+      const sy = shake ? (Math.random() * 2 - 1) * JUMPSCARE.SHAKE_Y * amp : 0;
+      const rot = shake ? (Math.random() * 2 - 1) * JUMPSCARE.SHAKE_ROT * amp : 0;
+      const target = seq ? this.jumpSeq : this.jumps[legacyFrame];
+      if (seq) {
+        const tex = this.jumpSeqFrames[sequenceFrame(jumpTime, JUMPSCARE_FPS, this.jumpSeqFrames.length)];
+        const sp = this.jumpSeqSprite;
+        sp.texture = tex;
+        const k = Math.max(W / tex.width, H / tex.height);
+        sp.scale.set(k);
+        sp.position.set((W - tex.width * k) / 2, (H - tex.height * k) / 2);
+      }
+      target.scale.set(scale);
+      target.rotation = rot;
+      target.position.set(W / 2 + sx, H / 2 + JUMPSCARE.FACE_OFFSET_Y * punch + sy);
     }
 
     this.grain.x = -Math.random() * 256;
