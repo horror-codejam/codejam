@@ -59,3 +59,4 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-22: Show the Coast Guard boat after the trapped ending's text, then fade to black before Title. Keep the watch-room ambience playing as the player watches the boat.
 - 2026-11-23: Make entry lights independent of the single lock slot and require light to see threats from the desk. Why: checking an entry should clearly show what is there while keeping the lock engaged.
 - 2026-11-23: Keep the night caption channel for CHUD and radio dialogue. Why: put control instructions in practice and let clues appear in the room during play.
+- 2026-11-23: Give Night 1 one truthful CHUD warning per arrival and make silence dialogue mood-specific. Why: teach the first-night defense loop through CHUD and replace repeated demands to talk.

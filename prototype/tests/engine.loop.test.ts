@@ -647,7 +647,7 @@ describe("desk artifacts (section 6.6)", () => {
   });
 });
 
-describe("night 1 hints and CHUD's warnings", () => {
+describe("night hints and CHUD's arrival warnings", () => {
   it("night 1 emits no timed hints before the first visit", () => {
     const e = playing();
     const events: GameEvent["type"][] = [];
@@ -655,14 +655,55 @@ describe("night 1 hints and CHUD's warnings", () => {
     expect(events).not.toContain("HINT");
   });
 
-  it("CHUD never warns unprompted about an arrival or a departure", () => {
+  it.each([1, 2])("matches arrival warnings to visits on night %i", (startNight) => {
     for (const seed of [1, 2, 3]) {
-      const e = playing({ seed, config: { ...CONFIG, ...quiet } });
+      const e = playing({ startNight, seed, config: { ...CONFIG, ...quiet } });
       const evs = playNight(e);
-      const kinds = evs.filter((ev) => ev.type === "CHUD_SAY").map((ev) => (ev.type === "CHUD_SAY" ? ev.outcome.kind : ""));
-      expect(kinds).not.toContain("location_claim");
-      for (const ev of evs) if (ev.type === "CHUD_SAY") for (const e2 of ENTRIES) expect(ev.text.toLowerCase()).not.toContain(`at the ${e2.toLowerCase()}`);
+      const arrivals = evs.filter((ev) => ev.type === "RAM_AT_ENTRY");
+      expect(arrivals.length).toBeGreaterThan(1);
+      const warnings = evs.flatMap((ev, index) =>
+        ev.type === "CHUD_SAY" && ev.outcome.kind === "entry_warning" ? [{ index, entry: ev.outcome.entry }] : [],
+      );
+      const expected = startNight === 1 ? arrivals.map((arrival) => ({ index: evs.indexOf(arrival) + 1, entry: arrival.entry })) : [];
+      expect(warnings).toEqual(expected);
+      expect(evs.some((ev) => ev.type === "CHUD_SAY" && ev.outcome.kind === "location_claim")).toBe(false);
     }
+  });
+
+  it("a warning bypasses a pending question and leaves location spam and claims alone", () => {
+    const e = playing({ config: cfgWith(1, { fakeOutChance: 0 }, quiet) });
+    e.devSendRam("WINDOW");
+    runUntil(e, e.state.ram.stateEndsAt - T);
+    e.drainEvents();
+    const question = {
+      id: 1, origin: "SCHEDULED", type: "STAY", factKey: null, text: "This could be home now, couldn't it?", askedAt: e.now,
+    } as const;
+    e.state.chud.pendingQuestion = question;
+    e.tick(T);
+
+    expect(e.drainEvents()).toContainEqual(expect.objectContaining({
+      type: "CHUD_SAY", outcome: { kind: "entry_warning", entry: "WINDOW" },
+    }));
+    expect(e.state.chud.pendingQuestion).toEqual(question);
+    expect(e.state.timers.locationRequests).toEqual([]);
+    expect(e.state.timers.locationRefusedUntil).toBe(-Infinity);
+    expect(e.state.chud.lastLocationClaim).toBeNull();
+    expect(e.state.chud.visitDecision).toBeNull();
+    expect(e.state.log.visit.claimThisVisit).toBeNull();
+
+    e.state.chud.pendingQuestion = null;
+    e.pressQuick("ASK_LOCATION");
+    expect(e.state.timers.locationRequests).toEqual([e.now]);
+    expect(e.state.chud.suspicion).toBe(0);
+  });
+
+  it("CHUD stays silent on arrival when the generator is off", () => {
+    const e = playing();
+    e.toggleGenerator();
+    e.devSendRam("HATCH");
+    runUntil(e, e.state.ram.stateEndsAt + T);
+    expect(e.state.ram.state).toBe("AT_ENTRY");
+    expect(e.drainEvents().some((ev) => ev.type === "CHUD_SAY" && ev.outcome.kind === "entry_warning")).toBe(false);
   });
 });
 

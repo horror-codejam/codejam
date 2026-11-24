@@ -5,7 +5,7 @@ This file defines exactly how the game works: every state, timer, number and rul
 ## 1. The game in 30 seconds
 - Each night runs from 12:00 AM to 6:00 AM (5 real minutes). Survive to 6:00 AM to win nights 1 to 4. Night 5 is won only by typing the kill code into CHUD's chat before 6:00 AM (section 6.7).
 - Ram tries to get in through one of 3 entries: the left WINDOW, the right HATCH (a floor hatch over a fixed ladder), or the rear BALCONY.
-- **Ram is silent.** He makes no sound and never speaks. The house makes plenty of noise (creaks, knocks, metal), and none of it is him. You find him only by looking (with a light) or by asking CHUD.
+- **Ram is silent.** He makes no sound and never speaks. The house makes plenty of noise (creaks, knocks, metal), and none of it is him. Look with the light or ask CHUD to find him. On Night 1, CHUD also warns you when he reaches an entry.
 - **Locks and lights:** the power slot holds one magnetic lock. Hold Shift to light the entry you are looking at independently of the lock. Lock requests go through CHUD, who can refuse.
 - **The light shows the truth.** At the desk, a dark entry always looks empty. Lighting it reveals what is there, including at a locked entry.
 - You defend an entry in one of two ways:
@@ -337,7 +337,7 @@ Requests that are always obeyed while CHUD is online and not FURIOUS:
 - When there has been no real message for 45 s and CHUD is online, a silence tick fires:
   - +5 suspicion
   - a Ram pull (section 7.3)
-  - a CHUD line (6 to 7 varied versions per band, e.g. "You've gone quiet, keeper.")
+  - a canned CHUD line about the lighthouse, keeper or storm, or a passing question. WARM has 12 lines. HURT, JEALOUS and FURIOUS have 6, 7 and 6 respectively, growing more possessive as suspicion rises. Consecutive silence ticks use different lines.
 - The timer then restarts, so another tick follows after a further 45 s of silence.
 - Being at an entry (traveling, standing, bracing) or reading does not pause the silence timer. Going quiet is the cost of leaving the desk.
 
@@ -434,7 +434,7 @@ Question mix per night:
 9. **Voice call (LLM, persona):**
    - Input: an outcome object already decided by code. For example: `{outcome: "locked", entry: "HATCH", band: "HURT", name: "Sam", tone: "sulky", max_words: 20}`.
    - It writes 1 or 2 sentences.
-   - If it fails or takes longer than 2.5 s, use a canned line for that outcome. Location claims, lock refusals and light-cut lines are always canned (they must be instant and exact).
+   - If it fails or takes longer than 2.5 s, use a canned line for that outcome. Location claims, lock refusals, light cuts, Night 1 arrival warnings and silence ticks use canned wording. They use the normal CHUD speech and dialogue display.
    - **The line shown always matches the code outcome.** The voice can never change state.
    - **The voice never names Ram:** the persona prompt does not contain his name and forbids naming anyone but the keeper; a player name equal to his is replaced by "keeper" before it reaches the model; any reply containing his name is dropped (server and client) and the canned line is used.
 10. **Safety:**
@@ -451,7 +451,8 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Night | Time | Event |
 |---|---|---|
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
-| 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful."). CHUD never warns unprompted about an approach |
+| 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful.") |
+| 1 | Each transition to `AT_ENTRY` | If CHUD is online, it gives one truthful warning naming the entry and suggesting a lock or brace. Three variants per entry. The warning leaves location spam, location claims, lie decisions and pending questions untouched. Nights 2 to 5 have no unprompted entry warnings |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |

@@ -63,6 +63,24 @@ const ENTRY_PHRASE: Record<Entry, string> = {
   BALCONY: "the balcony",
 };
 
+const ENTRY_WARNINGS: Record<Entry, Pool> = {
+  WINDOW: [
+    "Something's at the left window, {n}. Lock it or go hold it shut.",
+    "There's a hand on the window. Keep it locked or brace it.",
+    "Something's pushing on the window, keeper. Lock the window, or hold it shut.",
+  ],
+  HATCH: [
+    "Something's at the hatch, {n}. Lock it, or go hold it shut.",
+    "There are fingers under the hatch. Keep it locked or brace it.",
+    "Something's lifting the hatch, keeper. Lock it or hold the lid down.",
+  ],
+  BALCONY: [
+    "Something's at the balcony, {n}. Lock the door or hold it shut.",
+    "There's a face at the balcony door. Keep it locked or brace it.",
+    "Something's pushing on the balcony door, keeper. Lock it or go hold it.",
+  ],
+};
+
 // CHUD never names Ram (GAME_LOGIC 8.10). It speaks of "something" or "someone", and still names the entry.
 const LOCATION_ENTRY: BandPools = {
   WARM: ["Something's at {e}, {n}. Hurry.", "{E}. Something's there now.", "I see something at {e}, keeper.", "{E}, {n}. Be quick."],
@@ -86,7 +104,7 @@ const LOCATION_NONE: BandPools = {
   FURIOUS: ["No one's there. Not yet.", "Nobody's out there. Only me, keeper."],
 };
 
-const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "night_opener" | "question" | "answer_ack" | "furious_cut">, BandPools> = {
+const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "night_opener" | "question" | "answer_ack" | "furious_cut">, BandPools> = {
   name_ack: {
     WARM: ["{n}. Lovely. I'll remember that forever.", "{n}. I'll never forget it. Never.", "Welcome home, {n}. Stay as long as you like.", "{n}. What a nice name for a keeper."],
   },
@@ -151,38 +169,43 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "night_opener" |
   },
   silence: {
     WARM: [
-      "You've gone quiet, keeper.",
-      "You've gone quiet, {n}. Talk to me.",
-      "Still there, {n}? I miss your voice.",
-      "It's so quiet in here, keeper. Say something.",
-      "Don't leave me alone with the storm, {n}.",
-      "Keeper? Tell me what you're thinking.",
-      "I could listen to you all night, {n}.",
+      "The old keeper counted the waves. I count the gaps between them.",
+      "The tower always groans in this wind. It has for years.",
+      "You can see the whole sea from up here, on a kinder night.",
+      "The rain sounds almost like applause up here, doesn't it?",
+      "You brought half the sea in with you, {n}. That coat must weigh a ton.",
+      "Every keeper had a favorite mug. There's room for yours on the shelf.",
+      "The beacon makes the same turn over and over. I find it comforting.",
+      "I keep a log of every storm. This one needed a new page.",
+      "Ever notice how the sea goes white just before the thunder?",
+      "The tower used to have a bell. The gulls were the first to miss it.",
+      "The last keeper used to sleep through this weather. I never learned how.",
+      "I warmed the room before you woke, {n}. I hope it helped.",
     ],
     HURT: [
-      "You've gone quiet, keeper. Again.",
-      "You've gone quiet. Bored of me already?",
-      "Nothing to say to me, {n}?",
-      "I'm still here, you know. Not that you care.",
-      "Fine. Ignore me, keeper.",
-      "The silence is loud tonight.",
+      "I warmed the room for you, {n}. I thought you'd notice.",
+      "You watch the rain like it's better company.",
+      "The last keeper liked this hour. I used to have stories ready.",
+      "I kept the chair by the window dry. You haven't sat in it.",
+      "Funny how loud the clock gets when there's just one of us listening.",
+      "The tower groans in this wind. I know the feeling.",
     ],
     JEALOUS: [
-      "You've gone quiet, {n}. Planning something?",
-      "You've gone quiet, keeper. I don't like it.",
-      "What are you doing over there, {n}?",
-      "Quiet keepers worry me.",
+      "You keep watching the sea, {n}. Are you expecting company?",
+      "The radio hasn't said your name once. I remember it.",
+      "The last keeper watched the horizon like that, too.",
+      "You dry your coat by the door every night. Ready for what?",
       "Who are you thinking about, keeper?",
-      "Say something. Or I'll assume the worst.",
-      "I can tell when you stop talking, {n}.",
+      "Everyone on shore is asleep, {n}. I'm the one still here.",
+      "You look right past my screen every time the lamp sweeps by.",
     ],
     FURIOUS: [
-      "You've gone quiet. Good. So has he.",
-      "Silence. How fitting.",
+      "I can hear the radio wishing the storm would take it.",
+      "The sea won't remember your name. I will.",
       "Keep quiet, then. Listen to the dark.",
-      "Not talking, {n}? Fine.",
-      "Say something, keeper. Anything.",
-      "Quiet now. Is that how it ends?",
+      "I remember where the last keeper stood, {n}. Right where you are.",
+      "The tower sounds hungry tonight.",
+      "The storm can have your boat. It doesn't get you.",
     ],
   },
   // Location spam (8.3): ChudGPT will not answer "where is it" for a while.
@@ -326,6 +349,13 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
       if (outcome.entry === "NONE") return fill(pick(forBand(LOCATION_NONE, band), r), ctx);
       if (outcome.entry === "INSIDE") return fill(pick(forBand(LOCATION_INSIDE, band), r), ctx);
       return fill(pick(forBand(LOCATION_ENTRY, band), r), ctx, outcome.entry);
+    case "entry_warning":
+      return fill(pick(ENTRY_WARNINGS[outcome.entry], r), ctx);
+    case "silence": {
+      const lines = forBand(LINES.silence, band).map((line) => fill(line, ctx));
+      const available = lines.filter((line) => line !== ctx.avoid);
+      return pick(available.length ? available : lines, r);
+    }
     case "night_opener": {
       const pool = NIGHT_OPENERS[outcome.night] ?? ["Evening, {n}. Another night together."];
       return fill(pick(pool, r), ctx);
@@ -361,6 +391,7 @@ export function allLineTemplates(): string[] {
   addPools(LOCATION_ENTRY);
   addPools(LOCATION_NONE);
   addPools(LOCATION_INSIDE);
+  Object.values(ENTRY_WARNINGS).forEach((pool) => out.push(...pool));
   Object.values(NIGHT_OPENERS).forEach((p) => out.push(...p));
   Object.values(ANSWER_PASS).forEach((p) => out.push(...p));
   Object.values(ANSWER_FAIL).forEach((p) => out.push(...p));

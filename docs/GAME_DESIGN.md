@@ -46,7 +46,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
 - New Game leads from the shipwreck to the keeper name prompt and then to a safe practice evening in the watch room. Players use the real controls to explore, light and lock entries, brace, use ChudGPT, and pause. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
-- ChudGPT never mentions Ram (2026-11-21). On night 1 it only warns, vaguely, that there might be dangerous things out there at night and to be careful. Its location answers name the entry but never him ("Something's at the hatch, keeper.").
+- ChudGPT never names the threat. Night 1 opens with a vague warning. During Night 1, ChudGPT tells the keeper which entry to lock or brace when something reaches it. On later nights the keeper can ask where it is.
 - The timed midnight card shows "12:00 AM" and "Night 1".
 
 ## The lighthouse
@@ -98,7 +98,7 @@ Raises suspicion:
 - Contradicting a past claim: +20
 - Ignoring the AI's question for 10 s: +15
 - Rudeness: +10
-- Silence for 20 s: +5, and Ram's next visit comes sooner
+- Silence for 45 s: +5, Ram's next visit comes sooner, and ChudGPT comments on the lighthouse, the keeper or the storm in its current mood.
 
 Lowers suspicion:
 - Passing a memory check: -15

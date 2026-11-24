@@ -224,6 +224,7 @@ export type Outcome =
   | { kind: "light_cut" } // CHUD forced the player's light off: a short possessive line
   | { kind: "refuse_furious"; request: "LOCK" }
   | { kind: "location_claim"; entry: LocationClaim } // never told whether it is a lie
+  | { kind: "entry_warning"; entry: Entry } // Night 1 arrival, independent of location questions
   | { kind: "question"; question: string; type: QuestionType }
   | { kind: "answer_ack"; pass: boolean; type: QuestionType }
   | { kind: "question_timeout" }

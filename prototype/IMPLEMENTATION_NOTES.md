@@ -111,8 +111,8 @@ The six [audit screenshots](screenshots/) show the title loop, desk, mid-dash, s
 - A truthful claim during APPROACHING names the current target.
 - Track `lastLocationClaim` and `log.visit.claimThisVisit` for loss diagnostics.
 
-## Night 1 auto-warn
-- Removed (new loop). CHUD never warns unprompted about an arrival or a departure.
+## Night 1 arrival warnings
+- When `arriveAtEntry` transitions Ram to `AT_ENTRY` during Night 1, online CHUD emits a canned `entry_warning` via `CHUD_SAY`. Each entry has three variants. The warning does not use the location command or the question pipeline.
 
 ## Sabotage (section 8.8)
 - Checked every step after the other events. When all trigger conditions first hold during a visit, roll `SABOTAGE_CHANCE` once for that visit (`sabotageRolledVisit`). On success: power slot NONE now (no relay delay), cancel any pending switch, `lastSabotageHour` = current hour, emit SABOTAGE and POWER_CHANGED(cause sabotage), CHUD says `sabotage`, `log.visit.sabotaged = true`.
@@ -153,7 +153,7 @@ The six [audit screenshots](screenshots/) show the title loop, desk, mid-dash, s
 - At 6:00 AM: if Ram is INSIDE, the scare fires (reason DAWN). Else end furious episode, phase NIGHT_WON (or GAME_WON after night 5), factsCheckpoint = facts, emit NIGHT_WON or GAME_WON.
 
 ## Ram visuals (`ramVisual(view)`)
-- DESK view: always "none". `lit` = the slot is `LIGHT_<view>`.
+- DESK view: always "none". An entry is lit when `player.lightEntry` matches it.
 - INSIDE: "inside" if he came in through this entry and it is lit, else "none".
 - AT_ENTRY at this entry: "tell_clear" if lit, "tell_faint" if standing or bracing there in the dark, otherwise "none".
 - APPROACHING this entry and lit: "approach_silhouette". Else "none".
@@ -191,7 +191,7 @@ The six [audit screenshots](screenshots/) show the title loop, desk, mid-dash, s
 - `server/app.ts` is a Hono app (`/api/health`, `/api/judge`, `/api/voice`, `/api/tts`, 90 POSTs per minute per IP). In dev it is mounted inside the Vite server by a plugin in `vite.config.ts`, so `npm run dev` is one command. The key is read from `prototype/.env` on the server side only.
 - Judge (`server/prompts.ts`): structured outputs with a JSON schema, so the reply is always valid JSON. The schema uses `new_fact_value` (string, "" for none) and `entry_hint` "NONE" instead of nulls; `server/llm.ts` maps them back to `JudgeResult`. `new_fact` is only produced for an answered SEED question and always uses that question's fact key.
 - Client (`src/chud/judgeClient.ts`): LLM judge when available, otherwise or on failure the offline keyword judge (not the neutral result), so a slow call still scores the message sensibly.
-- Voice: only for conversational outcomes (`VOICED` in `src/chud/llmClient.ts`: small talk, warm, rude, leaving, answer ack, manipulation, offensive, silence). The engine's canned line is sent as the meaning to keep; the LLM rewords it in CHUD's mood with the last 6 lines of chat as context. Urgent lines (locks, lock refusals, light cuts, location claims, questions, sabotage, Furious) stay canned and instant. If the voice fails or is slow, the canned line shows. Replies that arrive after a night restarts are dropped.
+- Voice: only for conversational outcomes (`VOICED` in `src/chud/llmClient.ts`: small talk, warm, rude, leaving, answer ack, manipulation, offensive). The engine's canned line is sent as the meaning to keep; the LLM rewords it in CHUD's mood with the last 6 lines of chat as context. Urgent lines and scripted lines, including entry warnings and silence ticks, stay canned and use the usual terminal, subtitle and speech path. If the voice fails or is slow, the canned line shows. Replies that arrive after a night restarts are dropped.
 - The voice is never given Ram's position and is told never to claim it locked or powered anything, so it cannot leak a lie or contradict game state.
 - Ram's name ban: `VOICE_SYSTEM` does not contain the name and forbids naming anyone but the keeper; `voiceUser` passes the player name through `safeName` ("keeper" if it matches `FORBIDDEN_NAME_RE`); `server/llm.ts` throws on a reply that `mentionsForbiddenName`, so the client gets no text and shows the canned line; `voiceRemote` in `llmClient.ts` also blanks a forbidden name and drops such replies. Tested in `tests/chud.test.ts`.
 - Measured on 2026-11-21 from a home connection: judge 1.2 to 2.2 s (one timeout in about 15 calls), voice 0.7 to 0.9 s. A typed answer that gets a voiced reply takes about 2 to 3 s end to end. Commands found by the code parser still run instantly.

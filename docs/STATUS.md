@@ -35,6 +35,7 @@ Last updated: 2026-11-21 (late night)
 - Next: team playtest of the new loop (is night 1 tense rather than empty, are PEEKED and refusals fair, light cut rate), tune numbers in prototype/src/config.ts, then commit and PR with the team's go-ahead.
 
 ## Codex (art pre-production)
+- Clarity pass, Task A: independent lights and locks, empty dark entry views from the desk, dialogue-only night captions, truthful Night 1 arrival warnings and revised silence lines. The production build and all 332 tests passed.
 - Trapped ending: the Coast Guard approach still follows the existing text, then fades to black before Title. Verified the timed and click-to-fade paths in the browser and measured continuing game audio through the shot and fade. The build and all 308 tests passed.
 - Artifacts: one paper lies left of the keyboard on each of Nights 1 to 3. The original image opens in the center while the night runs. Checked all three readers, the empty desk on Nights 4 and 5, and the live clock while reading. The build and all 266 tests passed.
 - Release merge: resolved the audio and Vercel conflicts in PR #29. The production build, all 265 tests, and loopback checks of the hosted API adapter passed.

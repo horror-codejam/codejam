@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseCommand, parseEntry } from "../src/chud/parser";
 import { offlineJudge, sameFact, cleanFactValue } from "../src/chud/offlineJudge";
+import { VOICED } from "../src/chud/llmClient";
 import {
   allLineTemplates,
   cannedLine,
@@ -396,6 +397,30 @@ describe("canned lines", () => {
     expect(sweep({ kind: "silence" }, "WARM", "Sam").some((l) => l.includes("Sam"))).toBe(true);
   });
 
+  it.each(ENTRIES)("has three canned warnings that name only %s and suggest a defense", (entry) => {
+    const warnings = sweep({ kind: "entry_warning", entry }, "WARM");
+    expect(warnings).toHaveLength(3);
+    for (const warning of warnings) {
+      expect(warning.toLowerCase()).toContain(entry.toLowerCase());
+      expect(warning).toMatch(/\b(lock|locked|hold|brace)\b/i);
+      expect(warning).not.toMatch(/\b(ram|altman)\b/i);
+      for (const other of ENTRIES.filter((other) => other !== entry)) expect(warning.toLowerCase()).not.toContain(other.toLowerCase());
+    }
+    expect(VOICED.has("entry_warning")).toBe(false);
+  });
+
+  it("has twelve Warm silence lines and skips the last line even with the same roll", () => {
+    const outcome = { kind: "silence" } as const;
+    expect(sweep(outcome, "WARM")).toHaveLength(12);
+    for (const band of BANDS) {
+      const ctx = { band, name: "Sam", rand: () => 0 };
+      const first = cannedLine(outcome, ctx);
+      expect(cannedLine(outcome, { ...ctx, avoid: first })).not.toEqual(first);
+      for (const line of sweep(outcome, band)) expect(line).not.toMatch(/\b(talk to me|say something)\b/i);
+    }
+    expect(VOICED.has("silence")).toBe(false);
+  });
+
   it("every Outcome kind returns a non-empty line under 25 words in every band", () => {
     const outcomes: Outcome[] = [
       { kind: "name_ack" },
@@ -405,6 +430,7 @@ describe("canned lines", () => {
         { kind: "lock_already", entry },
         { kind: "lock_refused", entry },
         { kind: "location_claim", entry },
+        { kind: "entry_warning", entry },
       ]),
       { kind: "light_cut" },
       { kind: "power_off" },

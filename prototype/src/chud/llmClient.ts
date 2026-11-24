@@ -64,8 +64,7 @@ export async function voiceRemote(ask: VoiceAsk): Promise<string | null> {
   return text && !FORBIDDEN_NAME_RE.test(text) ? text : null;
 }
 
-// Outcomes CHUD words with the LLM. Everything urgent (locks, lights, location claims, sabotage,
-// questions) stays canned so it shows instantly.
+// Outcomes CHUD words with the LLM. Urgent replies and scripted lines stay canned.
 export const VOICED = new Set([
   "small_talk",
   "warm_reply",
@@ -74,5 +73,4 @@ export const VOICED = new Set([
   "answer_ack",
   "manipulation_hurt",
   "offensive_deflect",
-  "silence",
 ]);

@@ -1001,12 +1001,14 @@ export class GameEngine implements IGameEngine {
   private arriveAtEntry(): void {
     const s = this.state;
     const r = s.ram;
+    const entry = r.target!;
     const [lo, hi] = this.np.atEntryTime;
     r.state = "AT_ENTRY";
     r.attemptLength = this.rng.range(lo, hi); // random per visit, so the end moment cannot be counted (section 4)
     r.stateEndsAt = r.stateEndsAt + r.attemptLength;
-    this.emit({ type: "RAM_AT_ENTRY", visitId: r.visitId, entry: r.target! });
+    this.emit({ type: "RAM_AT_ENTRY", visitId: r.visitId, entry });
     if (s.phase !== "PLAYING") return;
+    if (s.run.night === 1 && s.power.chudOnline) this.say({ kind: "entry_warning", entry });
     this.tryFuriousCut();
   }
 

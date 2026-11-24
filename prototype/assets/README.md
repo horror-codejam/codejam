@@ -37,7 +37,7 @@ Format: plates are 2:1, cover-fitted to 960 x 480 plate px. The game pans across
 | `view_desk` | final `view_desk_off`, else `03-watch-room/render_blockout_cam_desk.png` | Desk view. The four normalized corners in `cam_desk_screen.json` locate both the glass mask and the DOM terminal. Lightning and the fallback beacon sweep are restricted to the side panes |
 | `view_<entry>_off` (alias `view_<entry>`) | final, else `03-watch-room/render_blockout_cam_<entry>.png` | Entry view from the desk, dark and empty |
 | `view_<entry>_on` (alias `view_<entry>_beam`) | final | Entry view with its light on. Without it: the blockout with a warm grade and an amber wash (`lit_<entry>`) |
-| `tell_<entry>_off` / `tell_<entry>_on` | final | Ram at the entry: faint in the dark, clear with the light. Replaces the whole view. Fallback: coded overlay on the view |
+| `tell_<entry>_on` | final | Clear tell at a lit entry from the desk. Replaces the whole view. Fallback: coded overlay on the view |
 | `approach_<entry>_on` | final | Ram on his way, only visible with the light on. Fallback: coded overlay |
 | `inside_<entry>_on` (alias `ram_inside_<entry>`) | final, else `04-ram/ram_inside_<entry>.png` | Ram standing just inside the open entry, lit, from the seated camera. Shown while he is inside with that light on, and as the creepy flash (about 0.4 s) before the jumpscare |
 | `hold_<entry>_<stand\|brace>_<empty\|tell>_<on\|off>` | final | Close-up at the entry, 8 plates per entry. The brace plates include the player's arms, so the painted arms are not drawn; the camera carries the brace motion (lean, tremor, Ram's shoves). Fallback: `hold_<entry>` with the coded tell and painted arms |
