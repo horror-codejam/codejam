@@ -15,16 +15,29 @@ const MALICIOUS_SVG = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx=
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)");
 const FACE_SIZE = 152;
 const TYPE_RATE = 46;
+const MAX_EXCHANGES = 4;
+const LOCK_PULSE_TIME = 0.55;
+
+export interface TerminalEffects {
+  malicious: boolean;
+  flicker: boolean;
+  alertEntry: Entry | null;
+  alert: boolean;
+  refusedEntry: Entry | null;
+  refused: boolean;
+}
 
 export class Terminal {
   private face: HTMLElement;
   private log: HTMLElement;
   private question: HTMLElement;
   private map: HTMLButtonElement[];
-  private cells: HTMLElement[];
   private clock: HTMLElement;
   private faceKey = "";
   private glitchUntil = 0;
+  private lastSlot = "NONE";
+  private pulseEntry: string | null = null;
+  private pulseUntil = 0;
   private typing?: { line: HTMLElement; text: string; since: number };
 
   readonly chat: HTMLInputElement;
@@ -36,7 +49,6 @@ export class Terminal {
     this.log = root.querySelector("#log")!;
     this.question = root.querySelector("#question")!;
     this.map = [...root.querySelectorAll<HTMLButtonElement>("#t-map [data-entry]")];
-    this.cells = [...root.querySelectorAll<HTMLElement>("#t-power [data-cell]")];
     this.clock = root.querySelector("#t-clock")!;
     this.chat = root.querySelector("#chat")!;
     this.form = root.querySelector("#chat-form")!;
@@ -47,6 +59,9 @@ export class Terminal {
     this.log.replaceChildren();
     this.typing = undefined;
     this.faceKey = "";
+    this.lastSlot = "NONE";
+    this.pulseEntry = null;
+    this.pulseUntil = 0;
   }
 
   addLine(who: "me" | "chud", text: string, t: number): void {
@@ -59,8 +74,16 @@ export class Terminal {
       this.typing = { line, text, since: t };
       line.classList.add("typing");
     }
-    this.log.append(line);
-    while (this.log.children.length > 12) this.log.firstElementChild!.remove();
+    const last = this.log.lastElementChild;
+    if (who === "chud" && last?.classList.contains("exchange") && !last.querySelector(".chud")) {
+      last.append(line);
+    } else {
+      const exchange = document.createElement("div");
+      exchange.className = "exchange";
+      exchange.append(line);
+      this.log.append(exchange);
+    }
+    while (this.log.children.length > MAX_EXCHANGES) this.log.firstElementChild!.remove();
     this.log.scrollTop = this.log.scrollHeight;
   }
 
@@ -72,12 +95,7 @@ export class Terminal {
     this.typing = undefined;
   }
 
-  render(
-    state: GameState,
-    clock: string,
-    t: number,
-    effects: { malicious: boolean; flicker: boolean; alertEntry: Entry | null; alert: boolean },
-  ): void {
+  render(state: GameState, clock: string, t: number, effects: TerminalEffects): void {
     const { power, chud } = state;
     this.chat.disabled = !power.chudOnline;
     for (const button of this.quick) button.disabled = !power.chudOnline;
@@ -101,6 +119,14 @@ export class Terminal {
     this.renderFace(chud.band, power.chudOnline, effects.malicious, t, power.rebootingUntil !== null);
     updateText(this.clock, clock);
 
+    if (power.slot !== this.lastSlot) {
+      if (power.slot.startsWith("LOCK_")) {
+        this.pulseEntry = power.slot.slice(5);
+        this.pulseUntil = t + LOCK_PULSE_TIME;
+      }
+      this.lastSlot = power.slot;
+    }
+
     const flash = REDUCED.matches || Math.floor(t * 6) % 2 === 0;
     const alert = effects.alert && flash;
     for (const marker of this.map) {
@@ -108,14 +134,10 @@ export class Terminal {
       const locked = power.slot === `LOCK_${entry}`;
       marker.classList.toggle("locked", locked);
       marker.classList.toggle("pending", power.pending?.target === `LOCK_${entry}`);
+      marker.classList.toggle("just-locked", locked && entry === this.pulseEntry && t < this.pulseUntil && !REDUCED.matches);
+      marker.classList.toggle("refused", effects.refused && entry === effects.refusedEntry);
       marker.classList.toggle("alert", alert && entry === effects.alertEntry);
       marker.setAttribute("aria-pressed", String(locked));
-    }
-    for (const cell of this.cells) {
-      const key = cell.dataset.cell!;
-      cell.classList.toggle("on", power.slot === key);
-      cell.classList.toggle("pending", power.pending?.target === key);
-      cell.classList.toggle("alert", alert && `LOCK_${effects.alertEntry}` === key);
     }
   }
 

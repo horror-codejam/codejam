@@ -39,13 +39,10 @@
           <div id="t-right">
             <div id="t-clock"></div>
             <div id="t-map" role="group" aria-label="Watch room locks">
-              <svg viewBox="0 0 160 160" aria-hidden="true"><circle cx="80" cy="80" r="62" /><circle cx="80" cy="80" r="13" /></svg>
-              <button type="button" data-entry="WINDOW" data-quick="LOCK_WINDOW" aria-label="Lock window">W</button>
-              <button type="button" data-entry="HATCH" data-quick="LOCK_HATCH" aria-label="Lock hatch">H</button>
-              <button type="button" data-entry="BALCONY" data-quick="LOCK_BALCONY" aria-label="Lock balcony">B</button>
-            </div>
-            <div id="t-power" aria-label="Power">
-              <span data-cell="LOCK_WINDOW">W</span><span data-cell="LOCK_HATCH">H</span><span data-cell="LOCK_BALCONY">B</span>
+              <svg class="map-room" viewBox="0 0 160 160" aria-hidden="true"><circle cx="80" cy="80" r="60" /></svg>
+              <button type="button" data-entry="WINDOW" data-quick="LOCK_WINDOW" aria-label="Lock window"><span class="m-key">W</span><svg class="m-lock" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.2" y="5.4" width="7.6" height="5.2" rx="1" fill="currentColor" /><path d="M3.8 5.4V3.9a2.2 2.2 0 0 1 4.4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.5" /></svg></button>
+              <button type="button" data-entry="HATCH" data-quick="LOCK_HATCH" aria-label="Lock hatch"><span class="m-key">H</span><svg class="m-lock" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.2" y="5.4" width="7.6" height="5.2" rx="1" fill="currentColor" /><path d="M3.8 5.4V3.9a2.2 2.2 0 0 1 4.4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.5" /></svg></button>
+              <button type="button" data-entry="BALCONY" data-quick="LOCK_BALCONY" aria-label="Lock balcony"><span class="m-key">B</span><svg class="m-lock" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.2" y="5.4" width="7.6" height="5.2" rx="1" fill="currentColor" /><path d="M3.8 5.4V3.9a2.2 2.2 0 0 1 4.4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.5" /></svg></button>
             </div>
           </div>
         </div>

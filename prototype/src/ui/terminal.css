@@ -81,15 +81,34 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 9px;
+  gap: 13px;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  overflow-wrap: break-word;
+  word-break: normal;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 18px);
 }
-#log > div { flex: none; max-width: 100%; }
+#log .exchange {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+  transition: opacity 0.22s ease;
+}
+#log .exchange:nth-last-child(2) { opacity: 0.78; }
+#log .exchange:nth-last-child(3) { opacity: 0.5; }
+#log .exchange:nth-last-child(4) { opacity: 0.26; }
+#log .chud {
+  font-size: 22px;
+  line-height: 1.26;
+  max-width: 94%;
+  text-wrap: pretty;
+}
 #log .me {
+  font-size: 20px;
+  line-height: 1.2;
+  max-width: 94%;
   color: #75a181;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -115,9 +134,10 @@
 #terminal.awaiting #chat-form > span { color: var(--green); }
 #question {
   flex: none;
-  height: 1px;
+  height: 2px;
   margin-top: 7px;
-  background: var(--dim-green);
+  background: var(--green);
+  box-shadow: 0 0 6px #7cff9b80;
   transform-origin: left center;
 }
 #chat-form {
@@ -150,36 +170,101 @@
 #chat:placeholder-shown { caret-color: transparent; }
 #quick { flex: none; display: flex; gap: 26px; font-size: 19px; }
 #quick button { min-height: 27px; }
-.offline #t-center, .offline #t-map, .offline #t-power { opacity: 0.32; }
+.offline #t-center, .offline #t-map { opacity: 0.32; }
 .offline #chat-form::after { display: none !important; }
 
-#t-right { align-items: center; }
+#t-right { align-items: center; padding-bottom: 18px; }
 #t-clock { align-self: end; font-size: 29px; }
-#t-map { width: 172px; height: 172px; position: relative; margin: auto 0 16px; }
-#t-right { padding-bottom: 34px; }
-#t-map svg { display: block; width: 100%; fill: none; stroke: var(--trace); stroke-width: 1.4; }
+#t-map { width: 176px; height: 176px; position: relative; margin: auto 0; }
+#t-map .map-room { display: block; width: 100%; height: 100%; fill: none; stroke: var(--trace); stroke-width: 1.5; }
 #t-map button {
   position: absolute;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
   transform: translate(-50%, -50%);
   background: var(--glass);
-  border: 1px solid var(--trace);
+  border: 1.5px solid var(--trace);
+  color: var(--dim-green);
+  font-size: 22px;
+  line-height: 1;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 }
-#t-map [data-entry="WINDOW"] { left: 11%; top: 50%; }
-#t-map [data-entry="HATCH"] { left: 89%; top: 50%; }
-#t-map [data-entry="BALCONY"] { left: 50%; top: 89%; }
-#t-map button.locked { color: var(--green); border-color: currentColor; text-shadow: 0 0 5px currentColor; }
-#t-map button.alert { color: var(--alert); border-color: currentColor; }
-#t-map button.pending, #t-power .pending { border-style: dashed; }
-#t-power { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; gap: 4px; font-size: 19px; }
-#t-power span { padding: 4px 0; border: 1px solid var(--trace); color: var(--dim-green); text-align: center; }
-#t-power .on { background: #183b23; color: var(--green); }
-#t-power .alert { background: #351611; color: var(--alert); border-color: currentColor; }
+#t-map button:hover:not(:disabled), #t-map button:focus-visible {
+  border-color: var(--dim-green);
+  color: var(--green);
+  box-shadow: 0 0 8px #7cff9b2b;
+}
+#t-map button .m-key { position: relative; z-index: 1; }
+#t-map button .m-lock {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  padding: 2px;
+  background: var(--glass);
+  border: 1.5px solid var(--green);
+  color: var(--green);
+  box-shadow: 0 0 6px #7cff9b80;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  pointer-events: none;
+}
+#t-map [data-entry="WINDOW"] { left: 12.5%; top: 50%; }
+#t-map [data-entry="HATCH"] { left: 87.5%; top: 50%; }
+#t-map [data-entry="BALCONY"] { left: 50%; top: 87.5%; }
+#t-map button.pending {
+  border-style: dashed;
+  border-color: var(--green);
+  color: var(--green);
+  background: #0e2618;
+}
+#t-map button.locked {
+  background: var(--green);
+  border-color: #c6ffd3;
+  color: #031008;
+  font-weight: 400;
+  text-shadow: none;
+  box-shadow: 0 0 14px #7cff9b99, 0 0 4px #7cff9bcc, inset 0 0 0 1px #04110933;
+}
+#t-map button.locked:hover:not(:disabled) {
+  background: #98ffb0;
+  color: #041109;
+  border-color: #d9ffe2;
+}
+#t-map button.locked .m-lock {
+  opacity: 1;
+  transform: scale(1);
+}
+@keyframes map-lock-pulse {
+  0% { box-shadow: 0 0 0 0 #7cff9be6, 0 0 16px #7cff9bcc; transform: translate(-50%, -50%) scale(1.13); }
+  100% { box-shadow: 0 0 0 14px #7cff9b00, 0 0 14px #7cff9b99; transform: translate(-50%, -50%) scale(1); }
+}
+#t-map button.just-locked { animation: map-lock-pulse 0.55s ease-out; }
+@keyframes map-refuse-flicker {
+  0%, 100% { filter: brightness(1.15); }
+  18% { filter: brightness(0.45); }
+  34% { filter: brightness(1.3); }
+  52% { filter: brightness(0.5); }
+  70% { filter: brightness(1.2); }
+  86% { filter: brightness(0.55); }
+}
+#t-map button.refused { animation: map-refuse-flicker 0.36s steps(1, end) infinite; }
+#t-map button.refused, #t-map button.alert {
+  background: #3b100d;
+  color: var(--alert);
+  border-color: var(--alert);
+  text-shadow: 0 0 6px #ff6257aa;
+  box-shadow: 0 0 14px #ff6257aa, inset 0 0 6px #ff625740;
+}
+#t-map button.refused .m-lock, #t-map button.alert .m-lock { opacity: 0; }
 
 #terminal[inert] #t-face,
 #terminal[inert] #log .typing::after,
 #terminal[inert] #chat-form:has(#chat:placeholder-shown)::after { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
-  #log .typing::after, #chat-form:has(#chat:placeholder-shown)::after, #t-face.glitch, #terminal.awaiting #t-face { animation: none; }
+  #log .typing::after, #chat-form:has(#chat:placeholder-shown)::after, #t-face.glitch, #terminal.awaiting #t-face, #t-map button.just-locked, #t-map button.refused { animation: none; }
 }

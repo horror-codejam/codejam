@@ -88,6 +88,8 @@ let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
 let powerAlarmUntil = 0;
 let powerAlarmEntry: Entry | null = null;
+let lockRefusedUntil = 0;
+let lockRefusedEntry: Entry | null = null;
 let previousPowerSlot: PowerSlot = "NONE";
 let powerFlicker = false;
 let maliciousUntil = 0; // real seconds: CHUD's malicious smile is up
@@ -263,6 +265,8 @@ function onEvent(ev: GameEvent, t: number): void {
       maliciousUntil = 0;
       powerAlarmUntil = 0;
       powerAlarmEntry = null;
+      lockRefusedUntil = 0;
+      lockRefusedEntry = null;
       previousPowerSlot = "NONE";
       powerFlicker = false;
       // Also handles dev jumps within the same phase, including those that skip the card.
@@ -294,6 +298,8 @@ function onEvent(ev: GameEvent, t: number): void {
     }
     case "LOCK_REFUSED":
       maliciousUntil = t + MALICE.REFUSE_TIME;
+      lockRefusedEntry = ev.entry;
+      lockRefusedUntil = t + 0.75;
       break;
     case "LIGHT_CUT":
       sound.lightTick();
@@ -459,8 +465,9 @@ function renderHud(t: number): void {
   const p = s.power;
 
   const deskView = playing && atDesk && view === "DESK";
+  const monitorShowing = deskView && !scene.transitionVisible && s.player.reading === null;
   const caption = playing
-    ? [radioCaption, deskView && !practicing ? undefined : chudCaption].find((line) => line && (line.until > t || line.playback?.state === "playing"))
+    ? [radioCaption, monitorShowing ? undefined : chudCaption].find((line) => line && (line.until > t || line.playback?.state === "playing"))
     : undefined;
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
@@ -478,6 +485,8 @@ function renderHud(t: number): void {
       flicker: powerFlicker,
       alertEntry: powerAlarmEntry,
       alert: t < powerAlarmUntil,
+      refusedEntry: lockRefusedEntry,
+      refused: t < lockRefusedUntil,
     });
   } else if (document.activeElement === terminal.chat) {
     terminal.chat.blur();
