@@ -63,3 +63,4 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-23: Replace the practice drills with CHUD's four-line story and staged window and hatch visits. The player learns the loop using the same views and defenses as the nights.
 - 2026-11-23: Put one gameplay tip on each midnight card and allow four seconds to read it. The tips teach rules left out of practice.
 - 2026-11-23: Follow each jumpscare with one skippable explanation on black based on the actual breach. The player can see which entry failed and why before retrying.
+- 2026-11-23: The entry light no longer drops locks and dark desk views show nothing (hold Shift to look); a ChudGPT-led practice night with staged visits, a story setup, night card tips and death reasons replace bottom-screen hints. Why: post-hackathon playtests showed new players could not learn the loop.
