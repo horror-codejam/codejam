@@ -278,13 +278,17 @@ export class GameEngine implements IGameEngine {
     if (opts.softness !== undefined) this.beamSoftnessOverride = opts.softness;
   }
 
-  // Section 7.4. He is visible only while the rotating beam is on him.
+  // Section 7.4. Standing or bracing at an entry reveals its tell without the lamp.
   ramVisual(view: View): RamVisual {
     if (view === "DESK") return "none";
     const r = this.state.ram;
     const lit = this.beamLit(view);
     if (r.state === "INSIDE") return r.inside?.entry === view && lit ? "inside" : "none";
-    if (r.state === "AT_ENTRY" && r.target === view) return lit ? "tell_clear" : "none";
+    if (r.state === "AT_ENTRY" && r.target === view) {
+      const pos = this.state.player.position;
+      const close = (pos.kind === "STANDING" || pos.kind === "HOLDING") && pos.entry === view;
+      return close || lit ? "tell_clear" : "none";
+    }
     if (r.state === "APPROACHING" && r.target === view && lit) return "approach_silhouette";
     return "none";
   }

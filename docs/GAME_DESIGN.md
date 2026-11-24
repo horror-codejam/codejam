@@ -57,8 +57,8 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - Ram makes no sound at any entry. The house creaks, knocks and rattles all night (decoys), and none of it is him.
 - Forward desk view (`cam_desk`): ChudGPT's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot runs one magnetic lock. One slow rotating white ceiling lamp above the desk sweeps the whole room right to left every 16 s, independent of the lock. Between passes the room is extremely dark, and he is visible only while the beam sweeps across him.
-- ChudGPT cannot turn the lamp on or steer it, but when suspicious it can stop the ceiling lamp for 5 s in total dark with a small click and a possessive line ("You don't need the lamp. You have me.").
+- One power slot runs one magnetic lock. One slow rotating white ceiling lamp above the desk sweeps the room right to left every 16 s, independent of the lock. From the desk, the beam reveals him as it passes. Standing or bracing at an entry keeps the close-up tell visible even with the lamp cut.
+- ChudGPT cannot turn the lamp on or steer it, but when suspicious it can stop the ceiling lamp for 5 s with a small click and a possessive line ("You don't need the lamp. You have me.").
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
 - Entry locks are magnetic locks. Select an entry mark on ChudGPT's map to request its lock.
 - The ChudGPT terminal sits on the monitor glass in the desk view. Its three columns show the mood face, chat and quick commands, then the clock, map and three lock cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.

@@ -21,10 +21,10 @@ import {
   artVideoUrl,
   getBeamGrade,
   getBeamSlot,
+  getHoldPlate,
   hasArt,
   hasBeamArt,
   isFinal,
-  preloadHoldBeam,
   slot,
   stageSlot,
 } from "./art";
@@ -33,7 +33,7 @@ import { DESK_GLAZING, H, K, PAN_X, PAN_Y, PLATE_H, PLATE_W, W, ZOOM } from "./l
 import { MONITOR_CORNERS, monitorTransform } from "./monitor";
 import * as P from "./placeholders";
 import { VideoPlate } from "./videoPlate";
-import { beamEntryState, beamSlot, holdBeamSlot, JUMPSCARE_FPS, jumpscareDuration, jumpscareJob, sequenceFrame } from "./plates";
+import { beamEntryState, beamSlot, JUMPSCARE_FPS, jumpscareDuration, jumpscareJob, sequenceFrame } from "./plates";
 
 interface EntryLayers {
   root: Container;
@@ -88,6 +88,7 @@ export class Scene {
   private clipDarkFilter = new ColorMatrixFilter();
   private beam: BeamRenderer | null = null;
   private beamPlate: Sprite | null = null;
+  private holdPlate = new Sprite(Texture.EMPTY);
   private rt: RenderTexture;
   private rtPrev: RenderTexture;
   private views = new Container();
@@ -176,6 +177,8 @@ export class Scene {
       this.beamPlate.visible = false;
       this.cam.addChild(this.beamPlate);
     }
+    this.holdPlate.visible = false;
+    this.cam.addChild(this.holdPlate);
 
     // desk: fallback render (hidden when beamPlate renders desk), media layer, calibrated monitor glass
     this.deskRender = hasArt("view_desk") || hasBeamArt();
@@ -220,7 +223,7 @@ export class Scene {
     this.light.addChild(this.sweep, this.lightning);
     this.cam.addChild(this.desk);
 
-    // Fallback entry and hold containers (used only if final_beam assets are unavailable or loading).
+    // Fallback containers for entries and close-ups with missing final art.
     for (const e of ENTRIES) {
       const k = e.toLowerCase();
       const render = hasArt(`view_${k}`);
@@ -340,10 +343,6 @@ export class Scene {
 
   get beamParams(): BeamParams | null {
     return this.beam?.params ?? null;
-  }
-
-  ensureHoldBeam(entry: Entry): Promise<void> {
-    return preloadHoldBeam(entry);
   }
 
   deskScreenTransform(): string {
@@ -511,21 +510,21 @@ export class Scene {
       dashing ? CONFIG.TRAVEL_TIME : this.turnDur,
     );
 
-    // Lazy-load hold beam textures as soon as the player faces or dashes to an entry.
-    if (view !== "DESK") void preloadHoldBeam(view);
-    if (holding) void preloadHoldBeam(holding);
-
     const lampOn = engine.isLampOn();
     this.updateClipDarkness(lampOn);
 
     const onDesk = !holding && view === "DESK";
-    const ramAtHolding = holding !== null && s.ram.state === "AT_ENTRY" && s.ram.target === holding;
-    const beamSlotName = holding
-      ? holdBeamSlot(holding, bracing, ramAtHolding)
-      : view === "DESK"
-        ? "desk"
-        : beamSlot(view, beamEntryState(view, s.ram, this.scareEntry));
-    const beamTex = this.beam ? (getBeamSlot(beamSlotName) ?? (holding ? getBeamSlot(beamSlot(holding, ramAtHolding ? "tell" : "empty")) : null)) : null;
+    const holdTell = holding !== null && engine.ramVisual(holding) === "tell_clear";
+    const holdTex = holding ? getHoldPlate(holding, bracing, holdTell) : null;
+    this.holdPlate.visible = holdTex !== null;
+    if (holdTex && this.holdPlate.texture !== holdTex) {
+      this.holdPlate.texture = holdTex;
+      this.holdPlate.width = PLATE_W;
+      this.holdPlate.height = PLATE_H;
+    }
+
+    const beamSlotName = view === "DESK" ? "desk" : beamSlot(view, beamEntryState(view, s.ram, this.scareEntry));
+    const beamTex = this.beam && !holding ? getBeamSlot(beamSlotName) : null;
     const beamActive = this.beam !== null && this.beamPlate !== null && beamTex !== null;
 
     if (beamActive && this.beam && this.beamPlate && beamTex) {
@@ -533,7 +532,7 @@ export class Scene {
       const darkScale = lampOn ? 1 : onDesk ? 0.55 : 0.35;
       this.beam.render(this.app.renderer, beamTex, azimuth, lampOn, darkScale);
       this.beamPlate.visible = true;
-      const hatchShudder = !holding && view === "HATCH" && engine.ramVisual("HATCH") === "tell_clear";
+      const hatchShudder = view === "HATCH" && engine.ramVisual("HATCH") === "tell_clear";
       this.beamPlate.y = hatchShudder ? Math.sin(t * 60) * 1.5 : 0;
     } else if (this.beamPlate) {
       this.beamPlate.visible = false;
@@ -568,16 +567,14 @@ export class Scene {
     }
     const fatigue = pos.kind === "HOLDING" ? clamp((engine.now - pos.since) / CONFIG.HOLD_MAX, 0, 1) : 0;
     this.armsK += ((bracing ? 1 : 0) - this.armsK) * (1 - Math.exp(-fdt * BRACE.ARMS_EASE));
-    const pushing = bracing && ramAtHolding;
+    const pushing = bracing && holdTell;
     for (const [e, L] of this.holds) {
-      const on = !beamActive && holding === e;
+      const on = !holdTex && holding === e;
       L.root.visible = on;
       if (!on) continue;
-      const lit = engine.beamIntensity(e) >= CONFIG.BEAM_REVEAL_THRESHOLD;
-      const tellUp = ramAtHolding && lit;
       L.base.visible = true;
-      if (L.render && !isFinal(`hold_${L.k}`)) grade = lit ? GRADE_LIT : GRADE_DARK;
-      L.tell.visible = tellUp;
+      if (L.render && !isFinal(`hold_${L.k}`)) grade = holdTell ? GRADE_LIT : GRADE_DARK;
+      L.tell.visible = holdTell;
       L.tell.alpha = 1;
     }
 
@@ -600,7 +597,7 @@ export class Scene {
     const tremorPx = BRACE.TREMOR_PX * strainK + BRACE.PUSH_TREMOR * push * this.braceK;
     const shakeX = BRACE.SWAY_PX * strainK * Math.sin(ft * BRACE.SWAY_HZ * 6.283) + tremorPx * tr(0);
     const shakeY = BRACE.SWAY_PX * 0.7 * strainK * Math.sin(ft * BRACE.SWAY_HZ * 0.77 * 6.283 + 1) + tremorPx * tr(1.3) - BRACE.PUSH_PX * push;
-    if (holding && !beamActive) {
+    if (holding && !holdTex) {
       const L = this.holds.get(holding)!;
       L.arms.visible = this.armsK > 0.01;
       L.arms.alpha = Math.min(1, this.armsK * 1.4);
@@ -696,8 +693,11 @@ export class Scene {
     const roll = dashing ? 0 : Math.abs(this.cam.rotation) * W;
     const mx = (PLATE_W * K * zoom - W) / 2 - roll;
     const my = (PLATE_H * K * zoom - H) / 2 - roll;
+    // Keep the hatch rim and the balcony's left-side gap in frame during pan and brace motion.
+    const minOx = holding === "BALCONY" && holdTex ? -mx * 0.45 : -mx;
+    const maxOy = holding === "HATCH" && holdTex ? -my * 0.7 : my;
     this.cam.scale.set(K * zoom);
-    this.cam.position.set(W / 2 + clamp(ox, -mx, mx), H / 2 + clamp(oy, -my, my));
+    this.cam.position.set(W / 2 + clamp(ox, minOx, mx), H / 2 + clamp(oy, -my, maxOy));
     this.light.position.copyFrom(this.cam.position);
     this.light.scale.copyFrom(this.cam.scale);
     this.light.rotation = this.cam.rotation;
@@ -725,7 +725,7 @@ export class Scene {
     this.views.visible = !transition;
     this.views.filters = sliding ? [this.turnBlur] : null;
     if (!this.jumpActive && t < this.snapUntil) black = Math.max(black, (this.snapUntil - t) / SCARE.SNAP_TIME);
-    if (!this.jumpActive && t < this.lightFlickerUntil) black = Math.max(black, Math.random() < 0.5 ? 0.55 : 0.15);
+    if (!holding && !this.jumpActive && t < this.lightFlickerUntil) black = Math.max(black, Math.random() < 0.5 ? 0.55 : 0.15);
     this.fadeAlpha = this.jumpActive ? 0 : black;
     this.fade.alpha = this.jumpActive ? 0 : Math.max(this.fadeAlpha, s.phase === "PLAYING" || s.phase === "BREACH" ? 0 : 0.6);
 
@@ -781,7 +781,7 @@ export class Scene {
       target.position.set(W / 2 + sx, H / 2 + JUMPSCARE.FACE_OFFSET_Y * punch + sy);
     }
 
-    this.grain.visible = !beamActive || dashing || Boolean(transition) || this.jumpActive;
+    this.grain.visible = (!beamActive && !holdTex) || dashing || Boolean(transition) || this.jumpActive;
     if (this.grain.visible) {
       this.grain.x = -Math.random() * 256;
       this.grain.y = -Math.random() * 256;

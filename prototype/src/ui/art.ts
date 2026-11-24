@@ -6,7 +6,7 @@ import { Assets, Container, Graphics, ImageSource, Sprite, Texture } from "pixi.
 import rawBeamManifest from "../../../scenes/03-watch-room/final_beam/manifest.json";
 import { ENTRIES, type Entry } from "../sim/types";
 import { H, PLATE_H, PLATE_W, W } from "./layout";
-import { beamSlot, FINAL_ALIASES, holdBeamSlot, JUMPSCARE_MIN_FRAMES, jumpscareJob } from "./plates";
+import { beamSlot, FINAL_ALIASES, holdPlateSlot, JUMPSCARE_MIN_FRAMES, jumpscareJob } from "./plates";
 
 export interface BeamSlotMeta {
   slot: string;
@@ -93,9 +93,10 @@ const videoFiles = import.meta.glob([
   query: "?url",
 }) as Record<string, string>;
 
-// Rotating-beam final assets (excluding the 3.4 MB review contact sheet).
+// Rotating-beam assets for seated shots. Close-ups use the lit stills.
 const beamFiles = import.meta.glob([
   "../../../scenes/03-watch-room/final_beam/*.{webp,png}",
+  "!../../../scenes/03-watch-room/final_beam/hold_*.{webp,png}",
   "!../../../scenes/03-watch-room/final_beam/contact.png",
 ], { eager: true, import: "default" }) as Record<string, string>;
 
@@ -191,6 +192,9 @@ let beamGrade: BeamGradeTextures | null = null;
 const DOM_ONLY = /^artifact_/;
 const LEGACY_SCARE = /^ram_jumpscare_[1-4]$/;
 const BEAM_SUPERSEDED = /^(view|tell|approach|inside|hold|ram_inside)_/;
+const HOLD_PLATES = new Set(ENTRIES.flatMap((entry) =>
+  [false, true].flatMap((bracing) => [false, true].map((tell) => holdPlateSlot(entry, bracing, tell))),
+));
 const SEATED_BEAM_SLOTS = [
   "desk",
   ...ENTRIES.flatMap((e) => (["empty", "tell", "approach", "inside"] as const).map((s) => beamSlot(e, s))),
@@ -271,17 +275,8 @@ export function getBeamSlot(slotName: string): BeamSlotTextures | null {
   return beamSlots.get(slotName) ?? null;
 }
 
-// Lazy-load the 4 hold beam states for an entry (stand/brace x empty/tell). Safe to call repeatedly.
-export async function preloadHoldBeam(entry: Entry): Promise<void> {
-  if (!beamFileUrls.size) return;
-  const names = [false, true].flatMap((brace) => [false, true].map((tell) => holdBeamSlot(entry, brace, tell)));
-  await Promise.all(names.map((name) => loadBeamSlot(name)));
-}
-
-// Background prefetch of all hold views after boot so dashes hit already-warm textures.
-export async function preloadAllHoldBeams(): Promise<void> {
-  if (!beamFileUrls.size) return;
-  for (const entry of ENTRIES) await preloadHoldBeam(entry);
+export function getHoldPlate(entry: Entry, bracing: boolean, tell: boolean): Texture | null {
+  return textures.get(holdPlateSlot(entry, bracing, tell)) ?? null;
 }
 
 // URL of a slot for DOM use. Null if the slot has no art yet.
@@ -297,7 +292,7 @@ export function artVideoUrl(job: string): string | null {
 // Preload progress for a loading screen: files done (loaded or failed) out of total. Updated by loadArt.
 export const artProgress = { done: 0, total: 0 };
 
-// Preload seated beam plates, essential stills, and jumpscares. Hold beam plates and videos load on demand.
+// Preload seated beam plates, close-ups, essential stills, and jumpscares. Videos load on demand.
 export async function loadArt(onProgress?: (done: number, total: number) => void): Promise<string[]> {
   const loaded: string[] = [];
   const beamAvailable = beamFileUrls.has(beamManifest.grade.lut) && beamFileUrls.has(beamManifest.grade.vignette);
@@ -306,7 +301,8 @@ export async function loadArt(onProgress?: (done: number, total: number) => void
   const haveAllScares = finalSeqs.size === 3;
   const stills = allStills.filter(([slotName]) => {
     if (haveAllScares && LEGACY_SCARE.test(slotName)) return false;
-    // Skip legacy watch-room stills superseded by final_beam/ (keep title_bg, view_desk_off, dash_floor, chud_faces).
+    if (HOLD_PLATES.has(slotName)) return true;
+    // Skip legacy watch-room stills superseded by the current room art.
     if (beamAvailable && BEAM_SUPERSEDED.test(slotName) && slotName !== "view_desk_off") return false;
     return true;
   });

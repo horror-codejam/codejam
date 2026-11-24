@@ -10,7 +10,7 @@ import { LONG_LINE_WORDS } from "./chud/lines";
 import { GameEngine } from "./sim/engine";
 import { defaultBeamParams, normalizeAngle } from "./sim/beam";
 import { slotEntry, type Band, type Entry, type GameEvent, type InsideTrigger, type LossInfo, type Phase, type PowerSlot, type QuickCommand } from "./sim/types";
-import { loadArt, preloadAllHoldBeams } from "./ui/art";
+import { loadArt } from "./ui/art";
 import type { Sound, SpeechPlayback } from "./ui/audio";
 import { EdgeTurner } from "./ui/edges";
 import { playIntro } from "./ui/intro";
@@ -140,7 +140,6 @@ async function boot(): Promise<void> {
   $("stage").appendChild(app.canvas);
   const art = await preloadScreens(loadArt, () => sound.preload());
   if (art.length) console.info("art slots loaded:", art.join(", "));
-  window.setTimeout(() => void preloadAllHoldBeams(), 1500);
   sound.warmSpeech();
   void checkLlm().then((on) => console.info(on ? "CHUD: LLM judge and voice on" : "CHUD: offline judge and canned lines"));
   scene = new Scene(app);

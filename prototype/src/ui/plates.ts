@@ -25,9 +25,10 @@ export function beamEntryState(
   return "empty";
 }
 
-// Hold close-up slot in final_beam/manifest.json: hold_<entry>_<stand|brace>_<empty|tell>.
-export function holdBeamSlot(entry: Entry, bracing: boolean, tell: boolean): string {
-  return `hold_${entry.toLowerCase()}_${bracing ? "brace" : "stand"}_${tell ? "tell" : "empty"}`;
+// Hold close-ups use the already graded lit finals, independent of the rotating beam.
+export function holdPlateSlot(entry: Entry, bracing: boolean, tell: boolean): string {
+  const lighting = entry === "BALCONY" && tell ? "close" : "on";
+  return `hold_${entry.toLowerCase()}_${bracing ? "brace" : "stand"}_${tell ? "tell" : "empty"}_${lighting}`;
 }
 
 // The 24-frame jumpscare sequence for the breach entry: jumpscare_<entry>_0001.webp ...

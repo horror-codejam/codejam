@@ -107,6 +107,37 @@ describe("rotating ceiling beam", () => {
     expect(e.state.loss).toMatchObject({ reason: "LOOK", flash: true, entry: "WINDOW" });
   });
 
+  it.each(ENTRIES)("keeps the %s tell visible while standing or bracing with the beam away or cut", (entry) => {
+    const e = playing({ config: { ...CONFIG, ...quiet, BEAM_START_ANGLE: CONFIG.BEAM_ENTRY_AZIMUTHS[entry] + Math.PI } });
+    expect(e.devSendRam(entry)).toBe(true);
+    e.tick(e.state.ram.stateEndsAt - e.now + T);
+    expect(e.state.ram.state).toBe("AT_ENTRY");
+
+    e.turn(entry);
+    expect(e.beamIntensity(entry)).toBe(0);
+    expect(e.ramVisual(entry)).toBe("none");
+    e.goToEntry(entry);
+    expect(e.ramVisual(entry)).toBe("none");
+
+    e.tick(CONFIG.TRAVEL_TIME + T);
+    expect(e.state.player.position.kind).toBe("STANDING");
+    expect(e.beamIntensity(entry)).toBe(0);
+    expect(e.ramVisual(entry)).toBe("tell_clear");
+    e.state.power.lampCutUntil = e.now + CONFIG.LIGHT_CUT_DURATION;
+    expect(e.isLampOn()).toBe(false);
+    expect(e.ramVisual(entry)).toBe("tell_clear");
+
+    e.startBrace();
+    expect(e.state.player.position.kind).toBe("HOLDING");
+    expect(e.ramVisual(entry)).toBe("tell_clear");
+    e.state.power.lampCutUntil = null;
+    expect(e.beamIntensity(entry)).toBe(0);
+    expect(e.ramVisual(entry)).toBe("tell_clear");
+
+    e.devRamAway();
+    expect(e.ramVisual(entry)).toBe("none");
+  });
+
   it("does not fire LOOK while at the desk, and ARRIVED still scares unchanged", () => {
     const e = playing({ startNight: 2, config: { ...CONFIG, ...quiet } });
     e.devRamAway();

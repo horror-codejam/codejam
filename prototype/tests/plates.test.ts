@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { beamEntryState, beamSlot, FINAL_ALIASES, holdBeamSlot, JUMPSCARE_FPS, JUMPSCARE_MIN_FRAMES, jumpscareDuration, jumpscareJob, sequenceFrame } from "../src/ui/plates";
+import { beamEntryState, beamSlot, FINAL_ALIASES, holdPlateSlot, JUMPSCARE_FPS, JUMPSCARE_MIN_FRAMES, jumpscareDuration, jumpscareJob, sequenceFrame } from "../src/ui/plates";
+import { ENTRIES } from "../src/sim/types";
 import { JUMPSCARE, SCARE } from "../src/uiConfig";
 
 describe("final beam slot per state", () => {
@@ -18,10 +19,20 @@ describe("final beam slot per state", () => {
     expect(beamEntryState("BALCONY", { state: "INSIDE", target: "BALCONY", inside: { entry: "BALCONY" } })).toBe("inside");
     expect(beamEntryState("HATCH", { state: "AWAY", target: null, inside: null }, "HATCH")).toBe("inside");
   });
-  it("maps hold views to stand or brace, empty or tell", () => {
-    expect(holdBeamSlot("WINDOW", true, true)).toBe("hold_window_brace_tell");
-    expect(holdBeamSlot("HATCH", false, false)).toBe("hold_hatch_stand_empty");
-    expect(holdBeamSlot("BALCONY", false, true)).toBe("hold_balcony_stand_tell");
+  it("maps every hold stance and cue to a readable final plate in the shipped assets", () => {
+    const renders = import.meta.glob("../../scenes/03-watch-room/final/webp/hold_*.webp");
+    for (const entry of ENTRIES) {
+      for (const bracing of [false, true]) {
+        const stance = bracing ? "brace" : "stand";
+        const prefix = `hold_${entry.toLowerCase()}_${stance}`;
+        const empty = holdPlateSlot(entry, bracing, false);
+        const tell = holdPlateSlot(entry, bracing, true);
+        expect(empty).toBe(`${prefix}_empty_on`);
+        expect(tell).toBe(`${prefix}_tell_${entry === "BALCONY" ? "close" : "on"}`);
+        expect(Object.hasOwn(renders, `../../scenes/03-watch-room/final/webp/${empty}.webp`)).toBe(true);
+        expect(Object.hasOwn(renders, `../../scenes/03-watch-room/final/webp/${tell}.webp`)).toBe(true);
+      }
+    }
   });
   it("old slot names alias to fallback finals", () => {
     expect(FINAL_ALIASES.view_desk).toBe("view_desk_off");

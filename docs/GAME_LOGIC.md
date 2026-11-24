@@ -7,7 +7,7 @@ This file defines exactly how the game works: every state, timer, number and rul
 - Ram tries to get in through one of 3 entries: the left WINDOW, the right HATCH (a floor hatch over a fixed ladder), or the rear BALCONY.
 - **Ram is silent.** He makes no sound and never speaks. The house makes plenty of noise (creaks, knocks, metal), and none of it is him. Watch as the rotating ceiling lamp sweeps past, or ask CHUD to find him. On Night 1, CHUD also warns you when he reaches an entry.
 - **Locks and the rotating lamp:** the power slot holds one magnetic lock. One slow rotating white ceiling lamp above the desk sweeps the whole room right to left every `BEAM_PERIOD` (16 s), independent of the lock. Lock requests go through CHUD, who can refuse.
-- **The beam shows the truth.** Between passes, the room is extremely dark and he is invisible. He is visible only while the rotating beam sweeps across him, including at a locked entry.
+- **The beam shows the truth from the desk.** Between passes, the room is extremely dark and hides him. At an entry, standing or bracing gives a clear close-up tell whenever he is there, even with the lamp cut.
 - You defend an entry in one of two ways:
   - CHUD locks it. Fast, but CHUD can hijack the request and refuse with a smile.
   - You go to it and brace it by hand. Always works, but you are away from the desk and cannot type.
@@ -163,11 +163,12 @@ Controls (adopted 2026-11-21, FNAF 4 style, history in [docs/CONTROLS_PROPOSAL.m
 - **The chat box only works in the `DESK` view.** At the desk, typing any key goes to the chat. CHUD's replies show as subtitles in every view, and its voice plays from the desk.
 - **The rotating ceiling lamp:** one slow white lamp on the ceiling above the desk sweeps the whole room right to left every `BEAM_PERIOD` (16 s), deterministic from night or practice time and frozen while paused. Between passes, the room is extremely dark with a little haze. The lamp runs independently of the lock slot.
   - There is no manual light button or Shift key. CHUD has no light command at all.
-  - **CHUD can stop the ceiling lamp** (HURT, JEALOUS and FURIOUS only, never WARM, never while offline or rebooting, never in practice). Turning away from `DESK` to check an entry rolls once with the band's `LIGHT_CUT` chance (HURT 25%, JEALOUS 50%, FURIOUS 85%). Returning to `DESK` cancels a pending cut. On a hit, after `LIGHT_CUT_DELAY` (1.0 to 2.5 s), the ceiling lamp stops for `LIGHT_CUT_DURATION` (5 s) in total dark with a small click and brief flicker, then clicks back on automatically. Active locks are unaffected. On a cut CHUD says a short possessive line ("You don't need the lamp. You have me.", "I stopped the lamp, keeper. I'm watching for you.", "Why look out there? Look at me.", "The dark is cosier."), at most one line per `LIGHT_CUT_LINE_GAP` (5 s), never naming the threat. JEALOUS and FURIOUS cuts also show CHUD's malicious smile for a moment.
+  - **CHUD can stop the ceiling lamp** (HURT, JEALOUS and FURIOUS only, never WARM, never while offline or rebooting, never in practice). Turning away from `DESK` to check an entry rolls once with the band's `LIGHT_CUT` chance (HURT 25%, JEALOUS 50%, FURIOUS 85%). Returning to `DESK` cancels a pending cut. On a hit, after `LIGHT_CUT_DELAY` (1.0 to 2.5 s), the ceiling lamp stops for `LIGHT_CUT_DURATION` (5 s) with a small click and brief flicker, then clicks back on automatically. Active locks are unaffected. On a cut CHUD says a short possessive line ("You don't need the lamp. You have me.", "I stopped the lamp, keeper. I'm watching for you.", "Why look out there? Look at me.", "The dark is cosier."), at most one line per `LIGHT_CUT_LINE_GAP` (5 s), never naming the threat. JEALOUS and FURIOUS cuts also show CHUD's malicious smile for a moment.
   - A quiet synthesized lamp-motor hum plays on the ambient bus and swells softly as the beam passes the view the player faces. It stops when the lamp is cut or unpowered.
 - **What a view shows (the beam never lies):**
-  - Between beam passes, every view (including close-up hold views) shows only the dark empty room.
-  - As the beam sweeps across an entry, the reveal slides smoothly across whatever is there: a clear tell during `AT_ENTRY`, a hint during `APPROACHING`, and Ram in the room if he is `INSIDE` through that entry (see the scare in 7.7). This applies whether the entry is locked or unlocked.
+  - From the desk, between beam passes, the entry views show only the dark empty room.
+  - As the beam sweeps across an entry viewed from the desk, it reveals a clear tell during `AT_ENTRY`, a hint during `APPROACHING`, or the figure inside if he entered there (see the scare in 7.7). Both locked and unlocked entries show these cues.
+  - A `STANDING(entry)` or `HOLDING(entry)` close-up always shows the tell during `AT_ENTRY` at that entry, regardless of beam angle or power. The close-up has its own low lighting.
 - Locks are magnetic. Their state is shown on the map and the three lock cells (`W`, `H`, `B`) on CHUD's screen. There is no `LIGHT` cell.
 - Beacon sweep: the lighthouse beacon sweeps past the front glazing in the `DESK` view during play. It is exterior ambience only: it does not light the room, does not use the power slot and says nothing about Ram.
 - Pointer ring: a small ring on the pointer shows the edge dwell, the brace time left (turns red near the end), the brace rest and the `HOLD_COOLDOWN`. It is hidden while walking.
@@ -199,7 +200,7 @@ Positions: `DESK`, `TRAVELING(entry)`, `STANDING(entry)`, `HOLDING(entry)`, `RET
 - **Return:** from `STANDING` or `HOLDING`, hold the return edge of that entry's view (section 6.1 table) for `EDGE_DWELL`. You become `RETURNING` for `TRAVEL_TIME` (the brace ends), then `DESK` with view `DESK`. Nothing sends you back automatically.
 - `HOLD_COOLDOWN` (4 s) starts when you leave the entry and gates the next trip from the desk (2.5 s of it remains when you arrive at the desk).
 - **While traveling, standing, bracing or returning:**
-  - You cannot type, press quick buttons or turn to other views (only the return edge works at an entry). The rotating ceiling lamp continues sweeping across the hold close-up.
+  - You cannot type, press quick buttons or turn to other views (only the return edge works at an entry). A present tell stays readable in the standing and bracing close-ups throughout the sweep and during lamp cuts.
   - Subtitles and audio still play.
   - The silence timer keeps running.
 - An entry counts as held only while you are in `HOLDING(entry)`. Traveling and standing do not count.
@@ -270,9 +271,9 @@ Ram makes **no sound**. The visuals depend on the light (6.1). On a repel, the e
 |---|---|---|
 | AWAY | Storm, the ambient bed, lamp hum, decoys | Nothing |
 | APPROACHING | Same as AWAY | When the beam crosses his target entry: a hint of Ram in that view (a shape beyond the window glass, a shadow under the balcony door, movement at the hatch seam) |
-| AT_ENTRY, HATCH | Same as AWAY | The lid lifts a crack and his fingers curl over the rim. Visible only while the beam crosses the hatch (from the desk or close up) |
-| AT_ENTRY, WINDOW | Same as AWAY | A hand pressed flat on the glass in fogged condensation; in the hold view, part of his face. Visible only while the beam crosses the window |
-| AT_ENTRY, BALCONY | Same as AWAY | The door pushed ajar, a head in the gap. Visible only while the beam crosses the balcony |
+| AT_ENTRY, HATCH | Same as AWAY | The lid lifts a crack and his fingers curl over the rim. The beam reveals them from the desk. They stay visible up close |
+| AT_ENTRY, WINDOW | Same as AWAY | The beam reveals a hand pressed flat on the glass from the desk. The hand and part of his face stay visible up close |
+| AT_ENTRY, BALCONY | Same as AWAY | The beam reveals the lowered lever from the desk. Up close, the door is ajar and his face stays visible in the gap |
 | RETREATING | A single low thud on repel, then the same as AWAY | On repel, one stronger shove in the hold view. Tell disappears on retreat |
 | INSIDE | Same as AWAY | Only when the beam passes across his entry while you face it: him, standing just inside. That sets off the scare (7.7) |
 
@@ -539,7 +540,8 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Lock requested with less than 0.5 s left in the window | The switch lands after the window ends, so he gets in. Fair, because the tell was visible the whole time |
 | Player locks the correct entry and watches it as the beam passes | The player sees the tell and the lock still defends the entry |
 | Player turns between views during a sweep | Turns keep the same global beam angle |
-| CHUD cuts the ceiling lamp | Total dark with a small click for `LIGHT_CUT_DURATION` (5 s), active locks stay engaged, then the lamp clicks back on |
+| CHUD cuts the ceiling lamp | Desk-distance views lose the beam for `LIGHT_CUT_DURATION` (5 s), active locks stay engaged, and the lamp clicks at cut and restore |
+| Player stands or braces at an active entry, with the beam elsewhere or cut | The close-up shows the tell for the entire visit, and the tell disappears when he retreats |
 | Game paused during a night or practice | The beam angle and lamp-motor hum freeze until resumed |
 | Lock refused, then asked again | Each request rolls again. Re-locking the entry already locked is always confirmed (not in FURIOUS) |
 | Player braces an entry before Ram arrives | Only the part of the brace during `AT_ENTRY` counts toward repel. Time spent bracing early still uses up the 6 s brace |
