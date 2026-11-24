@@ -121,7 +121,9 @@ vec3 hazeAt(vec2 uv) {
 
 vec3 gradeSlice(vec2 rg, float blue) {
     vec2 tile = vec2(mod(blue, 8.0), floor(blue / 8.0));
-    return texture(uGrade, (tile * 64.0 + rg + 0.5) / 512.0).rgb;
+    // Atlas UVs jump between blue slices. Implicit derivatives at those jumps
+    // create bright contours on ANGLE D3D11, so sample the single LUT level directly.
+    return textureLod(uGrade, (tile * 64.0 + rg + 0.5) / 512.0, 0.0).rgb;
 }
 
 vec3 displayGrade(vec3 light) {
