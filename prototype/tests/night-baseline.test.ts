@@ -32,6 +32,7 @@ it("keeps the fixed-seed night simulation identical to the repel baseline", asyn
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Updated for the pacing pass: line wording has its own random stream, and CHUD_SAY carries lineClass and unprompted.
-  expect(hash).toBe("6980e727ccf236077da85673bf3bab93599a4c3aca7201d501522d377c22c3c3");
+  // Updated for the pacing pass: line wording has its own random stream, CHUD_SAY carries lineClass and unprompted,
+  // line 15 is in question_timeout JEALOUS, and the Night 2 radio question waits for the radio broadcast and AT_ENTRY.
+  expect(hash).toBe("9c22fab6b02213ef9fd81e81ab3368d40437bd21663e7cbd7317c5610fb375e7");
 });

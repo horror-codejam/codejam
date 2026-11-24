@@ -340,8 +340,9 @@ function onEvent(ev: GameEvent, t: number): void {
       }).then((text) => {
         if (token === dialogueToken && engine.state.phase === "PLAYING" && engine.state.power.chudOnline) {
           // Long lines only while calm (GAME_LOGIC 8.10): a long reworded reply during a visit falls back to the short canned one.
+          const stillCalm = calmNow && (engine.state.ram.state === "AWAY" || engine.state.ram.state === "RETREATING");
           const long = text !== null && text.trim().split(/\s+/).length > LONG_LINE_WORDS;
-          const shown = text !== null && (calmNow || !long) ? text : ev.text;
+          const shown = text !== null && (stillCalm || !long) ? text : ev.text;
           showChud(shown, ev.band, now());
           engine.noteSpoken(shown); // the engine counts it as speech, so nothing is asked over it
         }

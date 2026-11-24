@@ -80,7 +80,7 @@ const UNPROMPTED = new Set<Outcome["kind"]>([
   "radio_reaction", "night_opener", "question_timeout", "silence", "question",
 ]);
 const COAST_RE = /coast|guard|rescue|helicopter|pickup|pick up|chopper/i;
-const BOAT_RE = /(boat|ship|sail|sailing|yacht|vessel)/i;
+const BOAT_RE = /\b(boat|ship|sail|sailing|yacht|vessel)\b/i;
 
 // Section 10 radio beats. The text comes from RADIO_LINES.
 const RADIO_BEATS: { night: number; hour: number; asksQuestion: boolean }[] = [
@@ -1464,6 +1464,7 @@ export class GameEngine implements IGameEngine {
     const s = this.state;
     if (!s.power.chudOnline || s.chud.pendingQuestion) return;
     if (s.chud.queuedScriptQuestion) {
+      if (!this.np.questionsMayLandDuringAttempt && s.ram.state === "AT_ENTRY") return;
       if (!this.questionFree("SCRIPT")) return;
       const q = s.chud.queuedScriptQuestion;
       s.chud.queuedScriptQuestion = null;
@@ -1531,12 +1532,15 @@ export class GameEngine implements IGameEngine {
     const id = `radio_n${s.run.night}`;
     if (s.log.scriptedFired.includes(id)) return;
     s.log.scriptedFired.push(id);
-    this.emit({ type: "RADIO", text: RADIO_LINES[s.run.night] ?? "" });
+    const radioText = RADIO_LINES[s.run.night] ?? "";
+    this.emit({ type: "RADIO", text: radioText });
     this.changeSuspicion(this.cfg.suspicion.radioBeat, ["radio"]);
     if (!asksQuestion) {
       if (s.power.chudOnline) this.say({ kind: "radio_reaction" });
       return;
     }
+    // Wait for the radio clip to finish before ChudGPT asks about it, so it does not talk over the broadcast.
+    if (radioText) this.busyUntil = Math.max(this.busyUntil, this.now + speechSeconds(radioText));
     // The radio question is the reaction. It waits for a free moment (stepQuestions) instead of stacking on a line.
     const q: PendingQuestion = {
       id: this.nextQuestionId++,

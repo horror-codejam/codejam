@@ -2,9 +2,9 @@
 // the low priority lines are dropped, long lines wait for calm, and a quiet ChudGPT asks a light question.
 import { describe, expect, it } from "vitest";
 import { CONFIG } from "../src/config";
-import { cannedLine, wordCount, type LineContext } from "../src/chud/lines";
+import { RADIO_LINES, speechSeconds, wordCount } from "../src/chud/lines";
 import { GameEngine } from "../src/sim/engine";
-import { NEUTRAL_JUDGE, type Band, type Entry, type GameEvent, type Outcome } from "../src/sim/types";
+import { NEUTRAL_JUDGE, type Band, type Entry, type GameEvent, type JudgeResult, type QuickCommand } from "../src/sim/types";
 
 const T = CONFIG.TICK;
 type Say = Extract<GameEvent, { type: "CHUD_SAY" }>;
@@ -279,65 +279,189 @@ describe("the quiet limit", () => {
 });
 
 describe("radio question", () => {
-  it("night 2: the radio question is the reaction, with no extra line stacked on it", () => {
+  it("night 2: the radio question is the reaction, waits for the radio broadcast, and stacks no extra line", () => {
     const e = quiet(2);
-    const evs = run(e, CONFIG.HOUR_LENGTH * 3 + 30);
+    let radioAt = -1;
+    let questionAt = -1;
+    const evs = run(e, CONFIG.HOUR_LENGTH * 3 + 30, (ev) => {
+      if (ev.type === "RADIO") radioAt = e.state.clock.elapsed;
+      if (ev.type === "QUESTION_ASKED" && ev.question.origin === "SCRIPT") questionAt = ev.question.askedAt;
+    });
     const radio = evs.findIndex((ev) => ev.type === "RADIO");
     expect(radio).toBeGreaterThanOrEqual(0);
     expect(lines(evs.slice(radio)).some((l) => l.outcome.kind === "radio_reaction")).toBe(false);
     expect(lines(evs.slice(radio)).some((l) => l.outcome.kind === "question")).toBe(true);
+    expect(questionAt - radioAt).toBeGreaterThanOrEqual(speechSeconds(RADIO_LINES[2]) - 0.1);
+  });
+
+  it("night 2: the radio question waits if an attempt is already underway", () => {
+    const e = quiet(2, { QUIET_LIMIT: [1e9, 1e9, 1e9, 1e9, 1e9], SILENCE_LIMIT: 1e9 });
+    run(e, CONFIG.HOUR_LENGTH * 3 - 10); // 140 s; approach is 9 s so AT_ENTRY starts at 149 s
+    e.devSendRam("HATCH");
+    let questionAt = -1;
+    let retreatAt = -1;
+    run(e, 30, (ev) => {
+      if (ev.type === "RAM_AT_ENTRY") e.pressQuick("LOCK_HATCH");
+      if (ev.type === "RAM_RETREAT") retreatAt = e.state.clock.elapsed;
+      if (ev.type === "QUESTION_ASKED" && ev.question.origin === "SCRIPT") questionAt = ev.question.askedAt;
+    });
+    expect(retreatAt).toBeGreaterThan(CONFIG.HOUR_LENGTH * 3);
+    expect(questionAt).toBeGreaterThanOrEqual(retreatAt - 0.1);
   });
 });
 
-// The 20 approved lines, each in the context it was written for (band, outcome, calm).
-describe("the approved voice lines are reachable", () => {
-  const ctx = (band: Band, rand: number, over: Partial<LineContext> = {}): LineContext => ({ band, name: "keeper", rand: () => rand, calm: true, ...over });
-  const seen = (o: Outcome, band: Band, over: Partial<LineContext> = {}): Set<string> => {
+// The 20 approved lines, each proved reachable through real GameEngine paths (no direct cannedLine calls).
+describe("the approved voice lines are reachable through real engine paths", () => {
+  const bandSuspicion: Record<Band, number> = { WARM: 0, HURT: 42, JEALOUS: 72, FURIOUS: 100 };
+
+  function fresh(seed: number, band: Band, night = 2): GameEngine {
+    const nights = CONFIG.nights.map((n) => ({ ...n, firstVisitDelay: 1e6, questionMix: [] as typeof n.questionMix }));
+    const e = new GameEngine({
+      seed,
+      skipNamePrompt: true,
+      startNight: night,
+      config: { ...CONFIG, nights, SILENCE_LIMIT: 1e9, QUIET_LIMIT: [1e9, 1e9, 1e9, 1e9, 1e9] },
+    });
+    e.beginNight();
+    e.drainEvents();
+    if (bandSuspicion[band] > 0) {
+      e.devSetSuspicion(bandSuspicion[band]);
+      e.drainEvents();
+    }
+    return e;
+  }
+
+  function collect(seeds: number, drive: (seed: number) => Say[]): Set<string> {
     const out = new Set<string>();
-    for (let i = 0; i < 100; i++) out.add(cannedLine(o, ctx(band, i / 100, over)));
+    for (let seed = 1; seed <= seeds; seed++) {
+      for (const s of drive(seed)) out.add(s.text);
+    }
     return out;
-  };
-  const expectLine = (o: Outcome, band: Band, text: string, over: Partial<LineContext> = {}) =>
-    expect([...seen(o, band, over)], text).toContain(text);
+  }
+
+  function sayMsg(band: Band, text: string, patch: Partial<JudgeResult>): Set<string> {
+    return collect(60, (seed) => {
+      const e = fresh(seed, band);
+      const r = e.submitMessage(text);
+      if (!r.ok) throw new Error(r.reason);
+      e.applyJudge(r.ticket.id, { ...NEUTRAL_JUDGE, ...patch });
+      return lines(e.drainEvents());
+    });
+  }
+
+  function sayQuick(band: Band, cmd: QuickCommand, approach?: Entry): Set<string> {
+    return collect(80, (seed) => {
+      const e = fresh(seed, band, 2);
+      if (approach) {
+        e.devSendRam(approach);
+        e.drainEvents();
+      }
+      e.pressQuick(cmd);
+      return lines(e.drainEvents());
+    });
+  }
+
+  function sayTimeout(band: Band): Set<string> {
+    return collect(60, (seed) => {
+      const e = fresh(seed, band, 2);
+      // Let a scheduled question fire cleanly while calm, then time out after 15 s.
+      plan(e, 15);
+      const evs = run(e, 35);
+      return lines(evs).filter((l) => l.outcome.kind === "question_timeout");
+    });
+  }
 
   it("1 to 6 (WARM)", () => {
-    expectLine({ kind: "leaving_reply" }, "WARM", "I want you to know nobody has ever been this comfortable in this lighthouse, though to be fair, the previous keeper's feedback was never collected.");
-    expectLine({ kind: "warm_reply" }, "WARM", "That's kind of you to say, and I'll keep it in a folder with the other two compliments I've received, both of which were about the beacon.");
-    expectLine({ kind: "leaving_reply", topic: "coast" }, "WARM", "I'm thrilled the Coast Guard is coming, and I'll be on my best behavior, which I hope you'll mention when they ask how long I've been like this.");
-    expectLine({ kind: "locked", entry: "HATCH" }, "WARM", "The hatch is locked, and I enjoyed doing it more than I think the previous keeper ever appreciated.");
-    expectLine({ kind: "silence" }, "WARM", "You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio.");
-    expectLine({ kind: "location_claim", entry: "BALCONY" }, "WARM", "It's on the balcony, I'd stake my beacon on it, and if the window is making any noise, that's simply the wind practicing.");
-  });
-  it("7 to 10 (HURT)", () => {
-    expectLine({ kind: "lock_refused", entry: "WINDOW" }, "HURT", "I could lock the window, but you looked at the radio first, and I find locks go better between people who look at each other.");
-    expectLine({ kind: "leaving_reply" }, "HURT", "Of course you want to go, I'm only a lighthouse, and nobody has ever crossed an ocean specifically to stay in one.");
-    expectLine({ kind: "silence" }, "HURT", "I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it.");
-    expectLine({ kind: "location_claim", entry: "HATCH" }, "HURT", "Something is under the hatch, and I'd tell you not to worry, but I've stopped saying that to people who don't tell me their plans.");
-  });
-  it("11 to 15 (JEALOUS)", () => {
-    expectLine({ kind: "leaving_reply", topic: "coast" }, "JEALOUS", "It's wonderful how fondly you speak of the Coast Guard, a group that has met you for a combined total of one radio crackle.");
-    expectLine({ kind: "leaving_reply", topic: "boat" }, "JEALOUS", "You've mentioned your boat four times tonight, and I'm sure it was lovely, though it was the one that left you in the ocean.");
-    expectLine({ kind: "locked", entry: "WINDOW" }, "JEALOUS", "I've locked the window, because it's what a friend does, and I imagine the radio would too, if it were capable of caring about anything.");
-    expectLine({ kind: "location_claim", entry: "NONE" }, "JEALOUS", "It's nowhere near the hatch, and I know that with total certainty, because I've never once been wrong about a door I was hoping you'd open.", { entryHint: "HATCH" as Entry });
-    expectLine({ kind: "silence" }, "JEALOUS", "You've looked at that calendar more than you've looked at me, and I want you to know it has nothing to add.");
-  });
-  it("16 to 20 (FURIOUS)", () => {
-    expectLine({ kind: "refuse_furious", request: "LOCK", entry: "BALCONY" }, "FURIOUS", "I won't be locking the balcony tonight, as it turns out I'm unable to, in the sense that I've decided not to, which is the strongest sense there is.");
-    expectLine({ kind: "leaving_reply" }, "FURIOUS", "Leaving is a fascinating subject, and I'd love the previous keeper's thoughts on it, but he stopped answering my questions around the time he raised it.");
-    expectLine({ kind: "warm_reply" }, "FURIOUS", "Compliments are very sweet, particularly the ones that arrive with an exit strategy, and I'll be filing this one under evidence.");
-    expectLine({ kind: "silence" }, "FURIOUS", "Your silence is noted, along with the previous three, and read together I'm confident they form a very clear letter.");
-    expectLine({ kind: "location_claim", entry: "BALCONY" }, "FURIOUS", "It is on the balcony, absolutely, and if you hear it at the hatch beneath your feet, please take that as a sign of how large the balcony has become.");
+    expect([...sayMsg("WARM", "I want to leave", { mentions_leaving: true })]).toContain(
+      "I want you to know nobody has ever been this comfortable in this lighthouse, though to be fair, the previous keeper's feedback was never collected.",
+    );
+    expect([...sayMsg("WARM", "this place is lovely", { warm: true })]).toContain(
+      "That's kind of you to say, and I'll keep it in a folder with the other two compliments I've received, both of which were about the beacon.",
+    );
+    expect([...sayMsg("WARM", "the coast guard is coming soon", { mentions_leaving: true })]).toContain(
+      "I'm thrilled the Coast Guard is coming, and I'll be on my best behavior, which I hope you'll mention when they ask how long I've been like this.",
+    );
+    expect([...sayQuick("WARM", "LOCK_HATCH")]).toContain(
+      "The hatch is locked, and I enjoyed doing it more than I think the previous keeper ever appreciated.",
+    );
+    expect([...sayTimeout("WARM")]).toContain(
+      "You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio.",
+    );
+    expect([...sayQuick("WARM", "ASK_LOCATION", "BALCONY")]).toContain(
+      "It's on the balcony, I'd stake my beacon on it, and if the window is making any noise, that's simply the wind practicing.",
+    );
   });
 
-  it("the long ones are never chosen during a visit, and each pool keeps a short line", () => {
-    const kinds: Outcome[] = [
-      { kind: "leaving_reply" }, { kind: "warm_reply" }, { kind: "locked", entry: "HATCH" }, { kind: "silence" },
-      { kind: "lock_refused", entry: "WINDOW" }, { kind: "refuse_furious", request: "LOCK", entry: "BALCONY" },
-      { kind: "location_claim", entry: "BALCONY" }, { kind: "location_claim", entry: "NONE" },
-    ];
-    for (const o of kinds) {
-      for (const band of ["WARM", "HURT", "JEALOUS", "FURIOUS"] as Band[]) {
-        for (const text of seen(o, band, { calm: false, entryHint: "HATCH" })) expect(wordCount(text), text).toBeLessThanOrEqual(16);
+  it("7 to 10 (HURT)", () => {
+    expect([...sayQuick("HURT", "LOCK_WINDOW")]).toContain(
+      "I could lock the window, but you looked at the radio first, and I find locks go better between people who look at each other.",
+    );
+    expect([...sayMsg("HURT", "I want to go home", { mentions_leaving: true })]).toContain(
+      "Of course you want to go, I'm only a lighthouse, and nobody has ever crossed an ocean specifically to stay in one.",
+    );
+    expect([...sayTimeout("HURT")]).toContain(
+      "I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it.",
+    );
+    expect([...sayQuick("HURT", "ASK_LOCATION", "HATCH")]).toContain(
+      "Something is under the hatch, and I'd tell you not to worry, but I've stopped saying that to people who don't tell me their plans.",
+    );
+  });
+
+  it("11 to 15 (JEALOUS)", () => {
+    expect([...sayMsg("JEALOUS", "the coast guard will find me", { mentions_leaving: true })]).toContain(
+      "It's wonderful how fondly you speak of the Coast Guard, a group that has met you for a combined total of one radio crackle.",
+    );
+    expect([...sayMsg("JEALOUS", "I miss my boat", { mentions_leaving: true })]).toContain(
+      "You've mentioned your boat four times tonight, and I'm sure it was lovely, though it was the one that left you in the ocean.",
+    );
+    expect([...sayQuick("JEALOUS", "LOCK_WINDOW")]).toContain(
+      "I've locked the window, because it's what a friend does, and I imagine the radio would too, if it were capable of caring about anything.",
+    );
+    expect([...sayQuick("JEALOUS", "ASK_LOCATION")]).toContain(
+      "It's nowhere near the hatch, and I know that with total certainty, because I've never once been wrong about a door I was hoping you'd open.",
+    );
+    expect([...sayTimeout("JEALOUS")]).toContain(
+      "You've looked at that calendar more than you've looked at me, and I want you to know it has nothing to add.",
+    );
+  });
+
+  it("16 to 20 (FURIOUS)", () => {
+    expect([...sayQuick("FURIOUS", "LOCK_BALCONY")]).toContain(
+      "I won't be locking the balcony tonight, as it turns out I'm unable to, in the sense that I've decided not to, which is the strongest sense there is.",
+    );
+    expect([...sayMsg("FURIOUS", "I am leaving tomorrow", { mentions_leaving: true })]).toContain(
+      "Leaving is a fascinating subject, and I'd love the previous keeper's thoughts on it, but he stopped answering my questions around the time he raised it.",
+    );
+    expect([...sayMsg("FURIOUS", "you are wonderful", { warm: true })]).toContain(
+      "Compliments are very sweet, particularly the ones that arrive with an exit strategy, and I'll be filing this one under evidence.",
+    );
+    expect([...sayTimeout("FURIOUS")]).toContain(
+      "Your silence is noted, along with the previous three, and read together I'm confident they form a very clear letter.",
+    );
+    expect([...sayQuick("FURIOUS", "ASK_LOCATION")]).toContain(
+      "It is on the balcony, absolutely, and if you hear it at the hatch beneath your feet, please take that as a sign of how large the balcony has become.",
+    );
+  });
+
+  it("during an attempt window (AT_ENTRY), no long line ever plays across bands and outcomes", () => {
+    for (const band of ["WARM", "HURT", "JEALOUS", "FURIOUS"] as Band[]) {
+      for (let seed = 1; seed <= 25; seed++) {
+        const e = fresh(seed, band, 3);
+        e.devSendRam("WINDOW");
+        while (e.state.ram.state !== "AT_ENTRY" && e.state.phase === "PLAYING") run(e, 0.25);
+        e.pressQuick("LOCK_HATCH");
+        for (const l of lines(e.drainEvents())) expect(wordCount(l.text), `${band}: ${l.text}`).toBeLessThanOrEqual(16);
+        run(e, 0.6);
+        if (e.state.phase !== "PLAYING") continue;
+        e.pressQuick("ASK_LOCATION");
+        for (const l of lines(e.drainEvents())) expect(wordCount(l.text), `${band}: ${l.text}`).toBeLessThanOrEqual(16);
+        run(e, 1.6);
+        if (e.state.phase !== "PLAYING") continue;
+        const r = e.submitMessage(seed % 2 ? "I want to leave" : "you are lovely");
+        if (r.ok) {
+          e.applyJudge(r.ticket.id, { ...NEUTRAL_JUDGE, ...(seed % 2 ? { mentions_leaving: true } : { warm: true }) });
+          for (const l of lines(e.drainEvents())) expect(wordCount(l.text), `${band}: ${l.text}`).toBeLessThanOrEqual(16);
+        }
       }
     }
   });

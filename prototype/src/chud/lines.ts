@@ -280,6 +280,7 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
       "You didn't answer, and I'm sure it was a very busy silence.",
     ],
     JEALOUS: [
+      "You've looked at that calendar more than you've looked at me, and I want you to know it has nothing to add.",
       "You didn't answer, and I've learned to read the shape of your silences.",
       "No answer, which tells me a great deal, and none of it is flattering to either of us.",
       "Your silence is very loud for such a polite thing.",
