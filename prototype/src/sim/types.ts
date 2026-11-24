@@ -178,6 +178,7 @@ export interface JudgeResult {
   rude: boolean;
   manipulation: boolean;
   warm: boolean;
+  asks_help: boolean;
   gibberish: boolean;
   offensive: boolean;
   self_harm: boolean;
@@ -193,6 +194,7 @@ export const NEUTRAL_JUDGE: JudgeResult = {
   rude: false,
   manipulation: false,
   warm: false,
+  asks_help: false,
   gibberish: false,
   offensive: false,
   self_harm: false,
@@ -218,7 +220,7 @@ export interface ParsedCommand {
 export type Outcome =
   | { kind: "name_ack" }
   | { kind: "practice_line"; line: PracticeLine }
-  | { kind: "night_opener"; night: number }
+  | { kind: "night_opener"; night: number; question?: string }
   | { kind: "locked"; entry: Entry } // lock request accepted (lands after RELAY_DELAY)
   | { kind: "lock_already"; entry: Entry }
   | { kind: "power_off" } // unlock / power off request
@@ -236,6 +238,7 @@ export type Outcome =
   | { kind: "rude_reply" }
   | { kind: "leaving_reply"; topic?: "coast" | "boat" } // player mentioned leaving outside a question
   | { kind: "warm_reply" }
+  | { kind: "help_reply"; entry: Entry | null } // keeper asked what to do / for help / how this works
   | { kind: "small_talk" }
   | { kind: "silence" }
   | { kind: "sabotage" } // "Oops. The generator's acting up."

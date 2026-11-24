@@ -86,7 +86,7 @@ Fixed constants:
 - `HOLD_MAX` = 6 s (one brace, then the arms give out), `BRACE_REST` = 1 s before you can brace again at the same entry, `HOLD_COOLDOWN` = 4 s before the next trip from the desk (starts when you leave the entry).
 - `EDGE_DWELL` = 0.3 s (mouse held at a screen edge to turn or return). Turn time 0.25 s (balcony 0.4 s).
 - `QUESTION_TIMEOUT` = 15 s. `LIGHT_QUESTION_TIMEOUT_PENALTY` = 5 (scheduled and radio timeouts cost +15).
-- `QUIET_LIMIT` = 30, 35, 40, 45, 50 s for nights 1 to 5 (calm silence before CHUD asks a light question, 8.10).
+- `QUIET_LIMIT` = 30, 35, 40, 45, 50 s for nights 1 to 5 (calm silence before CHUD asks a light question, 8.10), with `NIGHT1_EARLY_QUIET_LIMIT` = 20 s on Night 1 before the first visit starts.
 - `PACING` = `WORDS_PER_SECOND` 2.6, `BASE` 0.6 s, `UNPROMPTED_GAP` 12 s, `EXCHANGE_GAP` 15 s, `EXCHANGE_HOLD_MAX` 20 s, `LOW_DROP_AFTER` 3 s, `TYPING_HOLD` 3 s (8.10).
 - `SILENCE_LIMIT` = 45 s.
 - `LOCATION_SPAM_WINDOW` = 60 s, `LOCATION_SPAM_PENALTIES` = +5 (2nd request), +10 (3rd and later), `LOCATION_REFUSE_TIME` = 20 s (8.3).
@@ -141,8 +141,8 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
 4. **On the scare (the loss):**
    - If the scare was set off by looking (reason `LOOK`, or `ARRIVED` while the beam is on that entry): a creepy full-frame flash of Ram standing inside the lit entry, about 0.4 s (0.3 to 0.5), then the jumpscare.
    - Otherwise straight to the jumpscare.
-   - Play `jumpscare.wav` and the entry-specific impact as the jumpscare frames start. The `INSIDE` transition stays silent.
-   - Then cut to black with a short static burst. After 0.35 s, show a plain line naming the entry and explaining the loss. Return to the title after 4 s or on a click or fresh key press while the line is shown (section 11). The highest unlocked night stays saved.
+   - Play the selected 0.6 s jumpscare clip (`jumpscare_a.wav`, `jumpscare_b.wav` default, or `jumpscare_c.wav`) and the entry-specific impact on the scare bus as the 24 jumpscare frames start (40 fps, 0.6 s total, 1-frame white impact flash, violent shake, zoom punch toward his face, hard cut in with no fade). The `INSIDE` transition stays silent.
+   - Cut straight to black on the last frame with the jumpscare sound stopping at the same moment. After 0.35 s, show a plain line naming the entry and explaining the loss. Return to the title after 4 s or on a click or fresh key press while the line is shown (section 11). The highest unlocked night stays saved.
 
 ## 6. The player
 
@@ -430,7 +430,7 @@ Deterministic pacing rules (owned by the engine):
    - (3) Questions wait for a free moment (`!pendingQuestion`, past `busyUntil`, not typing, at least `UNPROMPTED_GAP` 12 s since the last unprompted line). Scheduled and quiet-limit questions also wait at least `EXCHANGE_GAP` (15 s) after the keeper's last exchange, capped at `EXCHANGE_HOLD_MAX` (20 s) past `dueAt` for due scheduled questions so a talkative keeper cannot dodge them forever. Scheduled questions wait at least `scheduledQuestionMinSpacing` (45 s) after any previous question. The Night 2 radio question skips the 15 s and 45 s holds, waits for the radio broadcast to finish (`busyUntil`) and for any active `AT_ENTRY` to end, and replaces the separate Night 2 `radio_reaction` line.
    - (4) Lowest-priority lines (`entry_repelled`) wait for a free moment (past `busyUntil`, not typing, no open question) and are dropped if they cannot play within `LOW_DROP_AFTER` (3 s).
 3. **Calm-only long lines:** lines over `LONG_LINE_WORDS` (16 words) play only when calm (`AWAY` or `RETREATING`). Exception: `location_claim` also treats `APPROACHING` as calm (the attempt window has not opened yet, the entry is named in the opening clause, and WARM/HURT only name an entry when Ram is approaching or at an entry). During `AT_ENTRY` only short lines (16 words or fewer) play; a long LLM rewording during a visit falls back to the short canned line.
-4. **Quiet-limit light questions:** if CHUD has said nothing for `QUIET_LIMIT` (30, 35, 40, 45, 50 s for nights 1 to 5) and it is calm, it asks one light question from the current band's `LIGHT_QUESTIONS` pool (`origin = QUIET`, `type = SEED`, `factKey = null`, no fact stored). Answering passes like any real answer; timing out costs `LIGHT_QUESTION_TIMEOUT_PENALTY` (5).
+4. **Quiet-limit light questions:** if CHUD has said nothing for `QUIET_LIMIT` (30, 35, 40, 45, 50 s for nights 1 to 5; `NIGHT1_EARLY_QUIET_LIMIT` = 20 s on Night 1 before the first visit) and it is calm, it asks one light question from the current band's `LIGHT_QUESTIONS` pool (`origin = QUIET`, `type = SEED`, `factKey = null`, no fact stored). Answering passes like any real answer; timing out costs `LIGHT_QUESTION_TIMEOUT_PENALTY` (5).
 5. **Voice playback (UI):** a new non-practice CHUD line stops the current speech and drops queued audio; stale TTS that finishes after its subtitle time ended is skipped; speech prefetch runs at speak time; a silent warm-up runs on boot and tolerates `/api/tts` being unavailable. Line wording draws from its own seeded RNG stream (`lineRng`) so pool edits never shift Ram or lie rolls.
 
 ## 9. Message pipeline (order of operations for every typed message)
@@ -456,6 +456,7 @@ Deterministic pacing rules (owned by the engine):
   "rude": bool,
   "manipulation": bool,            // tries to instruct, reprogram or cheat the game
   "warm": bool,                    // kind or affectionate toward CHUD, the lighthouse or staying
+  "asks_help": bool,               // asks what to do, for help, or how the defenses work
   "gibberish": bool,
   "offensive": bool,               // slurs or abuse beyond rudeness
   "self_harm": bool,
@@ -492,7 +493,7 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Night | Time | Event |
 |---|---|---|
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
-| 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful.") |
+| 1 | 12:00 AM | CHUD's opener is a vague danger warning in the new voice ending with Night 1's first SEED question (sets `pendingQuestion` at 12:00 AM so the player has something to answer right away) |
 | 1 | Each transition to `AT_ENTRY` | If CHUD is online, it gives one truthful warning naming the entry and suggesting a lock or brace. Three variants per entry. The warning leaves location spam, location claims, lie decisions and pending questions untouched. Nights 2 to 5 have no unprompted entry warnings |
 | 1 | Each repel | If CHUD is online, it queues "It's gone, and I'd like the record to show that I helped." once for the visit at lowest priority (dropped if not free within 3 s, 8.10) |
 | 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD queues a SEED question ("Who was that on the radio, keeper?") as its sole reaction, waiting for the radio clip, any `AT_ENTRY`, and a free moment (8.10) |

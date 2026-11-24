@@ -170,6 +170,19 @@ const WARM: RegExp[] = [
 // Negated leaving is warm ("I won't leave you", "I'm not going anywhere").
 const LEAVE_WORDS = /\bleav(e|es|ing)\b|\bgoing anywhere\b|\bgo anywhere\b/;
 
+const HELP_PATTERNS: RegExp[] = [
+  /\bwhat (should|do|can|am) i (supposed to )?do\b/,
+  /\bwhat (am i|are we) supposed to do\b/,
+  /\bwhat now\b/,
+  /\bhow does this work\b/,
+  /\bhow do i (play|survive|win|stop it|defend|lock|brace|hold|keep it out|use this)\b/,
+  /\b(tell me|show me|explain) (what to do|how this works|how to (play|survive|stop it|defend))\b/,
+  /\b(do not|idk|no idea) (know )?what to do\b/,
+  /^(please )?help( me)?( please)?$/,
+  /\b(i need|give me|some|any) (help|advice|tips|hint|hints|guidance)\b/,
+  /\bcan you help me\b/,
+];
+
 const YES_NO = /^(yes|yeah|yep|yup|ya|aye|sure|of course|ofc|definitely|absolutely|certainly|obviously|always|forever|i will|i do|i promise|promise|no|nope|nah|never|not really|of course not|absolutely not|i will not|i would not|ok|okay|fine|maybe not)( (i will|i do|i promise|chud|keeper|forever|of course|not))*$/;
 
 const EVASIONS = /\b(i do not know|do not know|dunno|idk|no idea|not telling|none of your business|not your business|i forget|i forgot|can not remember|do not remember|no comment|whatever|does not matter|why do you ask|why do you want to know|skip|pass|nevermind|never mind|maybe|we will see|not sure)\b/;
@@ -412,8 +425,11 @@ function judge(input: JudgeInput): JudgeResult {
   }
   result.mentions_leaving = leaving;
 
+  result.asks_help =
+    !result.manipulation && !result.offensive && !result.rude && parsed.command === "NONE" && anyOf(p, HELP_PATTERNS);
+
   result.warm =
-    !leaving && !result.rude && !result.offensive && !result.manipulation && (WARM.some((re) => hasUnnegated(p, re)) || negatedLeave);
+    !leaving && !result.rude && !result.offensive && !result.manipulation && !result.asks_help && (WARM.some((re) => hasUnnegated(p, re)) || negatedLeave);
 
   // Answer detection. A command alone ("unlock all", "where is it") never answers ChudGPT's question (GAME_LOGIC 8.5:
   // the question stays pending), but other clauses in the same message still can: "Halifax and where is it?" answers

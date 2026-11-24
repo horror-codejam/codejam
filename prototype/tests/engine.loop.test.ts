@@ -479,6 +479,7 @@ describe("silent breach: Ram INSIDE (section 7.7)", () => {
 
   it("CHUD in WARM answers truthfully and creepily: someone in the room", () => {
     const e = inside("NONE", "WINDOW", 1);
+    e.state.chud.pendingQuestion = null;
     expect(e.state.chud.band).toBe("WARM");
     e.pressQuick("ASK_LOCATION");
     const said = e.drainEvents().find((ev) => ev.type === "CHUD_SAY");

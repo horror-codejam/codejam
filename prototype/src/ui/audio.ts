@@ -633,10 +633,20 @@ export class Sound {
   }
 
   // One tiny request on the title screen so a cold hosted function is warm by the first line. Silent if unavailable.
+  private voiceIndexPromise: Promise<typeof import("./audioDialogue") | undefined> | null = null;
   private warmed = false;
+
+  private voiceIndex(): Promise<typeof import("./audioDialogue") | undefined> {
+    if (!this.voiceIndexPromise) {
+      this.voiceIndexPromise = import("./audioDialogue").catch(() => undefined);
+    }
+    return this.voiceIndexPromise;
+  }
+
   warmSpeech(): void {
     if (this.warmed) return;
     this.warmed = true;
+    void this.voiceIndex();
     void fetch("/api/tts", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -649,9 +659,10 @@ export class Sound {
   private async prepareSpeech(ctx: AudioContext, text: string, band: Band, signal: AbortSignal): Promise<AudioBuffer | undefined> {
     try {
       const timeout = import.meta.env.DEV ? CHUD_SPEECH.REQUEST_TIMEOUT_MS : CHUD_SPEECH.HOSTED_TIMEOUT_MS;
-      const voiceIndex = await import("./audioDialogue").catch(() => undefined);
+      const voiceIndex = await this.voiceIndex();
       if (signal.aborted) return undefined;
-      const clip = voiceIndex?.cannedClip(text, band);
+      const clip = voiceIndex ? await voiceIndex.cannedClip(text, band) : undefined;
+      if (signal.aborted) return undefined;
       const recorded = clip ? await this.loadClip(clip.name, clip.url) : undefined;
       if (recorded || signal.aborted) return recorded;
       const response = await fetch("/api/tts", {
@@ -660,7 +671,7 @@ export class Sound {
         body: JSON.stringify({ text, band }),
         signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
       });
-      if (!response.ok || response.headers.get("content-type") !== "audio/wav") return undefined;
+      if (!response.ok || !response.headers.get("content-type")?.startsWith("audio/wav")) return undefined;
       return await ctx.decodeAudioData(await response.arrayBuffer());
     } catch {
       return undefined; // Keep the subtitle and chime if the speech service or decoding fails.

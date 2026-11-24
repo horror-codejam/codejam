@@ -44,7 +44,7 @@ export function createApi(opts: { apiKey?: string }): Hono {
         body: JSON.stringify({ text, band }),
         signal: AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(PIPER_TIMEOUT_MS)]),
       });
-      if (wav.ok && wav.headers.get("content-type") === "audio/wav") {
+      if (wav.ok && wav.headers.get("content-type")?.startsWith("audio/wav")) {
         return c.body(await wav.arrayBuffer(), 200, { "content-type": "audio/wav", "cache-control": "no-store" });
       }
     } catch {

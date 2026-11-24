@@ -30,7 +30,7 @@ it("keeps the fixed-seed night simulation identical to the repel baseline", asyn
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Updated for the rotating ceiling beam: Shift light and lightHeld/lightEntry are removed,
-  // power tracks lampCutUntil, and light-cut sabotage stops the ceiling lamp on entry turns.
-  expect(hash).toBe("2ac65177bceff3f05a88618dd59eb8023ac1a60310f93fcc473eb39677edac80");
+  // Updated for playtest fixes: rewritten per-band night openers, Night 1 opening SEED question at 12:00 AM,
+  // and 20 s Night 1 pre-visit quiet limit (Ram RNG stream untouched).
+  expect(hash).toBe("1d240b7ded6dd5db1dd87488fab4ba3e821f5560f392bcee89291f1ba27cc839");
 });

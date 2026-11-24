@@ -20,7 +20,7 @@ function textOf(msg: Anthropic.Message): string {
 
 const COMMANDS: Command[] = ["ASK_LOCATION", "LOCK", "POWER_OFF", "NONE"];
 const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
-const FLAGS = ["answered_question", "contradiction", "mentions_leaving", "rude", "manipulation", "warm", "gibberish", "offensive", "self_harm"] as const;
+const FLAGS = ["answered_question", "contradiction", "mentions_leaving", "rude", "manipulation", "warm", "asks_help", "gibberish", "offensive", "self_harm"] as const;
 
 export async function judgeWithClaude(client: Anthropic, input: JudgeInput): Promise<JudgeResult> {
   const msg = await client.messages.create({

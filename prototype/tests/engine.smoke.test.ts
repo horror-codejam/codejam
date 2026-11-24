@@ -50,7 +50,7 @@ describe("engine smoke", () => {
     };
     let chatCount = 0;
     let nextChatAt = 5;
-    let answerAt: number | null = null;
+    let answerAt: number | null = e.state.chud.pendingQuestion ? 0 : null;
     let lockFor: (typeof quickFor)[Entry] | null = null;
     let retreats = 0;
     const steps = Math.round(310 / T);

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { CONFIG } from "../src/config";
 import { cannedLine } from "../src/chud/lines";
+import { offlineJudge } from "../src/chud/offlineJudge";
 import { parseCommand } from "../src/chud/parser";
 import { GameEngine } from "../src/sim/engine";
 import { NEUTRAL_JUDGE, type GameEvent, type JudgeResult, type Outcome } from "../src/sim/types";
@@ -10,8 +11,13 @@ const T = CONFIG.TICK;
 const judge = (over: Partial<JudgeResult> = {}): JudgeResult => ({ ...NEUTRAL_JUDGE, ...over });
 
 function playing(): GameEngine {
-  const e = new GameEngine({ seed: 7, skipNamePrompt: true });
+  const e = new GameEngine({
+    seed: 7,
+    skipNamePrompt: true,
+    config: { ...CONFIG, QUIET_LIMIT: [1e9, 1e9, 1e9, 1e9, 1e9], NIGHT1_EARLY_QUIET_LIMIT: 1e9 },
+  });
   e.beginNight();
+  e.state.chud.pendingQuestion = null; // tests that want a pending question open one with pend(e)
   e.drainEvents();
   return e;
 }
@@ -215,6 +221,30 @@ describe("no back-to-back repeated line", () => {
         }
       }
     }
+  });
+});
+
+describe("help questions get situation-aware guidance", () => {
+  it("calm help gives real guidance; active AT_ENTRY help names the entry and action", () => {
+    const e = playing();
+    const r1 = e.submitMessage("what should i do?");
+    if (!r1.ok) throw new Error(r1.reason);
+    e.applyJudge(r1.ticket.id, offlineJudge(r1.ticket.judgeInput));
+    const calmSay = e.drainEvents().find((ev) => ev.type === "CHUD_SAY");
+    expect(calmSay?.type === "CHUD_SAY" && calmSay.outcome).toEqual({ kind: "help_reply", entry: null });
+    expect(calmSay?.type === "CHUD_SAY" && calmSay.text).toMatch(/where it is/i);
+    expect(calmSay?.type === "CHUD_SAY" && calmSay.text).toMatch(/lock|hold/i);
+
+    e.devSendRam("WINDOW");
+    while (e.state.ram.state !== "AT_ENTRY") wait(e, 0.25);
+    wait(e, 2);
+    const r2 = e.submitMessage("help me, what do I do?");
+    if (!r2.ok) throw new Error(r2.reason);
+    e.applyJudge(r2.ticket.id, offlineJudge(r2.ticket.judgeInput));
+    const activeSay = e.drainEvents().find((ev) => ev.type === "CHUD_SAY");
+    expect(activeSay?.type === "CHUD_SAY" && activeSay.outcome).toEqual({ kind: "help_reply", entry: "WINDOW" });
+    expect(activeSay?.type === "CHUD_SAY" && activeSay.text.toLowerCase()).toContain("window");
+    expect(activeSay?.type === "CHUD_SAY" && activeSay.text).toMatch(/lock|hold/i);
   });
 });
 

@@ -334,7 +334,7 @@ function onEvent(ev: GameEvent, t: number): void {
         tutorial.hear(ev);
         break;
       }
-      if (!llm.on || !VOICED.has(o.kind)) {
+      if (!llm.on || !VOICED.has(o.kind) || (o.kind === "help_reply" && o.entry !== null)) {
         showChud(ev.text, ev.band, t);
         break;
       }
@@ -471,11 +471,12 @@ function renderHud(t: number): void {
 
   const deskView = playing && atDesk && view === "DESK";
   const monitorShowing = deskView && !scene.transitionVisible && s.player.reading === null;
-  const caption = playing
-    ? [radioCaption, monitorShowing ? undefined : chudCaption].find((line) => line && (line.until > t || line.playback?.state === "playing"))
-    : undefined;
+  const activeRadio = playing && radioCaption && radioCaption.until > t ? radioCaption : undefined;
+  const activeChud = playing && !monitorShowing && chudCaption && (chudCaption.until > t || chudCaption.playback?.state === "playing") ? chudCaption : undefined;
+  const caption = activeRadio ?? activeChud;
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
+  ui.subtitle.classList.toggle("desk-instant-hide", monitorShowing && !activeRadio);
   ui.subtitle.classList.toggle("desk", deskView); // sits on the bare desk above the keyboard, not over it
   ui.subtitle.classList.toggle("practice", practicing);
   ui.subtitle.classList.toggle("practice-hatch-close", practicing && view === "HATCH" && (pos.kind === "STANDING" || pos.kind === "HOLDING"));
@@ -514,7 +515,7 @@ function renderHud(t: number): void {
     terminal.chat.disabled ||= tutorial.step !== "chat";
     for (const button of terminal.quick) button.disabled ||= !tutorial.allowsQuick(button.dataset.quick as QuickCommand);
   }
-  terminal.chat.classList.toggle("tutorial-target", prompt?.target === "chat");
+  terminal.form.classList.toggle("tutorial-target", prompt?.target === "chat");
   for (const button of terminal.quick) button.classList.toggle("tutorial-target", prompt?.target === button.dataset.quick);
   renderRing();
 }

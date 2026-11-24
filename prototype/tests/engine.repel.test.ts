@@ -12,6 +12,7 @@ function visit(night = 1, attemptTime = 20) {
   } : params);
   const e = new GameEngine({ startNight: night, skipNamePrompt: true, config: { ...CONFIG, nights } });
   e.beginNight();
+  e.state.chud.pendingQuestion = null; // isolate repel timing from the Night 1 opening question
   e.devSendRam("HATCH");
   return e;
 }

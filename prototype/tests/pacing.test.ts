@@ -224,7 +224,7 @@ describe("long lines only when calm", () => {
 });
 
 describe("the quiet limit", () => {
-  it.each([[1, 30], [2, 35], [3, 40], [4, 45], [5, 50]])("night %i: a light question after %i s of silence while calm", (night, limit) => {
+  it.each([[1, 20], [2, 35], [3, 40], [4, 45], [5, 50]])("night %i: a light question after %i s of silence while calm", (night, limit) => {
     const e = quiet(night);
     const evs = run(e, limit - 0.5);
     expect(asked(e, evs)).toEqual([]);
@@ -241,6 +241,20 @@ describe("the quiet limit", () => {
     expect(wordCount(said!.text)).toBeLessThanOrEqual(16);
   });
 
+  it("night 1 switches from the 20 s early quiet limit to 30 s after the first visit", () => {
+    const e = quiet(1);
+    e.devSendRam("WINDOW");
+    while (e.state.ram.state !== "AT_ENTRY") run(e, 0.25);
+    e.pressQuick("LOCK_WINDOW");
+    while ((e.state.ram.state as string) !== "AWAY") run(e, 0.25);
+    // Let any post-repel line settle, then send a fresh line and confirm 30 s quiet limit applies now.
+    run(e, 4);
+    e.pressQuick("ASK_LOCATION");
+    e.drainEvents();
+    expect(asked(e, run(e, 29))).toEqual([]);
+    expect(asked(e, run(e, 2.5)).length).toBe(1);
+  });
+
   it("is only asked while calm, and a question answered earlier restarts the quiet clock", () => {
     const e = quiet(1);
     e.devSendRam("WINDOW"); // a visit is under way: approach 12 s then the attempt window
@@ -251,16 +265,16 @@ describe("the quiet limit", () => {
 
   it("any line restarts the quiet clock", () => {
     const e = quiet(1);
-    run(e, 25);
+    run(e, 15);
     e.pressQuick("ASK_LOCATION");
     e.drainEvents();
-    expect(asked(e, run(e, 29))).toEqual([]);
-    expect(asked(e, run(e, 3)).length).toBe(1);
+    expect(asked(e, run(e, 19))).toEqual([]);
+    expect(asked(e, run(e, 2.5)).length).toBe(1);
   });
 
   it("a light question is answered like any real answer and stores no fact", () => {
     const e = quiet(1);
-    run(e, 31);
+    run(e, 21);
     const pq = e.state.chud.pendingQuestion!;
     expect(pq.factKey).toBeNull();
     const reply = answer(e, "Salt and wet rope");
@@ -271,10 +285,25 @@ describe("the quiet limit", () => {
 
   it("an unanswered light question costs less than a scheduled one", () => {
     const e = quiet(1, { SILENCE_LIMIT: 1e9 });
-    run(e, 31);
+    run(e, 21);
     const before = e.state.chud.suspicion;
     run(e, CONFIG.QUESTION_TIMEOUT + 0.5);
     expect(e.state.chud.suspicion - before).toBe(CONFIG.LIGHT_QUESTION_TIMEOUT_PENALTY);
+  });
+
+  it("night 1 opener asks the night's first question at 12:00 AM so the keeper has something to answer", () => {
+    const e = new GameEngine({ seed: 7, skipNamePrompt: true, startNight: 1, facts: { name: "Sam" } });
+    e.beginNight();
+    const evs = e.drainEvents();
+    expect(e.state.chud.pendingQuestion).not.toBeNull();
+    expect(e.state.chud.pendingQuestion!.type).toBe("SEED");
+    const opener = lines(evs).find((l) => l.outcome.kind === "night_opener");
+    expect(opener).toBeDefined();
+    expect(opener!.text.endsWith("?")).toBe(true);
+    const ack = answer(e, "Halifax");
+    expect(ack.map((l) => l.outcome.kind)).toEqual(["answer_ack"]);
+    expect(e.state.chud.pendingQuestion).toBeNull();
+    expect(Object.values(e.state.chud.facts)).toContain("Halifax");
   });
 });
 

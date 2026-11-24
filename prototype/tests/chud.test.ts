@@ -80,7 +80,7 @@ describe("offline judge: schema and safety", () => {
     for (const text of odd) {
       const r = offlineJudge({ text: text as string, pendingQuestion: null, facts: {}, band: "WARM" });
       expect(Object.keys(r).sort()).toEqual(
-        ["answered_question", "contradiction", "mentions_leaving", "rude", "manipulation", "warm", "gibberish", "offensive", "self_harm", "new_fact", "command_hint", "entry_hint"].sort(),
+        ["answered_question", "asks_help", "contradiction", "mentions_leaving", "rude", "manipulation", "warm", "gibberish", "offensive", "self_harm", "new_fact", "command_hint", "entry_hint"].sort(),
       );
     }
     expect(() => offlineJudge(null as unknown as JudgeInput)).not.toThrow();
@@ -381,9 +381,41 @@ describe("canned lines", () => {
       for (const l of sweep({ kind: "sabotage" }, band)) expect(l).toMatch(/The generator's acting up/);
       expect(new Set(sweep({ kind: "silence" }, band)).size).toBeGreaterThanOrEqual(2);
     }
-    expect(sweep({ kind: "night_opener", night: 3 }, "WARM")).toEqual(["You talk about home in your sleep, keeper."]);
-    expect(sweep({ kind: "night_opener", night: 4 }, "HURT")).toEqual(["Two more days until your pickup, isn't it?"]);
-    expect(sweep({ kind: "night_opener", night: 2 }, "WARM").some((l) => /kept the cottage warm/.test(l))).toBe(true);
+    expect(sweep({ kind: "night_opener", night: 3 }, "WARM").every((l) => /home in your sleep/i.test(l))).toBe(true);
+    expect(sweep({ kind: "night_opener", night: 4 }, "HURT").every((l) => /two more days until your pickup/i.test(l))).toBe(true);
+    expect(sweep({ kind: "night_opener", night: 2 }, "WARM").some((l) => /kept the cottage warm/i.test(l))).toBe(true);
+  });
+
+  it("every night opener in every band uses the new flowing one-sentence voice with no exclamation marks", () => {
+    for (const night of [1, 2, 3, 4, 5]) {
+      for (const band of BANDS) {
+        const lines = sweep({ kind: "night_opener", night }, band);
+        expect(lines.length).toBeGreaterThan(0);
+        for (const l of lines) {
+          expect(l, `N${night} ${band}: ${l}`).not.toContain("!");
+          expect(l, `N${night} ${band}: ${l}`).not.toMatch(/[.?!]\s+[A-Z]/); // one flowing sentence, no staccato
+          if (night === 1) expect(l.endsWith("?"), `N1 ${band}: ${l}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("help_reply gives real situation-aware guidance in every band (calm and active entry)", () => {
+    for (const band of BANDS) {
+      for (const l of sweep({ kind: "help_reply", entry: null }, band)) {
+        expect(l, `calm ${band}: ${l}`).toMatch(/where it is/i);
+        expect(l, `calm ${band}: ${l}`).toMatch(/lock|hold/i);
+        expect(l, `calm ${band}: ${l}`).toMatch(/talk|chat|speak/i);
+        expect(l, `calm ${band}: ${l}`).not.toMatch(/\b(ram|altman)\b/i);
+      }
+      for (const entry of ENTRIES) {
+        for (const l of sweep({ kind: "help_reply", entry }, band, "Sam", false)) {
+          expect(l.toLowerCase(), `${entry} ${band}: ${l}`).toContain(entry.toLowerCase());
+          expect(l, `${entry} ${band}: ${l}`).toMatch(/lock|hold/i);
+          expect(l, `${entry} ${band}: ${l}`).not.toMatch(/\b(ram|altman)\b/i);
+        }
+      }
+    }
   });
 
   it("question carries the question text", () => {
@@ -460,6 +492,8 @@ describe("canned lines", () => {
       { kind: "rude_reply" },
       { kind: "leaving_reply" },
       { kind: "warm_reply" },
+      { kind: "help_reply", entry: null },
+      ...ENTRIES.map((entry): Outcome => ({ kind: "help_reply", entry })),
       { kind: "small_talk" },
       { kind: "silence" },
       { kind: "sabotage" },
@@ -535,10 +569,13 @@ describe("scripted lines", () => {
     expect(mentionsForbiddenName("the ramp is wet")).toBe(false);
   });
 
-  it("night 1 opener only warns of danger at night, vaguely", () => {
-    for (const l of sweep({ kind: "night_opener", night: 1 }, "WARM")) {
-      expect(l).toMatch(/danger|careful/i);
-      expect(l).not.toMatch(/\b(lock|light|hatch|window|balcony)\b/i);
+  it("night 1 opener only warns of danger at night, vaguely, and ends with a question", () => {
+    for (const band of BANDS) {
+      for (const l of sweep({ kind: "night_opener", night: 1, question: "Where did you sail from, keeper?" }, band)) {
+        expect(l).toMatch(/danger|dark/i);
+        expect(l.endsWith("?")).toBe(true);
+        expect(l).not.toMatch(/\b(lock|light|hatch|window|balcony)\b/i);
+      }
     }
   });
 
@@ -601,6 +638,36 @@ describe("offline judge: an answer and a location request in one message", () =>
     expect(r.answered_question).toBe(true);
     expect(r.new_fact?.value.toLowerCase()).toContain("marigold");
     expect(r.new_fact?.value.toLowerCase()).not.toContain("where");
+  });
+});
+
+describe("offline judge: asks_help", () => {
+  it.each([
+    "what should i do?",
+    "what do I do now?",
+    "what now?",
+    "help",
+    "help me please",
+    "how does this work?",
+    "how do i survive?",
+    "I don't know what to do",
+    "can you help me?",
+    "any advice?",
+  ])("true: %s", (text) => {
+    const r = judge(text);
+    expect(r.asks_help).toBe(true);
+    expect(r.warm).toBe(false);
+  });
+
+  it.each([
+    "where is it",
+    "lock the hatch",
+    "you are so helpful",
+    "Halifax",
+    "I love it here",
+    "shut up, help me",
+  ])("false: %s", (text) => {
+    expect(judge(text).asks_help).toBe(false);
   });
 });
 

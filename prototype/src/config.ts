@@ -35,6 +35,7 @@ export interface Config {
   QUESTION_TIMEOUT: number;
   LIGHT_QUESTION_TIMEOUT_PENALTY: number; // suspicion when a quiet-limit light question times out
   QUIET_LIMIT: number[]; // seconds ChudGPT may stay silent while calm before it asks a light question, by night
+  NIGHT1_EARLY_QUIET_LIMIT: number; // lower quiet limit on night 1 before the first visit starts, so early calm stretches never drag
   PACING: {
     WORDS_PER_SECOND: number; // speech length estimate: words / this + BASE
     BASE: number;
@@ -207,6 +208,7 @@ export const CONFIG: Config = {
   QUESTION_TIMEOUT: 15,
   LIGHT_QUESTION_TIMEOUT_PENALTY: 5,
   QUIET_LIMIT: [30, 35, 40, 45, 50],
+  NIGHT1_EARLY_QUIET_LIMIT: 20,
   PACING: { WORDS_PER_SECOND: 2.6, BASE: 0.6, UNPROMPTED_GAP: 12, EXCHANGE_GAP: 15, EXCHANGE_HOLD_MAX: 20, LOW_DROP_AFTER: 3, TYPING_HOLD: 3 },
   SILENCE_LIMIT: 45,
   SILENCE_PULL: 0.25,

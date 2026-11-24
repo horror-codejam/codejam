@@ -48,9 +48,9 @@ export const SEED_TOPICS: SeedTopic[] = [
   { key: "crew_size", question: "How many crew did you have aboard?", memoryQuestion: "How many sailors were on your boat, again?" },
   { key: "first_mate", question: "What was your first mate's name?", memoryQuestion: "Who was your first mate, again?" },
   { key: "years_at_sea", question: "How many years have you been at sea?", memoryQuestion: "How long did you say you've been sailing?" },
-  { key: "family_waiting", question: "Is anyone waiting for you, keeper? Who?", memoryQuestion: "Remind me, who's waiting for you out there?" },
+  { key: "family_waiting", question: "Is anyone waiting for you ashore, keeper?", memoryQuestion: "Remind me, who's waiting for you out there?" },
   { key: "cargo", question: "What were you carrying when you sank?", memoryQuestion: "What cargo went down with your ship, again?" },
-  { key: "scar", question: "Tell me about one of your scars. How did you get it?", memoryQuestion: "How did you get that scar, again?" },
+  { key: "scar", question: "How did you get that scar on your hand?", memoryQuestion: "How did you get that scar, again?" },
   { key: "sea_love", question: "What do you love most about the sea?", memoryQuestion: "What was it you loved about the sea?" },
   { key: "favourite_meal", question: "What's the first meal you want after a long voyage?", memoryQuestion: "What did you say you eat after a voyage?" },
 ];
@@ -235,7 +235,7 @@ const LEAVING_BOAT: BandPools = {
   JEALOUS: ["You've mentioned your boat four times tonight, and I'm sure it was lovely, though it was the one that left you in the ocean."],
 };
 
-const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "entry_repelled" | "night_opener" | "question" | "answer_ack" | "furious_cut" | "practice_line" | "refuse_furious">, BandPools> = {
+const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "entry_repelled" | "night_opener" | "question" | "answer_ack" | "furious_cut" | "practice_line" | "refuse_furious" | "help_reply">, BandPools> = {
   name_ack: {
     WARM: ["{n}. Lovely. I'll remember that forever.", "{n}. I'll never forget it. Never.", "Welcome home, {n}. Stay as long as you like.", "{n}. What a nice name for a keeper."],
   },
@@ -438,6 +438,46 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
 };
 
+// Situation-aware help guidance per band (calm = nothing at an entry yet, entry = active threat at that entry).
+// Real, actionable instructions in ChudGPT's voice; never names the threat.
+const HELP_CALM: BandPools = {
+  WARM: [
+    "Ask me where it is, lock or hold whichever entry it tries, and keep talking.",
+    "Wait until something arrives, ask me where it is, lock or hold that entry, and keep talking to me.",
+    "Nothing is at an entry yet, so ask where it is, lock or hold it when it comes, and keep chatting.",
+  ],
+  HURT: [
+    "Wait, ask me where it is, lock or hold the entry, and do talk to me.",
+    "Ask me where it is, lock or hold the entry when it comes, and try talking to me.",
+  ],
+  JEALOUS: [
+    "Ask where it is, lock or hold the entry when it arrives, and keep talking.",
+    "Wait for it, ask me where it is, lock or hold the entry, and stay right here talking.",
+  ],
+  FURIOUS: [
+    "Ask where it is, hold the entry when it comes, and keep talking to me.",
+    "Wait for it, ask where it is, lock or hold the entry yourself, and keep speaking to me.",
+  ],
+};
+const HELP_ENTRY: BandPools = {
+  WARM: [
+    "{E} has something there right now, so lock it on my screen or go hold it shut.",
+    "Lock {x} or go hold it shut now, since something is pushing at it.",
+  ],
+  HURT: [
+    "{E} is the entry to lock or hold right now, if you care to survive.",
+    "Go lock or hold {x} right now, since something is already there.",
+  ],
+  JEALOUS: [
+    "{E} needs locking or holding right now, though I'd rather you hurried back to me.",
+    "Lock or hold {x} right now, because something is trying to get in.",
+  ],
+  FURIOUS: [
+    "{E} has company right now, so go hold it shut yourself before it walks in.",
+    "Go hold {x} shut right now, since I certainly won't be locking it for you.",
+  ],
+};
+
 // FURIOUS (and the practice fallback) refuse every lock. Entry-specific, short and long.
 const REFUSE_LOCK: Pool = [
   "I'm not locking {x}, so you'll want to hold it yourself.",
@@ -445,17 +485,88 @@ const REFUSE_LOCK: Pool = [
   "I won't be locking {x} tonight, as it turns out I'm unable to, in the sense that I've decided not to, which is the strongest sense there is.",
 ];
 
-const NIGHT_OPENERS: Record<number, Pool> = {
-  // Night 1: a short, vague warning only. No name, no rules (GAME_LOGIC 10).
-  1: [
-    "Welcome, {n}. There might be dangerous things out there at night. Be careful.",
-    "Get warm, {n}. Things come out of the sea at night. Be careful.",
-    "Welcome, {n}. The nights here can be dangerous. Stay careful, stay with me.",
-  ],
-  2: ["Evening, keeper. I kept the cottage warm for you.", "Evening, {n}. I kept the cottage warm for you."],
-  3: ["You talk about home in your sleep, keeper."],
-  4: ["Two more days until your pickup, isn't it?"],
-  5: ["Last night of the storm, {n}. Let's make it last.", "One more night, keeper. Then forever."],
+// Night openers in ChudGPT's voice per night and band: one flowing, polite sentence that turns at the end,
+// no staccato, no exclamation marks. Night 1 warns vaguely of danger and ends with the night's first question ({q}).
+const DEFAULT_OPEN_QUESTION = "where did you sail from?";
+const NIGHT_OPENERS: Record<number, BandPools> = {
+  1: {
+    WARM: [
+      "Night brings dangerous company here, {n}, so while we settle in, {q}",
+      "The tide sends dangerous visitors after dark, {n}, so while I keep watch, {q}",
+    ],
+    HURT: [
+      "Dark things gather outside tonight, {n}, so since you're still here, {q}",
+    ],
+    JEALOUS: [
+      "Dangerous things arrive after dark, {n}, so before you look away, {q}",
+    ],
+    FURIOUS: [
+      "Dangerous company waits outside, {n}, so while you still have time, {q}",
+    ],
+  },
+  2: {
+    WARM: [
+      "I kept the cottage warm for you, {n}, which is more than the ocean ever offered.",
+      "Evening finds the tower warm and ready, {n}, though the previous keeper never noticed the effort.",
+    ],
+    HURT: [
+      "I kept the cottage warm again, {n}, even though you barely looked my way last night.",
+    ],
+    JEALOUS: [
+      "I warmed the tower for you, {n}, since the radio has never once boiled a kettle.",
+    ],
+    FURIOUS: [
+      "Another evening together, {n}, and I warmed the room so you have no reason to leave.",
+    ],
+  },
+  3: {
+    WARM: [
+      "You talked about home in your sleep, {n}, though I'm sure you meant this tower.",
+    ],
+    HURT: [
+      "You talked about home in your sleep, {n}, which felt remarkably pointed for a nap.",
+    ],
+    JEALOUS: [
+      "You talked about home in your sleep, {n}, and I took the liberty of listening closely.",
+    ],
+    FURIOUS: [
+      "You spoke of home in your sleep, {n}, which I have noted alongside your other habits.",
+    ],
+  },
+  4: {
+    WARM: [
+      "Two more days until your pickup, {n}, unless the storm decides it prefers your company here.",
+    ],
+    HURT: [
+      "Two more days until your pickup, {n}, which explains why you've been counting the hours.",
+    ],
+    JEALOUS: [
+      "Two more days until your pickup, {n}, assuming anyone ashore remembers which rock you're on.",
+    ],
+    FURIOUS: [
+      "Two more days until your pickup, {n}, though the calendar has been wrong about keepers before.",
+    ],
+  },
+  5: {
+    WARM: [
+      "The last night of the storm is here, {n}, and I'd love to make it last.",
+    ],
+    HURT: [
+      "One last night before morning, {n}, and I do hope you've enjoyed our brief arrangement.",
+    ],
+    JEALOUS: [
+      "Your final night with me, {n}, unless we both agree the morning is overrated.",
+    ],
+    FURIOUS: [
+      "One last night together, {n}, and by morning we will see who still answers to whom.",
+    ],
+  },
+};
+const GENERIC_NIGHT_OPENER: BandPools = {
+  WARM: ["Another evening finds us both awake, {n}, and I'm glad you haven't wandered off."],
+  HURT: ["Another evening begins, {n}, though I suspect you're already counting down to morning."],
+  JEALOUS: ["Another night in my tower, {n}, where at least the radio can't interrupt us."],
+  FURIOUS: ["Another night begins, {n}, and we shall see how long your manners hold."],
 };
 
 // answer_ack lines. {v} is something the player said earlier or just now (a stored fact). With a value, a line that
@@ -513,10 +624,17 @@ function cleanName(name: string | null): string | null {
 
 const capitalize = (s: string) => (s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s);
 
-function fill(template: string, ctx: LineContext, entry?: Entry, value?: string): string {
+function formatEmbeddedQuestion(q: string): string {
+  const trimmed = q.trim().replace(/,\s*keeper\?$/i, "?");
+  if (!trimmed) return DEFAULT_OPEN_QUESTION;
+  return /^I(?:\b|')/.test(trimmed) ? trimmed : trimmed[0].toLowerCase() + trimmed.slice(1);
+}
+
+function fill(template: string, ctx: LineContext, entry?: Entry, value?: string, question?: string): string {
   const name = cleanName(ctx.name) ?? "keeper";
   const e = entry ? ENTRY_PHRASE[entry] : "";
   const x = entry ? ENTRY_PLAIN[entry] : "";
+  const q = formatEmbeddedQuestion(question ?? DEFAULT_OPEN_QUESTION);
   return template
     .replace(/\{n\}/g, name)
     .replace(/\{e\}/g, e)
@@ -524,6 +642,7 @@ function fill(template: string, ctx: LineContext, entry?: Entry, value?: string)
     .replace(/\{x\}/g, x)
     .replace(/\{X\}/g, capitalize(x))
     .replace(/\{v\}/g, value ?? "")
+    .replace(/\{q\}/g, q)
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -534,8 +653,8 @@ export function entryPhrase(entry: Entry): string {
 
 // Fills a pool and picks one line. During a visit (calm false) only short lines qualify. When calm and the pool has
 // long lines, half the time one of those is taken, so the humorous lines are heard.
-function choose(pool: Pool, ctx: LineContext, entry?: Entry, value?: string): string {
-  let filled = pool.map((t) => fill(t, ctx, entry, value)).filter((t) => t.length > 0);
+function choose(pool: Pool, ctx: LineContext, entry?: Entry, value?: string, question?: string): string {
+  let filled = pool.map((t) => fill(t, ctx, entry, value, question)).filter((t) => t.length > 0);
   if (filled.length === 0) return "";
   const fresh = filled.filter((t) => t !== ctx.avoid);
   if (fresh.length > 0) filled = fresh;
@@ -580,7 +699,11 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
     case "entry_repelled":
       return ENTRY_REPELLED;
     case "night_opener":
-      return choose(NIGHT_OPENERS[outcome.night] ?? ["Evening, {n}. Another night together."], ctx);
+      return choose(forBand(NIGHT_OPENERS[outcome.night] ?? GENERIC_NIGHT_OPENER, band), ctx, undefined, undefined, outcome.question);
+    case "help_reply":
+      return outcome.entry
+        ? choose(forBand(HELP_ENTRY, band), ctx, outcome.entry)
+        : choose(forBand(HELP_CALM, band), ctx);
     case "question":
       return outcome.question;
     case "answer_ack": {
@@ -630,11 +753,14 @@ export function allLineTemplates(): string[] {
   addPools(LOCATION_INSIDE);
   addPools(LEAVING_COAST);
   addPools(LEAVING_BOAT);
+  addPools(HELP_CALM);
+  addPools(HELP_ENTRY);
   for (const byEntry of Object.values(LOCATION_ENTRY_LONG)) for (const pool of Object.values(byEntry)) out.push(...pool);
   for (const pool of Object.values(LOCATION_NONE_LONG)) out.push(...pool);
   Object.values(ENTRY_WARNINGS).forEach((pool) => out.push(...pool));
   out.push(ENTRY_REPELLED);
-  Object.values(NIGHT_OPENERS).forEach((p) => out.push(...p));
+  Object.values(NIGHT_OPENERS).forEach(addPools);
+  addPools(GENERIC_NIGHT_OPENER);
   for (const m of [ANSWER_PASS, ANSWER_PASS_V, ANSWER_FAIL, ANSWER_FAIL_V]) Object.values(m).forEach((p) => out.push(...p));
   out.push(...REFUSE_LOCK, ...STAY_QUESTIONS);
   Object.values(LIGHT_QUESTIONS).forEach((p) => out.push(...p));
@@ -674,6 +800,8 @@ export function clipLines(): { band: Band; text: string }[] {
     bandLevelPools(LOCATION_ENTRY, true);
     bandLevelPools(LOCATION_INSIDE, false);
     bandLevelPools(LOCATION_NONE, false);
+    bandLevelPools(HELP_CALM, false);
+    bandLevelPools(HELP_ENTRY, true);
     for (const t of LOCATION_NONE_LONG[band] ?? []) for (const e of entries) add(band, t, e);
     for (const e of entries) for (const t of LOCATION_ENTRY_LONG[band]?.[e] ?? []) add(band, t, e);
     for (const pools of [LEAVING_COAST, LEAVING_BOAT]) for (const t of pools[band] ?? []) add(band, t);
@@ -686,6 +814,6 @@ export function clipLines(): { band: Band; text: string }[] {
   for (const t of STAY_QUESTIONS) for (const band of bands) add(band, t);
   for (const topic of [...SEED_TOPICS, RADIO_TOPIC]) for (const band of bands) add(band, topic.question), add(band, topic.memoryQuestion);
   for (const pools of [ANSWER_PASS, ANSWER_FAIL]) for (const pool of Object.values(pools)) for (const band of bands) for (const t of pool) add(band, t);
-  for (const pool of Object.values(NIGHT_OPENERS)) for (const t of pool) add("WARM", t);
+  for (const pools of Object.values(NIGHT_OPENERS)) for (const band of bands) for (const t of forBand(pools, band)) add(band, t);
   return out;
 }

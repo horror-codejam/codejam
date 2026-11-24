@@ -362,6 +362,15 @@ export class GameEngine implements IGameEngine {
     s.phase = "PLAYING";
     s.timers.lastRealMessageAt = this.now;
     this.emit({ type: "NIGHT_START", night: s.run.night });
+    // Night 1 opener ends with the night's first question so the keeper has something to answer at 12:00 AM.
+    if (s.run.night === 1 && s.chud.questionPlan.length > 0 && !s.chud.questionPlan[0].asked) {
+      const first = s.chud.questionPlan[0];
+      first.asked = true;
+      const q = this.makeQuestion(first.type, "SCHEDULED", this.lineRng);
+      this.askQuestion(q, false);
+      this.say({ kind: "night_opener", night: 1, question: q.text });
+      return;
+    }
     this.say({ kind: "night_opener", night: s.run.night });
   }
 
@@ -1424,22 +1433,22 @@ export class GameEngine implements IGameEngine {
     return mix.map((type, i) => ({ type, dueAt: times[i], asked: false }));
   }
 
-  private pickSeedTopic(): SeedTopic | null {
+  private pickSeedTopic(rng: Rng = this.rng): SeedTopic | null {
     const c = this.state.chud;
     const free = SEED_TOPICS.filter((t) => !hasOwn(c.facts, t.key) && !c.usedSeedKeys.includes(t.key));
-    return free.length ? this.rng.pick(free) : null;
+    return free.length ? rng.pick(free) : null;
   }
 
   // MEMORY checks only keys that have a memory question (SEED_TOPICS or RADIO_TOPIC), never `name`.
-  private pickMemoryTopic(): SeedTopic | null {
+  private pickMemoryTopic(rng: Rng = this.rng): SeedTopic | null {
     const facts = this.state.chud.facts;
     const known = ALL_TOPICS().filter((t) => t.key !== "name" && hasOwn(facts, t.key));
     if (!known.length) return null;
     const fresh = known.filter((t) => !this.memoryChecked.includes(t.key));
-    return this.rng.pick(fresh.length ? fresh : known);
+    return rng.pick(fresh.length ? fresh : known);
   }
 
-  private makeQuestion(type: QuestionType, origin: PendingQuestion["origin"]): PendingQuestion {
+  private makeQuestion(type: QuestionType, origin: PendingQuestion["origin"], rng: Rng = this.rng): PendingQuestion {
     const c = this.state.chud;
     const q = (t: QuestionType, factKey: string | null, text: string): PendingQuestion => ({
       id: this.nextQuestionId++,
@@ -1450,7 +1459,7 @@ export class GameEngine implements IGameEngine {
       askedAt: this.now,
     });
     if (type === "MEMORY") {
-      const topic = this.pickMemoryTopic();
+      const topic = this.pickMemoryTopic(rng);
       if (topic) {
         this.memoryChecked.push(topic.key);
         return q("MEMORY", topic.key, topic.memoryQuestion);
@@ -1458,13 +1467,13 @@ export class GameEngine implements IGameEngine {
       type = "SEED";
     }
     if (type === "SEED") {
-      const topic = this.pickSeedTopic();
+      const topic = this.pickSeedTopic(rng);
       if (topic) {
         c.usedSeedKeys.push(topic.key);
         return q("SEED", topic.key, topic.question);
       }
     }
-    return q("STAY", null, this.rng.pick(STAY_QUESTIONS));
+    return q("STAY", null, rng.pick(STAY_QUESTIONS));
   }
 
   private askQuestion(q: PendingQuestion, speak: boolean): void {
@@ -1528,11 +1537,15 @@ export class GameEngine implements IGameEngine {
   }
 
   // Never too distant (GAME_LOGIC 8.10 rule 4): after the night's quiet limit without a ChudGPT line, and only while
-  // calm, ChudGPT asks one light question. It stores no fact: any real answer passes.
+  // calm, ChudGPT asks one light question. Before Night 1's first visit, use the lower early quiet limit so the
+  // opening minute never drags in silence. It stores no fact: any real answer passes.
   private stepQuietQuestion(): void {
     const s = this.state;
     if (!this.calm || s.chud.queuedScriptQuestion) return;
-    const limit = this.cfg.QUIET_LIMIT[s.run.night - 1] ?? 50;
+    const limit =
+      s.run.night === 1 && s.ram.visitId === 0
+        ? this.cfg.NIGHT1_EARLY_QUIET_LIMIT
+        : (this.cfg.QUIET_LIMIT[s.run.night - 1] ?? 50);
     if (this.now - this.lastLineAt < limit - EPS) return;
     if (!this.questionFree("QUIET")) return;
     const text = lightQuestion(s.chud.band, () => this.lineRng.next(), this.lastLightQuestion);
@@ -1913,6 +1926,7 @@ export class GameEngine implements IGameEngine {
     else if (answerOutcome) line = answerOutcome;
     else if (r.mentions_leaving) line = { kind: "leaving_reply", topic: COAST_RE.test(t.text) ? "coast" : BOAT_RE.test(t.text) ? "boat" : undefined };
     else if (r.rude) line = { kind: "rude_reply" };
+    else if (r.asks_help) line = { kind: "help_reply", entry: s.ram.state === "AT_ENTRY" ? s.ram.target : null };
     else if (r.warm) line = { kind: flattery ? "flattery_reply" : "warm_reply" };
     else line = { kind: "small_talk" };
     if (line) this.say(line);
