@@ -185,7 +185,7 @@ Reference: FNAF 4 is pre-rendered 3D stills in a simple 2D engine (Clickteam Fus
 The watch room is damp stone and worn marine hardware. The forward view is anchored by ChudGPT's green CRT and the dark ocean beyond the desk. The left pane catches rain, the right hatch seam sits in shadow, and the balcony railing is a narrow silhouette when the player looks behind. Use desaturated storm blues and stone grays, with a single harsh light in each view and amber reserved for the beacon. Fine grain and edge falloff tie the views together. Use the [style guide](../art/style/STYLE_GUIDE.md) and [camera plan](../art/schematics/cameras.svg) when preparing concept art in ChatGPT image generation.
 
 What makes it scary (design rules):
-- Darkness, one harsh light source per view, near-black ambient.
+- Darkness, one harsh light source per view, near-black ambient. Between passes, compress the seated room's brightest ambient reflections so the window trim and wet glass read as faint shapes. The beam restores the full highlights where it lands.
 - Silence over sound: Ram is never heard, the house is always heard. From the desk the player needs the entry's light to see what is there.
 - Low frequency, high tension: few visits, long uneven gaps, attempt windows of 5 to 11 seconds.
 - Show as much of Ram as reads and scares best in each shot. The tells are partial by nature (fingers, a hand, a face at the glass, a shadow under the door); the jumpscare shows him in full.

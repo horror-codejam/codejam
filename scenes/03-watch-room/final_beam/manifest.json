@@ -36,6 +36,10 @@
   "preview": false,
   "samples": 128,
   "colorEncoding": "linear radiance shaped by x/(x+colorShaper), then encoded as sRGB",
+  "ambientHighlights": {
+    "knee": 0.003,
+    "headroom": 0.018
+  },
   "angleEncoding": {
     "textureSampling": "nearest",
     "colorSpaceConversion": "none",
@@ -45,8 +49,9 @@
   },
   "hazeDepthEncoding": "linear 8-bit grayscale, 0 to haze.rangeMeters along the camera ray",
   "composite": {
-    "dark": "darkBase * darkGain",
-    "lit": "darkBase * darkGain + (dark - darkBase) * darkGain * reveal + beam * beamProfile + bounce * bounceProfile * bounce.gain",
+    "dark": "ambient * darkGain",
+    "ambient": "darkBase with highlight compression for production seated views",
+    "lit": "mix(ambient, dark, reveal) * darkGain + beam * beamProfile + bounce * bounceProfile * bounce.gain",
     "reveal": "max(beamProfile, bounceProfile)",
     "bounceProfile": "beam profile evaluated at bounce.azimuth and lamp.tilt, or zero for slots without bounce"
   },

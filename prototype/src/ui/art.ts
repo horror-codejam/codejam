@@ -44,6 +44,7 @@ export interface BeamManifest {
     entryTellAzimuths: { window: number; hatch: number; balcony: number };
   };
   darkGain: number;
+  ambientHighlights: { knee: number; headroom: number };
   colorShaper: number;
   haze: {
     linearColor: [number, number, number];
@@ -213,7 +214,11 @@ function loadRawBeamTexture(fileName: string, linear = false): Promise<Texture> 
     })
     .then((blob) => createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" }))
     .then((bitmap) => new Texture({
-      source: new ImageSource({ resource: bitmap, scaleMode: linear ? "linear" : "nearest" }),
+      source: new ImageSource({
+        resource: bitmap,
+        scaleMode: linear ? "linear" : "nearest",
+        autoGenerateMipmaps: false,
+      }),
     }));
   beamTexCache.set(key, promise);
   return promise;

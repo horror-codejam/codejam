@@ -17,6 +17,7 @@ SLOTS = ("desk", *(f"{entry}_{state}" for entry in ENTRIES for state in ("empty"
          *(f"hold_{entry}_{stance}_{cue}" for entry in ENTRIES for stance in ("stand", "brace")
            for cue in ("empty", "tell")))
 GAME_SIZE = (1600, 800)
+AMBIENT_HIGHLIGHTS = {"knee": 0.003, "headroom": 0.018}
 HERE = Path(__file__).resolve().parent
 DETAILS = (
     ("Hatch seam", ("hatch_empty", "hatch_approach", "hatch_tell"), (0.35, 0.42, 0.66, 0.68)),
@@ -58,6 +59,12 @@ def current(source, target, size, mode):
             and image_complete(target, size, mode))
 
 
+def is_lossless_webp(path):
+    # Pillow writes a single VP8L chunk for an opaque RGB image without metadata.
+    with path.open("rb") as file:
+        return file.read(16)[12:] == b"VP8L"
+
+
 def encode_color(light, shaper):
     light = np.maximum(light, 0)
     shaped = light / (shaper + light)
@@ -89,12 +96,13 @@ def pack_slot(cache, output, slot, shaper, preview):
         target = output / files[kind]
         if not source.is_file():
             raise FileNotFoundError(source)
-        if not current(source, target, size, "RGB"):
+        lossless = kind == "dark" and not preview and name == slot["darkBase"] and not name.startswith("hold_")
+        if not current(source, target, size, "RGB") or (lossless and not is_lossless_webp(target)):
             light = read_exr(source, render_size)
             if render_size != size:
                 light = cv2.resize(light, size, interpolation=cv2.INTER_AREA)
             color = encode_color(light, shaper)
-            write_image(target, color, quality=94, method=6)
+            write_image(target, color, lossless=lossless, quality=94, method=6)
     source = cache / f"{name}_angles.exr"
     if not source.is_file():
         raise FileNotFoundError(source)
@@ -185,7 +193,13 @@ def linear_pair(output, slot, base, settings):
     azimuth = ((angles[..., 0] * 256 + angles[..., 1]) / 65535 - 0.5) * 360
     elevation = (angles[..., 2] / 255 - 0.5) * 180
     edge = ellipse(azimuth, elevation, slot["previewAzimuth"], settings["lamp"])[..., None]
-    dark_base = empty * settings["darkGain"]
+    ambient = empty
+    if not settings["preview"] and not slot["slot"].startswith("hold_"):
+        peak = empty.max(axis=-1, keepdims=True)
+        excess = np.maximum(peak - AMBIENT_HIGHLIGHTS["knee"], 0)
+        reduction = excess ** 2 / (excess + AMBIENT_HIGHLIGHTS["headroom"])
+        ambient = empty * (1 - reduction / np.maximum(peak, 1e-6))
+    dark_base = ambient * settings["darkGain"]
     reveal = edge
     lit = dark_base + beam * edge
     if "bounce" in slot:
@@ -193,7 +207,7 @@ def linear_pair(output, slot, base, settings):
         bounce_edge = ellipse(bounce["azimuth"], settings["lamp"]["tilt"], slot["previewAzimuth"], settings["lamp"])
         reveal = np.maximum(edge, bounce_edge)
         lit += decode_color(output / files["bounce"], shaper) * (bounce_edge * bounce["gain"])
-    lit += (dark - empty) * settings["darkGain"] * reveal
+    lit += (dark - ambient) * settings["darkGain"] * reveal
     with Image.open(output / files["hazeDepth"]) as image:
         depth = np.asarray(image, dtype=np.float32) / 255
     return dark_base, lit, depth
@@ -350,12 +364,14 @@ def main():
         "version": 1,
         **settings,
         "colorEncoding": "linear radiance shaped by x/(x+colorShaper), then encoded as sRGB",
+        "ambientHighlights": AMBIENT_HIGHLIGHTS,
         "angleEncoding": {"textureSampling": "nearest", "colorSpaceConversion": "none",
                           "azimuth": "(R*256+G)/65535*360-180",
                           "elevation": "B/255*180-90", "channels": "RGB are integer bytes"},
         "hazeDepthEncoding": "linear 8-bit grayscale, 0 to haze.rangeMeters along the camera ray",
-        "composite": {"dark": "darkBase * darkGain",
-                      "lit": "darkBase * darkGain + (dark - darkBase) * darkGain * reveal + beam * beamProfile + bounce * bounceProfile * bounce.gain",
+        "composite": {"dark": "ambient * darkGain",
+                      "ambient": "darkBase with highlight compression for production seated views",
+                      "lit": "mix(ambient, dark, reveal) * darkGain + beam * beamProfile + bounce * bounceProfile * bounce.gain",
                       "reveal": "max(beamProfile, bounceProfile)",
                       "bounceProfile": "beam profile evaluated at bounce.azimuth and lamp.tilt, or zero for slots without bounce"},
         "grade": {"lut": "grade.png", "vignette": "vignette.png", "lutSize": 64, "lutShaperMax": 0.992,

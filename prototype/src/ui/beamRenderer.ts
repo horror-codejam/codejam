@@ -39,10 +39,12 @@ export class BeamRenderer {
 
   constructor(grade: BeamGradeTextures) {
     this.rt = RenderTexture.create({ width: BEAM_W, height: BEAM_H, resolution: 1 });
+    const { knee, headroom } = beamManifest.ambientHighlights;
     const hazeColor = beamManifest.haze.linearColor;
     const hazeRange = beamManifest.haze.rangeMeters;
     this.uniforms = new UniformGroup({
       uPlateSize: { value: this.plateSize, type: "vec2<f32>" },
+      uAmbientHighlights: { value: new Float32Array([knee, headroom]), type: "vec2<f32>" },
       uRayOrigin: { value: this.rayOrigin, type: "vec3<f32>" },
       uRayAcross: { value: this.rayAcross, type: "vec3<f32>" },
       uRayDown: { value: this.rayDown, type: "vec3<f32>" },

@@ -15,6 +15,7 @@ uniform sampler2D uGrade;
 uniform sampler2D uVignette;
 
 uniform vec2 uPlateSize;
+uniform vec2 uAmbientHighlights;
 uniform vec3 uRayOrigin;
 uniform vec3 uRayAcross;
 uniform vec3 uRayDown;
@@ -54,14 +55,22 @@ float profile(vec2 angles) {
     return 1.0 - smoothstep(1.0 - uSoftness, 1.0, length(ellipse));
 }
 
+vec3 shadowAmbient(vec3 ambient) {
+    // The dark render still catches exterior reflections. Roll those highlights off
+    // in linear light so wet glass and trim do not compete with the ceiling beam.
+    float peak = max(ambient.r, max(ambient.g, ambient.b));
+    float excess = max(peak - uAmbientHighlights.x, 0.0);
+    float reduction = excess * excess / (excess + uAmbientHighlights.y);
+    return ambient * (1.0 - reduction / max(peak, 0.000001));
+}
+
 vec3 combinePixel(ivec2 pixel, float bounceEdge) {
     pixel = clamp(pixel, ivec2(0), ivec2(uPlateSize) - 1);
-    vec3 ambient = decodeLight(texelFetch(uDarkEmpty, pixel, 0).rgb);
+    vec3 ambient = shadowAmbient(decodeLight(texelFetch(uDarkEmpty, pixel, 0).rgb));
     if (uGain <= 0.0001) return ambient * uDarkGain;
     float edge = profile(anglesAt(pixel));
     if (edge <= 0.0 && bounceEdge <= 0.0) return ambient * uDarkGain;
-    // Keep the room's ambient light, and reveal changes in the tell/approach/inside plate
-    // locally with the beam so nothing reads through the dark between passes.
+    // Restore the authored ambient and any tell/approach/inside change where the beam lands.
     float reveal = max(edge, bounceEdge) * min(uGain, 1.0);
     vec3 dark = mix(ambient, decodeLight(texelFetch(uDark, pixel, 0).rgb), reveal);
     vec3 light = dark * uDarkGain;
@@ -126,5 +135,13 @@ void main() {
     vec3 light = applyLens(vUv, bounceEdge);
     light += hazeAt(vUv);
     light *= texture(uVignette, vUv).r;
-    fragColor = vec4(displayGrade(light), 1.0);
+    vec3 display = displayGrade(light);
+    // Break up shadow bands at the 8-bit render target. Keep the offset stationary,
+    // achromatic and below half a code value, with no offset in brighter pixels.
+    uint pixel = uint(gl_FragCoord.x) + uint(gl_FragCoord.y) * uint(uPlateSize.x);
+    uint hash = pixel * 747796405u + 2891336453u;
+    hash = ((hash >> ((hash >> 28u) + 4u)) ^ hash) * 277803737u;
+    float noise = (float(((hash >> 22u) ^ hash) & 255u) + 0.5) / 256.0 - 0.5;
+    float shadow = 1.0 - smoothstep(0.02, 0.10, max(display.r, max(display.g, display.b)));
+    fragColor = vec4(display + vec3(noise * shadow / 255.0), 1.0);
 }

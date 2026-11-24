@@ -12,7 +12,7 @@ Yacine's playtest verdict on 424064b (priority order for tomorrow):
 
 Living tracker for R.A.M. improvements after CodeJam 16 (started 2026-11-23). Yacine is now working solo. Keep this file current after every change.
 
-- Dark room fix complete. The full-screen additive grain and rain sat above the beam render and raised the dark floor. The room now uses the authored weather detail. See `prototype/screenshots/darkfix_*.png`.
+- Dark room follow-up. The first pass removed the additive grain and rain. The large-window test found bright outlines already in the ambient render and smaller WebP ringing around them. The seated renderer now rolls off ambient highlights outside the sweep, uses four lossless ambient plates and dithers the near-black output. The reported all-edge speckles did not reproduce. See `prototype/screenshots/darkfix2_*.png`.
 - Hold view fix complete. The window, hatch, and balcony tells stay visible while standing or bracing, including during lamp cuts. The balcony close-ups show a face in the doorway. See `prototype/screenshots/holdfix_*.png`.
 
 ## Branches and folders
