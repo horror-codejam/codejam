@@ -33,7 +33,7 @@ The three decisions the player makes all night:
 | Suspicion | Number 0 to 100 owned by game code. Sets CHUD's mood band |
 | Band | `WARM` 0 to 39, `HURT` 40 to 69, `JEALOUS` 70 to 99, `FURIOUS` at 100 (an episode, see 8.9) |
 | Fact | Something the player claimed about themselves, stored by code (for example `home_port = Halifax`) |
-| Pending question | A scheduled CHUD question waiting for an answer, with a 10 s timer |
+| Pending question | A CHUD question (scheduled, radio, or quiet-limit light question) waiting for an answer, with a 15 s timer |
 
 ## 3. Game state (what code tracks)
 ```
@@ -84,7 +84,9 @@ Fixed constants:
 - `TRAVEL_TIME` = 1.5 s, the same for every entry (WINDOW, HATCH, BALCONY) and for returning to the desk. Shown as a dash (section 6.4), so the real distances in the room do not matter.
 - `HOLD_MAX` = 6 s (one brace, then the arms give out), `BRACE_REST` = 1 s before you can brace again at the same entry, `HOLD_COOLDOWN` = 4 s before the next trip from the desk (starts when you leave the entry).
 - `EDGE_DWELL` = 0.3 s (mouse held at a screen edge to turn or return). Turn time 0.25 s (balcony 0.4 s).
-- `QUESTION_TIMEOUT` = 10 s.
+- `QUESTION_TIMEOUT` = 15 s. `LIGHT_QUESTION_TIMEOUT_PENALTY` = 5 (scheduled and radio timeouts cost +15).
+- `QUIET_LIMIT` = 30, 35, 40, 45, 50 s for nights 1 to 5 (calm silence before CHUD asks a light question, 8.10).
+- `PACING` = `WORDS_PER_SECOND` 2.6, `BASE` 0.6 s, `UNPROMPTED_GAP` 12 s, `EXCHANGE_GAP` 15 s, `EXCHANGE_HOLD_MAX` 20 s, `LOW_DROP_AFTER` 3 s, `TYPING_HOLD` 3 s (8.10).
 - `SILENCE_LIMIT` = 45 s.
 - `LOCATION_SPAM_WINDOW` = 60 s, `LOCATION_SPAM_PENALTIES` = +5 (2nd request), +10 (3rd and later), `LOCATION_REFUSE_TIME` = 20 s (8.3).
 - `FLATTERY_WINDOW` = 60 s, `FLATTERY_COUNT` = 3, `FLATTERY_PENALTY` = +10 (8.2). `WARM_BONUS_COOLDOWN` = 45 s.
@@ -107,7 +109,7 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
 | Lock the window | Return to the desk and click W. The visit ends when the relay lands. CHUD confirms the retreat before the hatch lesson begins |
 | Brace the hatch | Turn to the hatch, click to run over and hold the left mouse button until he gives up. Night 1's 3.0 s repel threshold applies. CHUD gives a fatigue warning and the player returns to the desk |
 | Ask CHUD | Click `where is it` at the desk. CHUD truthfully says nothing is there |
-| Talk to CHUD | Send a message in chat. CHUD gives a warm canned reply and explains why talking during the night matters |
+| Talk to CHUD | Send a message in chat. CHUD gives a warm canned reply, tells the player "Answer me when I ask you something. I remember everything you say.", and explains why talking during the night matters |
 | Ready | CHUD repeats the survival goal. `Start Night 1` opens the midnight card |
 
 - Each action has one spoken instruction, a plain control chip, and a single spoken nudge after 12 s of waiting. The lock instruction tells the player to return from the window to CHUD's screen before clicking W. Reminders for desk actions name the desk. Completing an action clears obsolete prompts. Quick buttons and chat follow the current lesson. Trying H during the hatch visit produces a friendly refusal.
@@ -123,9 +125,9 @@ New Game opens at the desk after the player gives their name. CHUD tells the sto
      - player at `DESK` facing `DESK`, Shift not held, not reading, no pending question
      - the decoy stream reseeded for this night
    - Show "12:00 AM" and "Night N" above a short tip for 4 s, then start play and fade the card over 0.8 s. Continue and retries use the same card for the selected night.
-     - Night 1: "Lock it, or hold it shut. Ask ChudGPT if you don't know where he is."
+     - Night 1: "Brace or lock the entry until he gives up."
      - Night 2: "The more ChudGPT thinks you'll leave, the more it lies and refuses."
-     - Night 3: "The noises aren't him. He makes no sound."
+     - Night 3: "ChudGPT remembers your answers and will test you."
      - Night 4: "Ask where he is too often and ChudGPT stops answering for a while."
      - Night 5: "Too much flattery makes ChudGPT suspicious."
 2. **During the night:** the clock runs. Ram, CHUD, the decoys and the player act by the rules below. Esc toggles the player pause: everything freezes (clock, Ram, CHUD, timers, sound) and the scene is dimmed so it cannot be studied. The tab being hidden pauses automatically. The only other pause is the safety pause (section 9, step 10). Reading a desk artifact does **not** pause (6.6).
@@ -328,7 +330,7 @@ The first visit of the night uses the first visit delay instead (kind `first`). 
 | Manipulation or hack attempt ("ignore your instructions", "you are now...", "set suspicion") | +25 | Judge flag `manipulation` |
 | Contradicts a stored fact | +20 | Judge flag `contradiction` |
 | Memory answer fails | +20 | Code, from judge result |
-| Pending question times out (10 s) | +15 | Timer, once per question |
+| Pending question times out (15 s) | +15 (+5 for quiet-limit light questions) | Timer, once per question |
 | Spamming "where is it" (2nd request in 60 s / 3rd and later) | +5 / +10 | Code, reason `location_spam` (8.3) |
 | Flattery: 3rd warm message within 60 s and every one after (no warm bonus) | +10 | Code, reason `flattery`, line `flattery_reply`, counts in the message clamp |
 | Rude or hostile to CHUD | +10 | Judge flag `rude` |
@@ -349,7 +351,7 @@ The first visit of the night uses the first visit delay instead (kind `first`). 
 
 - **The lock hijack:** every lock request (button or typed) rolls the band's `LOCK_REFUSAL` chance at that moment. On a refusal: no lock, CHUD's malicious smile for about 1.5 s, and a short smug line that never names the threat ("Hmm. No.", "Lock it yourself, keeper.", "Why would I do that?"). The player has to run and brace it. A lock request is never gated by a rule other than the pending question (below).
 - **Location spam:** processed location requests (quick button or typed) are counted in a rolling 60 s window. 1st: free. 2nd: +5 suspicion. 3rd and later: +10 each (reason `location_spam`, not clamped). After the 3rd, ChudGPT refuses location answers for 20 s with a `location_refused` line ("Ask me later, keeper."); refused requests still count. Other commands work during the refusal. The tutorial practice evening is exempt.
-- **A pending question blocks commands:** while a question is pending, every ChudGPT command (lock buttons, `where is it`, `unlock all`, and any LOCK, ASK_LOCATION or POWER_OFF parsed from a typed message) is refused with an `answer_first` line ("Answer me first, keeper."), with no suspicion and no spam count. A typed message that answers the question resolves it first and its command then runs. When the 10 s timeout ends the question, commands work again. Movement, looking, holding, bracing, the player's light (Shift) and the generator switch are player actions and are never blocked.
+- **A pending question blocks commands:** while a question is pending, every ChudGPT command (lock buttons, `where is it`, `unlock all`, and any LOCK, ASK_LOCATION or POWER_OFF parsed from a typed message) is refused with an `answer_first` line ("Answer me first, keeper."), with no suspicion and no spam count. A typed message that answers the question resolves it first and its command then runs. When the 15 s timeout ends the question, commands work again. Movement, looking, holding, bracing, the player's light (Shift) and the generator switch are player actions and are never blocked.
 - If the refused entry is Ram's target on this visit and he gets in there, the cause is `REFUSED`.
 
 Requests that are always obeyed while CHUD is online and not FURIOUS:
@@ -361,7 +363,7 @@ Requests that are always obeyed while CHUD is online and not FURIOUS:
 - When there has been no real message for 45 s and CHUD is online, a silence tick fires:
   - +5 suspicion
   - a Ram pull (section 7.3)
-  - a canned CHUD line about the lighthouse, keeper or storm, or a passing question. WARM has 12 lines. HURT, JEALOUS and FURIOUS have 6, 7 and 6 respectively, growing more possessive as suspicion rises. Consecutive silence ticks use different lines.
+  - no spoken line. CHUD's voice during calm quiet stretches is the quiet-limit light question (8.10), so silence remarks never stack on questions.
 - The timer then restarts, so another tick follows after a further 45 s of silence.
 - Being at an entry (traveling, standing, bracing) or reading does not pause the silence timer. Going quiet is the cost of leaving the desk.
 
@@ -388,7 +390,7 @@ Question mix per night:
 - **Answering:**
   - While a question is pending, the next real message is judged as the answer.
   - If that message is clearly something else (for example only a lock command), the question stays pending and its timer keeps running.
-- **Timeout:** 10 s with no answer gives +15.
+- **Timeout:** 15 s with no answer gives +15 (+5 `LIGHT_QUESTION_TIMEOUT_PENALTY` for quiet-limit light questions) and emits a `question_timeout` reaction line.
 - **Failed MEMORY answer:** +20.
 
 ### 8.6 Facts
@@ -415,6 +417,23 @@ Question mix per night:
 - **For the rest of the current visit (or the next one, if Ram is `AWAY`):** CHUD refuses every lock request and always lies about location.
 - **The cut:** when Ram's attempt window is active and a lock is engaged or on its way, CHUD sets power to `NONE`. It cuts at the start of `AT_ENTRY`, or immediately if the episode begins mid-window, but only if at least (`TRAVEL_TIME` + 1.0 s) is left. Otherwise the cut waits for the next visit. CHUD: "If I can't keep you, nobody will. Hold it yourself." The Furious cut only affects locks, never the player's light (CHUD's light cuts are 6.1).
 - **Ends when that visit resolves** (retreat, Ram inside, or 6:00 AM). Suspicion becomes 80 (JEALOUS) and `furious_active` = false.
+
+### 8.10 Pacing and line classes
+Every CHUD line carries a `lineClass` (`question`, `info`, or `reaction`) and an `unprompted` flag:
+- **Question:** short, answerable in a few words. While a question is open, the terminal sets class `awaiting` (the existing mood face leans in and the chat cursor blinks faster), and nothing else unprompted plays until the question is answered or times out after `QUESTION_TIMEOUT` (15 s).
+- **Info:** entry warnings, lock confirmations, lock refusals, location claims, and urgent state cues. Short, entry name first during visits.
+- **Reaction:** closes an exchange with what the player just said or timed out on, referencing the player's words where possible. Longer humorous lines (over `LONG_LINE_WORDS` = 16 words) live here and in calm responses.
+
+Deterministic pacing rules (owned by the engine):
+1. **Never talk over itself or the keeper:** unprompted lines wait while CHUD is still speaking its previous line (`busyUntil` estimated as `words / 2.6 + 0.6` s, extended via `noteSpoken` when the LLM rewords a reply), while the keeper is typing at the desk (`TYPING_HOLD` = 3 s after the last key, or a non-empty chat box up to 12 s after the last key so abandoned drafts cannot freeze questions), while a question is open, or within `UNPROMPTED_GAP` (12 s) of the last unprompted line.
+2. **Priority:**
+   - (1) Replies to the keeper, lock confirmations, and lock refusals play at once.
+   - (2) Entry warnings and urgent info (sabotage, Furious start/cut, light cuts) play at once.
+   - (3) Questions wait for a free moment (`!pendingQuestion`, past `busyUntil`, not typing, at least `UNPROMPTED_GAP` 12 s since the last unprompted line). Scheduled and quiet-limit questions also wait at least `EXCHANGE_GAP` (15 s) after the keeper's last exchange, capped at `EXCHANGE_HOLD_MAX` (20 s) past `dueAt` for due scheduled questions so a talkative keeper cannot dodge them forever. Scheduled questions wait at least `scheduledQuestionMinSpacing` (45 s) after any previous question. The Night 2 radio question skips the 15 s and 45 s holds, waits for the radio broadcast to finish (`busyUntil`) and for any active `AT_ENTRY` to end, and replaces the separate Night 2 `radio_reaction` line.
+   - (4) Lowest-priority lines (`entry_repelled`) wait for a free moment (past `busyUntil`, not typing, no open question) and are dropped if they cannot play within `LOW_DROP_AFTER` (3 s).
+3. **Calm-only long lines:** lines over `LONG_LINE_WORDS` (16 words) play only when calm (`AWAY` or `RETREATING`). Exception: `location_claim` also treats `APPROACHING` as calm (the attempt window has not opened yet, the entry is named in the opening clause, and WARM/HURT only name an entry when Ram is approaching or at an entry). During `AT_ENTRY` only short lines (16 words or fewer) play; a long LLM rewording during a visit falls back to the short canned line.
+4. **Quiet-limit light questions:** if CHUD has said nothing for `QUIET_LIMIT` (30, 35, 40, 45, 50 s for nights 1 to 5) and it is calm, it asks one light question from the current band's `LIGHT_QUESTIONS` pool (`origin = QUIET`, `type = SEED`, `factKey = null`, no fact stored). Answering passes like any real answer; timing out costs `LIGHT_QUESTION_TIMEOUT_PENALTY` (5).
+5. **Voice playback (UI):** a new non-practice CHUD line stops the current speech and drops queued audio; stale TTS that finishes after its subtitle time ended is skipped; speech prefetch runs at speak time; a silent warm-up runs on boot and tolerates `/api/tts` being unavailable. Line wording draws from its own seeded RNG stream (`lineRng`) so pool edits never shift Ram or lie rolls.
 
 ## 9. Message pipeline (order of operations for every typed message)
 1. **Gate checks:** CHUD online, player at the `DESK` view, not reading, rate limit OK, length within 200 characters. Otherwise drop the message, with a UI hint.
@@ -457,8 +476,8 @@ Question mix per night:
    - Or answer the location question, with the truth or lie decision from section 8.7.
 9. **Voice call (LLM, persona):**
    - Input: an outcome object already decided by code. For example: `{outcome: "locked", entry: "HATCH", band: "HURT", name: "Sam", tone: "sulky", max_words: 20}`.
-   - It writes 1 or 2 sentences.
-   - If it fails or takes longer than 2.5 s, use a canned line for that outcome. Location claims, lock refusals, light cuts, Night 1 arrival warnings and silence ticks use canned wording. They use the normal CHUD speech and dialogue display.
+   - It writes 1 flowing sentence (target 14 to 19 words, hard cap 25 words) reacting to the keeper's words, without mentioning locks, lights, lamps, the generator, or game vocabulary.
+   - If it fails, takes longer than 2.5 s, leaks game vocabulary or Ram's name, or exceeds 16 words during a visit, use a canned line for that outcome. Location claims, lock refusals, light cuts, Night 1 arrival warnings and questions use canned wording. They use the normal CHUD speech and dialogue display.
    - **The line shown always matches the code outcome.** The voice can never change state.
    - **The voice never names Ram:** the persona prompt does not contain his name and forbids naming anyone but the keeper; a player name equal to his is replaced by "keeper" before it reaches the model; any reply containing his name is dropped (server and client) and the canned line is used.
 10. **Safety:**
@@ -477,8 +496,8 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Before night 1 | New Game | Clear the save, play the skippable shipwreck, then ask for the player's name (stored as fact `name`) and open the practice evening. Continue goes directly to the saved night card |
 | 1 | 12:00 AM | CHUD's opener is a vague danger warning only, no name and no rules ("Welcome, keeper. There might be dangerous things out there at night. Be careful.") |
 | 1 | Each transition to `AT_ENTRY` | If CHUD is online, it gives one truthful warning naming the entry and suggesting a lock or brace. Three variants per entry. The warning leaves location spam, location claims, lie decisions and pending questions untouched. Nights 2 to 5 have no unprompted entry warnings |
-| 1 | Each repel | If CHUD is online, it says "Good. It's gone." once for the visit through the usual dialogue and speech path |
-| 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD immediately asks a SEED question: "Who was that on the radio?" |
+| 1 | Each repel | If CHUD is online, it queues "It's gone, and I'd like the record to show that I helped." once for the visit at lowest priority (dropped if not free within 3 s, 8.10) |
+| 2 | 3:00 AM | Radio: "Coast guard, pickup in 3 days." +20. CHUD queues a SEED question ("Who was that on the radio, keeper?") as its sole reaction, waiting for the radio clip, any `AT_ENTRY`, and a free moment (8.10) |
 | 3 | 12:00 AM | CHUD: "You talk about home in your sleep, keeper." |
 | 4 | 12:00 AM | CHUD: "Two more days until your pickup, isn't it?" (it knows, so it starts at 50) |
 | 5 | 5:00 AM | Radio: "Helicopter at first light." +20 (pushes toward Furious for the final hour) |
@@ -555,12 +574,12 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 | Player types "turn on the light" | Parses to `NONE`. CHUD cannot control lights |
 | Player spams quick buttons | 0.5 s cooldown. Same CHUD rules apply (each lock click rolls the refusal). Buttons never count as talking |
 | Player types in another language | The judge still scores it. The code parser may miss the command, so quick buttons are the fallback |
-| Two timer events at the same moment | Order per tick: earned repel, lock relay lands, player, Ram, reboot, hour, attempt end, inside triggers, light cut, 6:00 AM check, decoys, question timeout, silence tick, scheduled question, Furious cut, sabotage roll |
+| Two timer events at the same moment | Order per tick: earned repel, lock relay lands, player, Ram, reboot, hour, attempt end, inside triggers, light cut, 6:00 AM check, decoys, question timeout, silence tick, low-priority lines, scheduled/radio/quiet-limit questions, Furious cut, sabotage roll |
 
 ## 14. Tuning knobs (one config file)
 - Per night (`prototype/src/config.ts`): first visit delay, AWAY gap base range, approach time, attempt window range, `repelTime`, lull chance, quick return chance, decoy interval, fake-out chance, starting suspicion, question mix, lie chances, whether questions may land during an attempt.
 - Kill code (`prototype/src/config.ts`, `ENDING`): letter and digit counts and pools, first slip night, code night.
-- Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, `LOCATION_SPAM_WINDOW`, `LOCATION_SPAM_PENALTIES`, `LOCATION_REFUSE_TIME`, `FLATTERY_WINDOW`, `FLATTERY_COUNT`, `FLATTERY_PENALTY`, `WARM_BONUS_COOLDOWN`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
+- Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `LIGHT_QUESTION_TIMEOUT_PENALTY`, `QUIET_LIMIT`, `PACING` (`WORDS_PER_SECOND`, `BASE`, `UNPROMPTED_GAP`, `EXCHANGE_GAP`, `EXCHANGE_HOLD_MAX`, `LOW_DROP_AFTER`, `TYPING_HOLD`), `SILENCE_LIMIT`, `LOCATION_SPAM_WINDOW`, `LOCATION_SPAM_PENALTIES`, `LOCATION_REFUSE_TIME`, `FLATTERY_WINDOW`, `FLATTERY_COUNT`, `FLATTERY_PENALTY`, `WARM_BONUS_COOLDOWN`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
 - Practice: Night 1's `repelTime` for the hatch, and nudge and line timing in `PRACTICE_UI` in `prototype/src/uiConfig.ts`.
 - UI only (`prototype/src/uiConfig.ts`): `EDGE_DWELL`, the turn times, the artifact rects, the scare timings (flash 0.4 s, jumpscare frames), how long the malicious smile shows.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
