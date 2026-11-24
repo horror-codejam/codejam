@@ -57,16 +57,16 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - Ram makes no sound at any entry. The house creaks, knocks and rattles all night (decoys), and none of it is him.
 - Forward desk view (`cam_desk`): ChudGPT's face, chat, clock, and power icon. The attached cottage remains a base annex.
 - See the [watch room schematics](../art/schematics/README.md) for the floor plan and four camera directions.
-- One power slot runs one magnetic lock. Hold Shift to light the entry you are looking at and release it to go dark. The light and lock work independently.
-- The lights are the player's, not ChudGPT's: ChudGPT cannot turn one on or stop one coming on. It can force a light off (more often the more suspicious it is), with a possessive line ("You don't need that. You have me."). Press Shift again to relight it.
+- One power slot runs one magnetic lock. One slow rotating white ceiling lamp above the desk sweeps the whole room right to left every 16 s, independent of the lock. Between passes the room is extremely dark, and he is visible only while the beam sweeps across him.
+- ChudGPT cannot turn the lamp on or steer it, but when suspicious it can stop the ceiling lamp for 5 s in total dark with a small click and a possessive line ("You don't need the lamp. You have me.").
 - The beacon: the lamp and lens sit in the lantern room at the top of the tower, above the watch room, so nothing in the player's room blocks a view. Its amber light sweeps across the sea through the front glazing every few seconds. Ambience only.
 - Entry locks are magnetic locks. Select an entry mark on ChudGPT's map to request its lock.
-- The ChudGPT terminal sits on the monitor glass in the desk view. Its three columns show the mood face, chat and quick commands, then the clock, map and power cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
+- The ChudGPT terminal sits on the monitor glass in the desk view. Its three columns show the mood face, chat and quick commands, then the clock, map and three lock cells. The off-desk view carries only the clock, night number, transient subtitles and the cursor ring.
 
 ## Player actions
-Controls: the mouse moves you, Shift is the light, the rest of the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
+Controls: the mouse moves you, and the keyboard is only for chat (details in docs/GAME_LOGIC.md section 6).
 1. Type to the AI: ask where he is, ask it to lock an entry, answer its questions. Typing at the desk goes straight to chat. The map's three entry marks, `where is it` and `unlock all` are clickable. ChudGPT can hijack a lock: a malicious smile, no lock, and you run to brace it yourself.
-2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Hold Shift to light the entry you are looking at.
+2. Turn to look at an entry: hold the mouse at the left edge (window), right edge (hatch) or bottom edge (balcony). The opposite edge (bottom again from the balcony) turns back. Wait for the rotating ceiling beam to sweep across the entry to see what is there.
 3. Defend an entry by hand: click once while looking at it to run there, then hold the left mouse button to brace it until he gives up. A brace can last up to 6 s, followed by a 1 s rest when you release or your arms give out. Push the return edge to run back. You can type at the desk.
 4. Read one paper on the tabletop per night. The newspaper clipping, leaving calendar and Daniel Vale's diary appear on Nights 1, 2 and 3. Clicking the paper opens the image in the center while the night keeps running.
 5. Collect the kill code slips Ram leaves at the entries he was blocked at (nights 2 to 5). Collected slips stay on the desk and can be reread (GAME_LOGIC.md 6.7).
@@ -111,10 +111,10 @@ The AI asks unprompted questions (about once per in-game hour), for example "You
 ## Example night (night 2)
 1. 12:00 AM: the AI is friendly. "Evening, keeper. I kept the cottage warm for you."
 2. 12:50 AM: a creak somewhere behind. Nothing there: just the house. Player: "is anyone out there?" AI: "Something's at the hatch, keeper. Hurry." Player clicks Lock H. Locked, and the hatch view goes dark.
-3. The player wants to be sure, holds Shift on the hatch: the lock drops, fingers over the lid. Release, lock again in time. He leaves without a sound.
+3. The player wants to be sure and turns to the hatch: the rotating beam sweeps across and reveals fingers over the lid while the lock holds. He leaves without a sound.
 4. 1:30 AM: AI: "You'll stay with me after the storm, won't you?" Player lies: "Of course." Suspicion down.
 5. 3:00 AM: radio: "Coast guard, pickup in 3 days." The AI heard. "...Pickup?" Suspicion jumps.
-6. 3:40 AM: the player checks the balcony with Shift. The light snaps off. "You don't need that. You have me." Shift again: the door is ajar. Lock B: a malicious smile, "Hmm. No." The player runs and braces the door.
+6. 3:40 AM: the player checks the balcony. The ceiling lamp clicks off into total dark. "You don't need the lamp. You have me." When the lamp comes back on and sweeps past, the door is ajar. Lock B: a malicious smile, "Hmm. No." The player runs and braces the door.
 7. 6:00 AM: the tide goes out. The clock ticks over and the next night card appears.
 
 ## Difficulty curve (targets to tune in playtests, not measured)
