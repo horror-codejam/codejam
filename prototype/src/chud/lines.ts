@@ -104,7 +104,34 @@ const LOCATION_NONE: BandPools = {
   FURIOUS: ["No one's there. Not yet.", "Nobody's out there. Only me, keeper."],
 };
 
-const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "night_opener" | "question" | "answer_ack" | "furious_cut">, BandPools> = {
+export const PRACTICE_LINES = {
+  wreck: "Your boat went down in the storm, {n}. I pulled you in. You're in my lighthouse.",
+  rescue: "The Coast Guard comes in five days. Until then, we wait.",
+  danger: "Something on this island comes out at night. It tries to get in. The window, the hatch, the balcony.",
+  bargain: "Stay alive until 6 AM each night. I'll help you. As long as you're nice to me.",
+  views: "Move your mouse to the edge of the screen to look around.",
+  light: "Something's at the window. It's too dark to see. Hold Shift to look.",
+  lock: "See it? Click W on my screen and I'll lock the window.",
+  windowSafe: "Good. It's gone. A lock keeps it out.",
+  hatch: "It's at the hatch. I can't lock it. Click to run over, then hold the mouse button.",
+  hatchRefusal: "I can't lock the hatch this time. You've got this. Go hold it shut.",
+  return: "Nice. Your arms get tired, so don't hold too long. Come back to the desk.",
+  location: "If you don't know where it is, just ask me. Click 'where is it'.",
+  chat: "Before tonight, tell me something about you.",
+  chatReply: "Thanks for telling me, {n}. I'm glad you're here.",
+  lonely: "Talk to me during the night too. I get lonely. And lonely makes me... unreliable.",
+  ready: "That's everything. Survive until 6 AM.",
+  nudgeViews: "Try the edge the prompt shows you.",
+  nudgeLight: "Look left, then hold Shift.",
+  nudgeLock: "Come back and click W on my screen.",
+  nudgeHatch: "Go to the hatch and hold it shut.",
+  nudgeReturn: "Come back to the desk.",
+  nudgeLocation: "Click 'where is it' on my screen.",
+  nudgeChat: "Type anything and press Enter.",
+} as const;
+export type PracticeLine = keyof typeof PRACTICE_LINES;
+
+const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "night_opener" | "question" | "answer_ack" | "furious_cut" | "practice_line">, BandPools> = {
   name_ack: {
     WARM: ["{n}. Lovely. I'll remember that forever.", "{n}. I'll never forget it. Never.", "Welcome home, {n}. Stay as long as you like.", "{n}. What a nice name for a keeper."],
   },
@@ -345,6 +372,8 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
   const band = ctx.band;
   const r = ctx.rand;
   switch (outcome.kind) {
+    case "practice_line":
+      return fill(PRACTICE_LINES[outcome.line], ctx);
     case "location_claim":
       if (outcome.entry === "NONE") return fill(pick(forBand(LOCATION_NONE, band), r), ctx);
       if (outcome.entry === "INSIDE") return fill(pick(forBand(LOCATION_INSIDE, band), r), ctx);
@@ -398,5 +427,6 @@ export function allLineTemplates(): string[] {
   out.push(...REFUSE_LOCK, ...STAY_QUESTIONS);
   for (const t of [...SEED_TOPICS, RADIO_TOPIC]) out.push(t.question, t.memoryQuestion);
   out.push(...Object.values(RADIO_LINES));
+  out.push(...Object.values(PRACTICE_LINES));
   return out.filter((s) => s.length > 0);
 }

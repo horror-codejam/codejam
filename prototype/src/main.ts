@@ -9,7 +9,7 @@ import { CONFIG } from "./config";
 import { GameEngine } from "./sim/engine";
 import { slotEntry, type Band, type Entry, type GameEvent, type InsideTrigger, type LossInfo, type Phase, type PowerSlot, type QuickCommand } from "./sim/types";
 import { loadArt } from "./ui/art";
-import type { Sound } from "./ui/audio";
+import type { Sound, SpeechPlayback } from "./ui/audio";
 import { EdgeTurner } from "./ui/edges";
 import { playIntro } from "./ui/intro";
 import { H, W } from "./ui/layout";
@@ -26,7 +26,7 @@ import { renderSafetyPause } from "./ui/screens/safety";
 import { clearSave, readSave, writeSave, type SavedRun } from "./ui/screens/save";
 import { GAME_TITLE, renderTitle } from "./ui/screens/title";
 import type { createArtifacts } from "./ui/artifacts";
-import { MALICE, RING, SCARE } from "./uiConfig";
+import { MALICE, PRACTICE_UI, RING, SCARE } from "./uiConfig";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -70,7 +70,10 @@ const ui = {
 const NAME: Record<Entry, string> = { WINDOW: "window", HATCH: "hatch", BALCONY: "balcony" };
 
 const terminal = new Terminal($("terminal"));
-const tutorial = new EveningTutorial($("tutorial"), terminal.root, finishPractice);
+const practiceControls = $("tutorial");
+const practiceChip = $("practice-chip");
+const practiceFinish = $<HTMLButtonElement>("practice-finish");
+let tutorial = new EveningTutorial();
 
 // UI-only state
 let lastPhase: Phase | null = null;
@@ -78,7 +81,7 @@ let frontScreen: "title" | "intro" | null = null; // presentation before the eng
 let screenAbort = new AbortController();
 let devRun = deepNight !== null;
 let breachShown = false;
-type Caption = { text: string; until: number };
+type Caption = { text: string; until: number; playback?: SpeechPlayback };
 let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
 let powerAlarmUntil = 0;
@@ -198,7 +201,7 @@ function frame(dt: number): void {
   }
   sound.setSpeechView(engine.state.player.view);
   const events = engine.drainEvents();
-  // The name acknowledgment and the first night card arrive together. Stop old audio before either is handled.
+  // Clear queued speech when leaving practice or starting a new night.
   if (events.some((ev) => ev.type === "NIGHT_CARD")) stopChudSpeech();
   for (const ev of events) onEvent(ev, t);
   const phase = engine.state.phase;
@@ -213,6 +216,9 @@ function frame(dt: number): void {
     }
   }
   edgeTurn(t);
+  if (!paused && engine.isPracticing && phase === "PLAYING") {
+    tutorial.update(engine, t, (line) => showChud(line.text, line.band, t));
+  }
   const animateStage = phase === "PLAYING" || (phase === "BREACH" && !breachShown);
   const typing = document.activeElement === terminal.chat && t - lastTypedAt < TYPING_TAIL;
   if (!paused && animateStage) scene.update(engine, t, typing);
@@ -244,7 +250,13 @@ function onEvent(ev: GameEvent, t: number): void {
       // Also handles dev jumps within the same phase, including those that skip the card.
       showScreen(engine.state.phase);
       break;
-    // Ram makes no sound and never speaks (GAME_LOGIC 7.4): RAM_* events have no cue here on purpose.
+    // The lesson uses room sounds at the entries. Night visits are silent (GAME_LOGIC 7.4).
+    case "RAM_AT_ENTRY":
+      if (engine.isPracticing) sound.decoy(ev.entry === "WINDOW" ? "glass" : "knock", ev.entry === "WINDOW" ? -0.8 : 0.8);
+      break;
+    case "RAM_RETREAT":
+      if (engine.isPracticing && ev.entry === "HATCH") sound.decoy("metal", 0.8);
+      break;
     case "DECOY":
       sound.decoy(ev.sound, ev.pan);
       break;
@@ -263,7 +275,6 @@ function onEvent(ev: GameEvent, t: number): void {
     }
     case "LIGHT_CHANGED":
       sound.lightClick(ev.entry !== null);
-      if (engine.isPracticing && ev.entry) tutorial.usedEntryLight();
       break;
     case "LOCK_REFUSED":
       maliciousUntil = t + MALICE.REFUSE_TIME;
@@ -290,8 +301,11 @@ function onEvent(ev: GameEvent, t: number): void {
     case "CHUD_SAY": {
       if (!ev.text) break;
       const o = ev.outcome;
-      if (engine.isPracticing) tutorial.reply(o);
-      if (engine.isPracticing || !llm.on || !VOICED.has(o.kind)) {
+      if (engine.isPracticing) {
+        tutorial.hear(ev);
+        break;
+      }
+      if (!llm.on || !VOICED.has(o.kind)) {
         showChud(ev.text, ev.band, t);
         break;
       }
@@ -370,12 +384,14 @@ function stopChudSpeech(): void {
   sound.stopSpeech();
 }
 
-function showChud(text: string, band: Band, t: number): void {
-  chudCaption = { text, until: t + Math.max(3, text.length * 0.06) };
+function showChud(text: string, band: Band, t: number): SpeechPlayback | undefined {
+  chudCaption = { text, until: t + Math.max(PRACTICE_UI.MIN_READ_TIME, text.length * PRACTICE_UI.READ_SECONDS_PER_CHARACTER) };
   terminal.addLine("chud", text, t);
   convo.push(`ChudGPT: ${text}`);
   sound.chime();
-  if (engine.state.power.chudOnline) sound.speak(text, band);
+  const playback = engine.state.power.chudOnline ? sound.speak(text, band) : undefined;
+  if (engine.isPracticing) chudCaption.playback = playback;
+  return playback;
 }
 
 function clockText(): string {
@@ -411,14 +427,15 @@ function renderHud(t: number): void {
 
   const deskView = playing && atDesk && view === "DESK";
   const caption = playing
-    ? [radioCaption, deskView ? undefined : chudCaption].find((line) => line && line.until > t)
+    ? [radioCaption, deskView && !practicing ? undefined : chudCaption].find((line) => line && (line.until > t || line.playback?.state === "playing"))
     : undefined;
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
   ui.subtitle.classList.toggle("desk", deskView); // sits on the bare desk above the keyboard, not over it
+  ui.subtitle.classList.toggle("practice", practicing);
 
   show(terminal.root, deskView);
-  terminal.root.inert = paused || s.player.reading !== null;
+  terminal.root.inert = paused || s.player.reading !== null || (practicing && tutorial.step === "story");
   if (deskView) {
     terminal.root.style.transform = scene.deskScreenTransform();
     terminal.root.style.opacity = String(scene.transitionVisible ? 0 : 1 - scene.fadeAlpha);
@@ -438,8 +455,20 @@ function renderHud(t: number): void {
   codeDesk.sync(playing ? s.player.reading : null);
   codeDesk.render(deskClear);
   codeDesk.renderFloor(playing && !practicing);
-  if (practicing && playing && !paused) tutorial.render(s);
-  else tutorial.hide();
+  practiceControls.hidden = !practicing || !playing || paused;
+  const prompt = practiceControls.hidden ? undefined : tutorial.prompt(s);
+  if (prompt) {
+    practiceControls.dataset.lesson = tutorial.step;
+    setText(practiceChip, prompt.chip);
+    practiceChip.hidden = !prompt.chip;
+    setText(practiceFinish, tutorial.step === "ready" ? "Start Night 1" : "Skip practice");
+  }
+  if (deskView && practicing) {
+    terminal.chat.disabled ||= tutorial.step !== "chat";
+    for (const button of terminal.quick) button.disabled ||= !tutorial.allowsQuick(button.dataset.quick as QuickCommand);
+  }
+  terminal.chat.classList.toggle("tutorial-target", prompt?.target === "chat");
+  for (const button of terminal.quick) button.classList.toggle("tutorial-target", prompt?.target === button.dataset.quick);
   renderRing();
 }
 
@@ -497,7 +526,7 @@ function resetScreen(): void {
 }
 
 function showTitle(): void {
-  tutorial.hide();
+  practiceControls.hidden = true;
   artifacts?.read(null);
   artifacts?.render(false);
   resetScreen();
@@ -522,7 +551,7 @@ function showTitle(): void {
 }
 
 function startRun(saved?: SavedRun): void {
-  tutorial.reset();
+  tutorial = new EveningTutorial();
   sound.setTitlePlaying(false);
   resetScreen();
   show(ui.screen, false);
@@ -560,7 +589,7 @@ function finishPractice(): void {
   if (!engine.isPracticing || paused) return;
   sound.menuTick();
   engine.finishPractice();
-  tutorial.hide();
+  practiceControls.hidden = true;
   terminal.chat.value = "";
   lastTypedAt = -Infinity;
   shiftDown = braceDown = pressSpent = wasBracing = false;
@@ -582,6 +611,7 @@ function showScreen(phase: Phase): void {
       renderName(ui.screen, (name) => {
         sound.unlock();
         engine.setName(name);
+        if (engine.isPracticing) tutorial.start(engine);
         wake();
       });
       break;
@@ -661,7 +691,7 @@ function setPaused(on: boolean): void {
   artifacts?.pause(on);
   codeDesk.pause(on);
   if (on) {
-    tutorial.hide();
+    practiceControls.hidden = true;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     scene.pauseMedia();
     app.ticker.stop();
@@ -684,8 +714,22 @@ function wireInput(): void {
     if (ev.target instanceof Element && ev.target.closest("button:not(:disabled)")) sound.menuTick();
   };
   ui.screen.addEventListener("click", menuClick, { capture: true });
+  practiceFinish.addEventListener("click", finishPractice);
+  const skipStory = (event: Event): void => {
+    if (!engine.isPracticing || tutorial.step !== "story" || paused || engine.state.phase !== "PLAYING") return;
+    if (event.target === practiceFinish && (event.type === "click" || (event instanceof KeyboardEvent && ["Enter", " "].includes(event.key)))) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event instanceof KeyboardEvent && event.repeat) return;
+    stopChudSpeech();
+    chudCaption = undefined;
+    tutorial.skipStory(engine, now());
+  };
+  window.addEventListener("click", skipStory, { capture: true });
+  window.addEventListener("keydown", skipStory, { capture: true });
   terminal.form.addEventListener("submit", (e) => {
     e.preventDefault();
+    if (engine.isPracticing && tutorial.step !== "chat") return;
     const text = terminal.chat.value;
     const res = engine.submitMessage(text);
     if (!res.ok) return;
@@ -720,7 +764,10 @@ function wireInput(): void {
   for (const ev of ["paste", "drop"]) terminal.chat.addEventListener(ev, (e) => e.preventDefault());
 
   for (const b of terminal.quick) {
-    b.addEventListener("click", () => engine.pressQuick(b.dataset.quick as QuickCommand));
+    b.addEventListener("click", () => {
+      const command = b.dataset.quick as QuickCommand;
+      if (!engine.isPracticing || tutorial.allowsQuick(command)) engine.pressQuick(command);
+    });
   }
   wireBrace();
 
@@ -769,10 +816,7 @@ function onKey(e: KeyboardEvent): void {
   if (s.phase !== "PLAYING") return;
   if (e.key === "Escape") {
     e.preventDefault();
-    if (!e.repeat) {
-      if (engine.isPracticing) tutorial.pauseChanged(!paused);
-      setPaused(!paused);
-    }
+    if (!e.repeat) setPaused(!paused);
     return;
   }
   if (paused) return;
@@ -809,7 +853,8 @@ function edgeTurn(t: number): void {
   const pos = s.player.position;
   // At an entry (standing or bracing) only the return edge exists: it runs back to the desk.
   const atEntry = pos.kind === "STANDING" || (pos.kind === "HOLDING" && !!pos.stay);
-  const enabled = !paused && s.phase === "PLAYING" && s.player.reading === null && (pos.kind === "DESK" || atEntry);
+  const enabled = !paused && s.phase === "PLAYING" && s.player.reading === null && (pos.kind === "DESK" || atEntry)
+    && (!engine.isPracticing || tutorial.step !== "story");
   const from = s.player.view;
   const to = edges.update(from, enabled, t);
   if (!to) return;
@@ -828,6 +873,7 @@ function wireBrace(): void {
     if (e.target instanceof Element && e.target.closest("button, input, #screen, #pause, #dev")) return;
     const s = engine.state;
     if (paused || s.phase !== "PLAYING") return;
+    if (engine.isPracticing && (tutorial.step !== "hatch" || s.player.view !== "HATCH")) return;
     const pos = s.player.position;
     if (pos.kind === "DESK" && s.player.view === "DESK") return; // the desk itself: no action
     if (pos.kind === "RETURNING") return;

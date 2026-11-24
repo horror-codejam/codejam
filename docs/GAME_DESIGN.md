@@ -45,7 +45,7 @@ Survive from 12 AM to 6 AM for 5 nights until the rescue arrives. On night 5 you
 - Opening (scene 1, see scenes/01-shipwreck/): first person at the boat's wheel in a storm. You ask the crew for an update, they report the boat is sinking, they radio a mayday, the coast guard says rescue is 5 days away, the crew goes silent as a wave takes them, then a huge wave capsizes the boat. In the water you blink a few times and vaguely see a smiling face in the lighthouse's lantern room (the same face as ChudGPT on the watch-room display), then you black out.
 - Then: you wake on the rocks and climb into the lighthouse (scene 2, in progress).
 - The AI greets you warmly and asks your name ("What should I call you, keeper?"). The name is stored and reused.
-- New Game leads from the shipwreck to the keeper name prompt and then to a safe practice evening in the watch room. Players use the real controls to explore, light and lock entries, brace, use ChudGPT, and pause. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
+- New Game leads from the shipwreck to the keeper name prompt. At the desk, ChudGPT explains the rescue and the threat, then teaches the controls in a safe practice evening. Players explore, reveal and lock a staged window visit, brace the hatch during a second visit, ask for a location, and type a reply. Starting or skipping practice leads to the Night 1 midnight card. Continue goes to the saved night.
 - ChudGPT never names the threat. Night 1 opens with a vague warning. During Night 1, ChudGPT tells the keeper which entry to lock or brace when something reaches it. On later nights the keeper can ask where it is.
 - The timed midnight card shows "12:00 AM" and "Night 1".
 

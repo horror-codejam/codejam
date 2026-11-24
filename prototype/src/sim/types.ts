@@ -2,6 +2,8 @@
 // Rules come from docs/GAME_LOGIC.md. Interpretations of gaps are in prototype/IMPLEMENTATION_NOTES.md.
 // Times are simulation seconds. Practice uses its own elapsed time before the night clock starts.
 
+import type { PracticeLine } from "../chud/lines";
+
 export type Entry = "WINDOW" | "HATCH" | "BALCONY";
 export const ENTRIES: Entry[] = ["WINDOW", "HATCH", "BALCONY"];
 export type View = "DESK" | Entry;
@@ -216,6 +218,7 @@ export interface ParsedCommand {
 // What CHUD must say. Code decides the outcome, the voice (canned or LLM) only words it.
 export type Outcome =
   | { kind: "name_ack" }
+  | { kind: "practice_line"; line: PracticeLine }
   | { kind: "night_opener"; night: number }
   | { kind: "locked"; entry: Entry } // lock request accepted (lands after RELAY_DELAY)
   | { kind: "lock_already"; entry: Entry }

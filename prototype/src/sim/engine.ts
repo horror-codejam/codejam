@@ -3,7 +3,7 @@
 // and a separate stream for the decoy noises so they can never depend on Ram (GAME_LOGIC 7.4).
 // Every tuning number comes from the Config. The few constants below are rule constants, not tuning knobs.
 
-import { CONFIG, ENDING, nightLength, type Config, type NightParams } from "../config";
+import { CONFIG, ENDING, PRACTICE_BRACE_TIME, nightLength, type Config, type NightParams } from "../config";
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
@@ -11,6 +11,7 @@ import {
   SEED_TOPICS,
   RADIO_TOPIC,
   STAY_QUESTIONS,
+  type PracticeLine,
   type SeedTopic,
 } from "../chud/lines";
 import { Rng } from "./rng";
@@ -118,6 +119,7 @@ export class GameEngine implements IGameEngine {
   private memoryChecked: string[] = []; // MEMORY keys checked this night
   private readonly practiceBeforeNight: boolean;
   private practiceElapsed: number | null = null;
+  private practiceReply = false;
 
   constructor(opts: EngineOptions = {}) {
     this.cfg = opts.config ?? CONFIG;
@@ -198,19 +200,58 @@ export class GameEngine implements IGameEngine {
     s.run.factsCheckpoint = { ...s.run.factsCheckpoint, name: value };
     s.chud.facts = { ...s.chud.facts, name: value };
     this.emit({ type: "FACT_STORED", key: "name", value });
-    this.say({ kind: "name_ack" });
     if (this.practiceBeforeNight) {
+      this.rng.next(); // Preserve the first night's seed sequence after replacing the old name acknowledgment.
       s.chud.suspicion = 0;
       s.chud.band = "WARM";
       s.phase = "PLAYING";
       this.practiceElapsed = 0;
     } else {
+      this.say({ kind: "name_ack" });
       this.startNight(1, s.run.factsCheckpoint);
     }
   }
 
   get isPracticing(): boolean {
     return this.practiceElapsed !== null;
+  }
+
+  sayPracticeLine(line: PracticeLine): void {
+    if (!this.isPracticing) return;
+    if (line === "chat") this.practiceReply = true;
+    this.say({ kind: "practice_line", line });
+  }
+
+  stagePracticeVisit(entry: Entry): void {
+    if (!this.isPracticing || this.state.phase !== "PLAYING" || this.state.ram.state === "AT_ENTRY") return;
+    const { ram, power, log } = this.state;
+    const slot = lockSlot(entry);
+    if (power.slot === slot || power.pending?.target === slot) this.cutPower("player");
+    ram.state = "AT_ENTRY";
+    ram.target = entry;
+    ram.stateEndsAt = Infinity;
+    ram.visitId++;
+    log.visit = freshVisitLog();
+    this.emit({ type: "RAM_AT_ENTRY", visitId: ram.visitId, entry });
+  }
+
+  private stepPracticeVisit(): void {
+    const { ram, power, player } = this.state;
+    if (ram.state === "RETREATING" && this.due(ram.stateEndsAt)) {
+      ram.state = "AWAY";
+      ram.target = null;
+      ram.stateEndsAt = Infinity;
+      this.emit({ type: "RAM_AWAY", nextVisitAt: Infinity });
+    }
+    const entry = ram.target;
+    if (ram.state !== "AT_ENTRY" || !entry) return;
+    const locked = power.chudOnline && power.slot === lockSlot(entry);
+    const p = player.position;
+    const braced = p.kind === "HOLDING" && p.entry === entry && this.due(p.since + PRACTICE_BRACE_TIME);
+    if (!locked && !braced) return;
+    ram.state = "RETREATING";
+    ram.stateEndsAt = this.now + this.cfg.RETREAT_TIME;
+    this.emit({ type: "RAM_RETREAT", visitId: ram.visitId, entry });
   }
 
   finishPractice(): void {
@@ -332,6 +373,7 @@ export class GameEngine implements IGameEngine {
 
   private startNight(night: number, checkpoint: Facts): void {
     this.practiceElapsed = null;
+    this.practiceReply = false;
     Object.assign(this.state, this.freshState(night, checkpoint));
     this.nightToken++;
     this.tickets.clear();
@@ -579,7 +621,10 @@ export class GameEngine implements IGameEngine {
     // Other state moves, before the section 13 list.
     this.landRelay();
     this.stepPlayer();
-    if (this.isPracticing) return;
+    if (this.isPracticing) {
+      this.stepPracticeVisit();
+      return;
+    }
     this.stepRam();
     this.stepReboot();
     this.stepHour();
@@ -1370,7 +1415,18 @@ export class GameEngine implements IGameEngine {
       this.say({ kind: "answer_first" }); // a pending question blocks every ChudGPT command (no suspicion)
       return;
     }
-    this.say(this.resolveCommand(parsed));
+    this.sayCommand(this.resolveCommand(parsed));
+  }
+
+  private sayCommand(outcome: Outcome): void {
+    // The window lesson gives its confirmation after the relay lands and the visit ends.
+    if (outcome.kind === "locked" && outcome.entry === "WINDOW" && this.activePracticeVisit("WINDOW")) return;
+    this.say(outcome);
+  }
+
+  private activePracticeVisit(entry: Entry): boolean {
+    const { ram } = this.state;
+    return this.isPracticing && ram.state === "AT_ENTRY" && ram.target === entry;
   }
 
   private resolveCommand(p: ParsedCommand): Outcome {
@@ -1387,6 +1443,7 @@ export class GameEngine implements IGameEngine {
         // Section 8.3: a lock request is never gated. CHUD rolls a refusal by its band at this moment (the hijack:
         // a malicious smile and no lock). Re-locking the entry already locked is always confirmed.
         const entry = p.entry!;
+        if (entry === "HATCH" && this.activePracticeVisit(entry)) return { kind: "practice_line", line: "hatchRefusal" };
         if (this.effectiveSlot() === lockSlot(entry) && band !== "FURIOUS") return { kind: "lock_already", entry };
         const chance = band === "FURIOUS" ? 1 : this.cfg.LOCK_REFUSAL[band];
         if (chance > 0 && (chance >= 1 || this.rng.chance(chance))) {
@@ -1505,7 +1562,7 @@ export class GameEngine implements IGameEngine {
     while (recent.length > Math.max(RECENT_MESSAGES_KEPT, c.REPEAT_WINDOW)) recent.shift();
 
     // Step 3: keyword parse.
-    const parsed = parseCommand(text);
+    const parsed: ParsedCommand = this.practiceReply ? { command: "NONE", entry: null } : parseCommand(text);
     const id = this.nextTicketId++;
     const pq = s.chud.pendingQuestion;
     const judgeInput = { text, pendingQuestion: pq ? { ...pq } : null, facts: { ...s.chud.facts }, band: s.chud.band };
@@ -1522,7 +1579,7 @@ export class GameEngine implements IGameEngine {
     // Command timing: run now if the parser found one and no question is pending.
     let ranImmediately = false;
     if (parsed.command !== "NONE" && !pq) {
-      this.say(this.resolveCommand(parsed));
+      this.sayCommand(this.resolveCommand(parsed));
       ranImmediately = true;
     }
 
@@ -1550,7 +1607,7 @@ export class GameEngine implements IGameEngine {
       if (r.self_harm) {
         s.phase = "SAFETY_PAUSE";
         this.emit({ type: "SAFETY_PAUSE" });
-      } else if (!t.ranImmediately && !r.gibberish) {
+      } else if (!this.practiceReply && !t.ranImmediately && !r.gibberish) {
         this.say({ kind: "small_talk" });
       }
       return;
@@ -1674,7 +1731,7 @@ export class GameEngine implements IGameEngine {
       rand: () => this.isPracticing ? 0 : this.rng.next(),
       avoid: this.isPracticing ? undefined : this.lastLineByKind.get(outcome.kind),
     });
-    this.lastLineByKind.set(outcome.kind, text);
+    if (!this.isPracticing) this.lastLineByKind.set(outcome.kind, text);
     this.emit({ type: "CHUD_SAY", outcome, text, band });
   }
 

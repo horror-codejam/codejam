@@ -35,34 +35,32 @@ button:disabled { opacity: 0.35; cursor: default; }
 }
 #subtitle.visible { opacity: 1; }
 #subtitle.desk { bottom: 104px; }
+#subtitle.practice { bottom: 72px; }
+#subtitle.practice.desk { bottom: 76px; }
 @media (prefers-reduced-motion: reduce) { #subtitle { transition: none; } }
 
 #tutorial {
   position: absolute;
-  top: 24px;
-  left: 50%;
-  width: 600px;
-  translate: -50% 0;
+  inset: 0;
   pointer-events: none;
   z-index: 2;
 }
-.tutorial-card {
-  padding: 17px 22px 15px;
-  border: 1px solid #57625a;
-  background: #101611f2;
-  color: #edf3ee;
-  box-shadow: 0 8px 22px #0008;
+#practice-chip, #practice-finish {
+  position: absolute;
+  bottom: 32px;
+  color: #e5dfd2;
+  font: 22px/1.2 var(--screen-mono);
+  text-shadow: 0 1px 3px #000, 0 1px 8px #000, 0 2px 14px #000;
 }
-.tutorial-card h2 {
-  margin: 0;
-  color: #b5d6b9;
-  font-size: 15px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+#practice-chip {
+  left: 50%;
+  translate: -50% 0;
+  color: #ffe6a0;
+  letter-spacing: 0.08em;
 }
-.tutorial-card p { margin: 10px 0 14px; font-size: 22px; line-height: 1.25; }
-.tutorial-card button { padding: 6px 10px; border-color: #6c8770; }
-#tutorial[data-lesson="ready"] button { color: #132019; background: #b5d6b9; }
+#practice-finish { right: 32px; bottom: 25px; background: transparent; border: 0; color: #c2c4bc; }
+#practice-finish:hover, #practice-finish:focus-visible { color: #fff; text-decoration: underline; }
+#tutorial[data-lesson="ready"] #practice-finish { color: #ffe6a0; }
 #terminal .tutorial-target {
   outline: 3px solid #ffe6a0;
   outline-offset: 3px;

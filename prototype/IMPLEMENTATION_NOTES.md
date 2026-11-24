@@ -9,6 +9,12 @@ docs/GAME_LOGIC.md is the rule source. This file only records how the prototype 
 - Desk artifact hotspots and the reader live behind `ARTIFACTS_ENABLED` in `src/uiConfig.ts`. The flag defaults to false. Engine support is available for a later UI.
 - Pixi caps its resolution at 2, uses no antialiasing and stops the game ticker on pause and menus. Menu callbacks resume it as needed. The title and powered desk play their loops when the clips are available and motion is enabled. Jumpscares preload as WebP frames. Stills convert at 1600 x 800.
 
+### Practice evening
+
+- `EveningTutorial` in `src/ui/tutorial.ts` advances the story and action lessons in GAME_LOGIC 5.0. It reads the real view, light, relay and brace state, and listens for the location answer and submitted chat. `main.ts` connects it to the controls and presents a plain key chip and the existing terminal target outline.
+- Practice lines in `src/chud/lines.ts` emit `CHUD_SAY` and reach the normal chat, subtitle, chime and Piper playback. Practice queues one caption with its voice at a time. `Sound.speak` reports playback state so the story can wait for the audio end, fall back to reading time or cancel on a skip. The Piper request contract is unchanged.
+- `stagePracticeVisit` uses the existing arrival and retreat events and tell plates. Its practice-only step runs after the relay and player timers and never enters the night scheduler. The staged window uses the existing glass room cue, and the hatch uses the existing knock and metal cues. The lock and brace keep their usual foley. Night 1 to 5 simulation is checked against a fixed-seed trace captured before the rewrite.
+
 ### Player-facing visual audit (2026-11-22)
 
 | Visual | Source for the current release |

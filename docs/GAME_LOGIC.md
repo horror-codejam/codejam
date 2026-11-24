@@ -95,7 +95,23 @@ Note on night 1: it uses 2 entries (HATCH and WINDOW), not 1. With a single entr
 
 ## 5. Night flow
 
-**Before Night 1:** New Game opens the practice evening after the player gives their name. The real controls and their local timers work while the night clock stays at zero. Practice has no threat, visits, jumpscare, suspicion changes or scripted beats. The player can explore, follow the prompts, or skip. Starting Night 1 resets the room and retains the keeper name. Continue opens the saved night card.
+### 5.0 Practice evening
+
+New Game opens at the desk after the player gives their name. CHUD tells the story in four lines: the shipwreck and lighthouse, the five-day wait for the Coast Guard, the threat at the three entries, and the need to survive until 6 AM each night. Each line uses the normal CHUD speech, chat and caption path. Advance after speech finishes or, if speech is unavailable, after the greater of 3 s and 0.06 s per character. Pause 0.35 s between lines. Any fresh key press or click advances the story one line. The room controls become available with the first lesson.
+
+| Lesson | Action that completes it |
+|---|---|
+| Look around | Visit the window, hatch and balcony views, then return to the desk. The control chip points to the next edge |
+| Light the window | A staged visit starts at the window. Hold Shift while looking at the window to reveal its tell |
+| Lock the window | Return to the desk and click W. The visit ends when the relay lands. CHUD confirms the retreat before the hatch lesson begins |
+| Brace the hatch | Turn to the hatch, click to run over and hold the left mouse button to brace. After 2 continuous seconds of bracing, the visit ends. CHUD gives a fatigue warning and the player returns to the desk |
+| Ask CHUD | Click `where is it` at the desk. CHUD truthfully says nothing is there |
+| Talk to CHUD | Send a message in chat. CHUD gives a warm canned reply and explains why talking during the night matters |
+| Ready | CHUD repeats the survival goal. `Start Night 1` opens the midnight card |
+
+- Each action has one spoken instruction, a plain control chip, and a single spoken nudge after 12 s of waiting. Quick buttons and chat follow the current lesson. Trying H during the hatch visit produces a friendly refusal.
+- Practice uses the real controls and their local timers, with entry travel limited to the hatch lesson. Staged visits go straight to `AT_ENTRY`, have no attack deadline, use the normal tell plates, and retreat as soon as the target is locked or the 2 s brace succeeds. Practice reuses directional room sounds at the visit and normal lock and brace foley. Night visits stay silent.
+- The night clock stays at zero. Practice never breaches, scares, kills, changes suspicion or schedules night beats. There are no paper, pause, unlock or power tradeoff lessons. `Skip practice` is available throughout the story and lessons. Starting or skipping resets the room and retains the keeper name. Continue opens the saved night card.
 
 1. **Night start:**
    - Reset everything to night-start values:
@@ -152,7 +168,7 @@ Controls (adopted 2026-11-21, FNAF 4 style, history in [docs/CONTROLS_PROPOSAL.m
 
 ### 6.2 Typing to CHUD
 - Free text, 200 characters max, paste disabled, at most 1 message per 1.5 s.
-- Every message goes through the message pipeline (section 9).
+- Every night message goes through the message pipeline (section 9). The practice reply is accepted as conversation and receives a canned response.
 
 ### 6.3 Quick buttons
 These buttons on CHUD's desk terminal send commands without typing.
@@ -536,6 +552,7 @@ Night captions are reserved for CHUD dialogue and radio. Control instructions ap
 - Per night (`prototype/src/config.ts`): first visit delay, AWAY gap base range, approach time, attempt window range, lull chance, quick return chance, decoy interval, fake-out chance, starting suspicion, question mix, lie chances, whether questions may land during an attempt.
 - Kill code (`prototype/src/config.ts`, `ENDING`): letter and digit counts and pools, first slip night, code night.
 - Global: `HOUR_LENGTH`, `HOUR_RAMP`, `LULL_MULT`, `QUICK_RETURN_GAP`, `MIN_AWAY_GAP`, `SILENCE_PULL`, `RELAY_DELAY`, `TRAVEL_TIME`, `HOLD_MAX`, `BRACE_REST`, `HOLD_COOLDOWN`, `QUESTION_TIMEOUT`, `SILENCE_LIMIT`, `LOCATION_SPAM_WINDOW`, `LOCATION_SPAM_PENALTIES`, `LOCATION_REFUSE_TIME`, `FLATTERY_WINDOW`, `FLATTERY_COUNT`, `FLATTERY_PENALTY`, `WARM_BONUS_COOLDOWN`, `INSIDE_TRIGGER_WEIGHTS`, `INSIDE_TIMER`, `LOCK_REFUSAL`, `LIGHT_CUT`, `LIGHT_CUT_DELAY`, `LIGHT_CUT_LINE_GAP`, every value in the 8.2 table, the per-message clamp, the sabotage chance and margin, the Furious reset value, the reboot time and the post-reboot suspicion floor, the scheduled question window and spacing.
+- Practice: `PRACTICE_BRACE_TIME` in `prototype/src/config.ts`, and nudge and line timing in `PRACTICE_UI` in `prototype/src/uiConfig.ts`.
 - UI only (`prototype/src/uiConfig.ts`): `EDGE_DWELL`, the turn times, the artifact rects, the scare timings (flash 0.4 s, jumpscare frames), how long the malicious smile shows.
 - Targets to tune toward: first-try survival of about 90%, 75%, 55%, 35% and 20% for nights 1 to 5.
 

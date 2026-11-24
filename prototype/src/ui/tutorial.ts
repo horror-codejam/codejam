@@ -1,170 +1,215 @@
-import type { Entry, GameState, Outcome, QuickCommand } from "../sim/types";
+import type { PracticeLine } from "../chud/lines";
+import type { GameEngine } from "../sim/engine";
+import type { Entry, GameEvent, GameState, QuickCommand, View } from "../sim/types";
+import { PRACTICE_UI } from "../uiConfig";
+import type { SpeechPlayback } from "./audio";
+import { EDGE_TARGET } from "./edges";
 
-const views = [
-  { entry: "WINDOW", label: "window", edge: "left" },
-  { entry: "HATCH", label: "hatch", edge: "right" },
-  { entry: "BALCONY", label: "balcony", edge: "bottom" },
-] as const;
+const STORY = ["wreck", "rescue", "danger", "bargain"] as const;
+const VIEWS = ["WINDOW", "HATCH", "BALCONY"] as const;
+const NUDGES = {
+  views: "nudgeViews",
+  light: "nudgeLight",
+  lock: "nudgeLock",
+  hatch: "nudgeHatch",
+  return: "nudgeReturn",
+  location: "nudgeLocation",
+  chat: "nudgeChat",
+} as const;
 
-const steps = [
-  "views", "light", "lock", "dash", "brace",
-  "release-brace", "return", "location", "relock", "unlock", "chat", "pause", "ready",
-] as const;
-type Step = typeof steps[number];
+type Step = "story" | keyof typeof NUDGES | "windowSafe" | "farewell" | "ready";
+type Line = Extract<GameEvent, { type: "CHUD_SAY" }>;
+type PlayLine = (line: Line) => SpeechPlayback | undefined;
 
-type Prompt = {
-  text: string;
-  target?: QuickCommand | "chat";
-};
-
-function returnToDesk(state: GameState): string | undefined {
-  const { position, view } = state.player;
-  if (position.kind === "TRAVELING") return "Wait until you reach the entry.";
-  if (position.kind === "RETURNING") return "Wait until you reach the desk.";
-  if (view === "DESK") return;
-  if (view === "BALCONY") return "Move your pointer away, then hold it at the bottom edge again to return to the desk.";
-  const edge = view === "WINDOW" ? "right" : "left";
-  return `Hold your pointer at the ${edge} edge to return to the desk.`;
+function edgeChip(from: View, to: View): string {
+  const edge = Object.entries(EDGE_TARGET[from]).find(([, target]) => target === to)?.[0];
+  return edge ? `MOUSE TO THE ${edge.toUpperCase()} EDGE` : "";
 }
 
 export class EveningTutorial {
-  private index = 0;
-  private visited = new Set<Entry>();
-  private highlighted?: HTMLElement;
-  private usedLight = false;
-  private askedLocation = false;
-  private requestedUnlock = false;
-  private wroteMessage = false;
-  private pausedOnce = false;
-  private resumed = false;
-  private readonly instruction: HTMLElement;
-  private readonly finish: HTMLButtonElement;
+  step: Step = "story";
+  private storyIndex = 0;
+  private readonly visited = new Set<Entry>();
+  private readonly queue: Line[] = [];
+  private active?: { line: Line; playback?: SpeechPlayback; readUntil: number; nextAt?: number };
+  private lastFinished?: PracticeLine;
+  private enteredAt = 0;
+  private nudged = false;
+  private asked = false;
+  private replied = false;
 
-  constructor(private readonly root: HTMLElement, private readonly terminal: HTMLElement, onFinish: () => void) {
-    this.instruction = root.querySelector("[data-instruction]")!;
-    this.finish = root.querySelector("button")!;
-    this.finish.addEventListener("click", onFinish);
+  start(engine: GameEngine): void {
+    engine.sayPracticeLine(STORY[this.storyIndex]);
   }
 
-  private get step(): Step {
-    return steps[this.index];
+  skipStory(engine: GameEngine, t: number): void {
+    this.queue.length = 0;
+    this.active = undefined;
+    this.advanceStory(engine, t);
   }
 
-  reset(): void {
-    this.index = 0;
-    this.visited.clear();
-    this.usedLight = false;
-    this.askedLocation = false;
-    this.requestedUnlock = false;
-    this.wroteMessage = false;
-    this.pausedOnce = false;
-    this.resumed = false;
-    this.hide();
+  private advanceStory(engine: GameEngine, t: number): void {
+    this.storyIndex++;
+    if (this.storyIndex < STORY.length) this.start(engine);
+    else this.enter(engine, "views", t);
   }
 
-  hide(): void {
-    this.root.hidden = true;
-    this.highlight();
-  }
-
-  usedEntryLight(): void {
-    if (this.step === "light") this.usedLight = true;
-  }
-
-  reply(outcome: Outcome): void {
-    if (this.step === "location" && outcome.kind === "location_claim") this.askedLocation = true;
-    if (this.step === "unlock" && outcome.kind === "power_off") this.requestedUnlock = true;
+  hear(line: Line): void {
+    const { outcome } = line;
+    if (outcome.kind === "practice_line") {
+      const storyIndex = STORY.findIndex((id) => id === outcome.line);
+      if (storyIndex >= 0 && (this.step !== "story" || storyIndex !== this.storyIndex)) return;
+    }
+    this.queue.push(line);
   }
 
   messageSent(): void {
-    if (this.step === "chat") this.wroteMessage = true;
+    if (this.step === "chat") this.replied = true;
   }
 
-  pauseChanged(on: boolean): void {
-    if (this.step !== "pause") return;
-    if (on) this.pausedOnce = true;
-    else if (this.pausedOnce) this.resumed = true;
+  allowsQuick(command: QuickCommand): boolean {
+    return (this.step === "lock" && command === "LOCK_WINDOW")
+      || (this.step === "hatch" && command === "LOCK_HATCH")
+      || (this.step === "location" && command === "ASK_LOCATION");
   }
 
-  render(state: GameState): void {
-    const { position, view } = state.player;
-    if (position.kind === "DESK" && view !== "DESK") this.visited.add(view);
-    while (this.step !== "ready" && this.completed(state)) this.index++;
-    const prompt = this.prompt(state);
-    this.root.hidden = false;
-    this.root.dataset.lesson = this.step;
-    if (this.instruction.textContent !== prompt.text) this.instruction.textContent = prompt.text;
-    const label = this.step === "ready" ? "Start Night 1" : "Skip practice";
-    if (this.finish.textContent !== label) this.finish.textContent = label;
-    this.highlight(prompt.target);
-  }
-
-  private completed(state: GameState): boolean {
-    const { position, view, lightEntry } = state.player;
-    const { slot } = state.power;
+  update(engine: GameEngine, t: number, play: PlayLine): void {
+    this.updateSpeech(t, play);
+    const s = engine.state;
+    const { position, view } = s.player;
     const facingDesk = position.kind === "DESK" && view === "DESK";
     switch (this.step) {
-      case "views": return this.visited.size === views.length && facingDesk;
-      case "light": return this.usedLight || lightEntry !== null;
+      case "story":
+        if (this.lastFinished === STORY[this.storyIndex]) this.advanceStory(engine, t);
+        return;
+      case "views":
+        if (position.kind === "DESK" && view !== "DESK") this.visited.add(view);
+        if (facingDesk && this.visited.size === VIEWS.length) {
+          engine.stagePracticeVisit("WINDOW");
+          this.enter(engine, "light", t);
+          return;
+        }
+        break;
+      case "light":
+        if (view === "WINDOW" && engine.ramVisual(view) === "tell_clear") {
+          this.enter(engine, "lock", t);
+          return;
+        }
+        break;
       case "lock":
-      case "relock": return slot === "LOCK_HATCH";
-      case "dash": return position.kind === "TRAVELING" || position.kind === "STANDING" || position.kind === "HOLDING";
-      case "brace": return position.kind === "HOLDING";
-      case "release-brace": return position.kind !== "HOLDING";
-      case "return": return facingDesk;
-      case "location": return this.askedLocation;
-      case "unlock": return this.requestedUnlock && slot === "NONE";
-      case "chat": return this.wroteMessage;
-      case "pause": return this.resumed;
-      case "ready": return false;
+        if (s.power.slot === "LOCK_WINDOW" && s.ram.state === "RETREATING") {
+          this.enter(engine, "windowSafe", t);
+          return;
+        }
+        break;
+      case "windowSafe":
+        if (this.lastFinished === "windowSafe") {
+          engine.stagePracticeVisit("HATCH");
+          this.enter(engine, "hatch", t);
+        }
+        return;
+      case "hatch":
+        if (s.ram.state === "RETREATING") {
+          this.enter(engine, "return", t);
+          return;
+        }
+        break;
+      case "return":
+        if (facingDesk) {
+          this.enter(engine, "location", t);
+          return;
+        }
+        break;
+      case "location":
+        if (this.asked) {
+          this.enter(engine, "chat", t);
+          return;
+        }
+        break;
+      case "chat":
+        if (this.replied) {
+          this.enter(engine, "farewell", t);
+          return;
+        }
+        break;
+      case "farewell":
+        if (this.lastFinished === "lonely") this.enter(engine, "ready", t);
+        return;
+      case "ready":
+        return;
+    }
+
+    if (!this.nudged && t >= this.enteredAt + PRACTICE_UI.NUDGE_AFTER) {
+      this.nudged = true;
+      engine.sayPracticeLine(NUDGES[this.step]);
     }
   }
 
-  private prompt(state: GameState): Prompt {
-    const back = returnToDesk(state);
-    const atHatchView = state.player.view === "HATCH" && state.player.position.kind === "DESK";
-    const deskControl = (text: string, target: Prompt["target"]): Prompt => back ? { text: back } : { text, target };
-    const approach = atHatchView ? "Left-click the hatch view to run to it. You can keep holding the button to brace on arrival." : back ?? "Look at the hatch using the right edge.";
+  private enter(engine: GameEngine, step: Exclude<Step, "story">, t: number): void {
+    this.step = step;
+    this.enteredAt = t;
+    this.nudged = false;
+    if (step === "farewell") {
+      engine.sayPracticeLine("chatReply");
+      engine.sayPracticeLine("lonely");
+    } else {
+      engine.sayPracticeLine(step);
+    }
+  }
+
+  private updateSpeech(t: number, play: PlayLine): void {
+    const active = this.active;
+    if (active) {
+      const status = active.playback?.state;
+      if (status === "playing" || (status !== "finished" && t < active.readUntil)) return;
+      active.playback?.cancelPending();
+      active.nextAt ??= t + PRACTICE_UI.LINE_PAUSE;
+      if (t < active.nextAt) return;
+      const { outcome } = active.line;
+      if (outcome.kind === "practice_line") this.lastFinished = outcome.line;
+      this.active = undefined;
+    }
+
+    while (this.queue.length) {
+      const line = this.queue.shift()!;
+      const { outcome } = line;
+      if (outcome.kind === "practice_line" && outcome.line.startsWith("nudge")
+        && (!(this.step in NUDGES) || NUDGES[this.step as keyof typeof NUDGES] !== outcome.line)) continue;
+      if (this.step === "location" && outcome.kind === "location_claim" && outcome.entry === "NONE") this.asked = true;
+      this.active = {
+        line,
+        playback: play(line),
+        readUntil: t + Math.max(PRACTICE_UI.MIN_READ_TIME, line.text.length * PRACTICE_UI.READ_SECONDS_PER_CHARACTER),
+      };
+      return;
+    }
+  }
+
+  prompt(state: GameState): { chip: string; target?: QuickCommand | "chat" } {
+    const { position, view } = state.player;
+    const back = edgeChip(view, "DESK");
     switch (this.step) {
       case "views": {
-        const next = views.find(({ entry }) => !this.visited.has(entry));
-        if (back) return { text: back };
-        return { text: next ? `You're safe until midnight. Hold your pointer at the ${next.edge} edge to look at the ${next.label}.` : "Return to the desk." };
+        const next = VIEWS.find((entry) => !this.visited.has(entry));
+        return { chip: back || (next ? edgeChip("DESK", next) : "") };
       }
       case "light":
-        return { text: state.player.view === "DESK" ? "Look at an entry, then hold Shift to light it." : "Hold Shift to light the entry you're looking at." };
+        return { chip: view === "WINDOW" ? "HOLD SHIFT" : back || edgeChip("DESK", "WINDOW") };
       case "lock":
-        return deskControl("Click H on ChudGPT's map to lock the hatch. W is the window and B is the balcony.", "LOCK_HATCH");
-      case "dash":
-        return { text: approach };
-      case "brace":
-        if (state.player.position.kind === "DESK" || state.player.position.kind === "RETURNING") return { text: approach };
-        return { text: state.player.position.kind === "TRAVELING" ? "Hold the left mouse button to brace as soon as you arrive." : "Hold the left mouse button to brace. Standing at an entry leaves it undefended." };
-      case "release-brace":
-        return { text: "Release the mouse button to rest. The ring shows how long your arms can hold." };
+        return back ? { chip: back } : { chip: "CLICK W", target: "LOCK_WINDOW" };
+      case "hatch":
+        if (position.kind === "RETURNING") return { chip: "" };
+        if (position.kind !== "DESK") return { chip: "HOLD MOUSE" };
+        if (view === "HATCH") return { chip: "CLICK" };
+        return { chip: back || edgeChip("DESK", "HATCH") };
       case "return":
-        return { text: back ?? "Head back to the desk." };
+        return { chip: position.kind === "RETURNING" ? "" : back };
       case "location":
-        return deskControl("Click “where is it” to ask ChudGPT which entry to check. Later it can mislead you or refuse a lock.", "ASK_LOCATION");
-      case "relock":
-        return deskControl("Click H to lock the hatch again.", "LOCK_HATCH");
-      case "unlock":
-        return deskControl("Click “unlock all” to clear the lock.", "POWER_OFF");
+        return back ? { chip: back } : { chip: "CLICK WHERE IS IT", target: "ASK_LOCATION" };
       case "chat":
-        return deskControl("ChudGPT asks: “Are you ready for the night?” Type a reply in the chat box and press Enter.", "chat");
-      case "pause":
-        return { text: "Press Esc to pause. Press Esc again to resume." };
-      case "ready":
-        return { text: "Survive until 6:00 AM. House noises are decoys. Use the lights to check the entries and a lock or your hands to defend them." };
+        return back ? { chip: back } : { chip: "TYPE + ENTER", target: "chat" };
+      default:
+        return { chip: "" };
     }
-  }
-
-  private highlight(target?: Prompt["target"]): void {
-    const selector = target === "chat" ? "#chat" : `[data-quick="${target}"]`;
-    const next = target ? this.terminal.querySelector<HTMLElement>(selector) ?? undefined : undefined;
-    if (next === this.highlighted) return;
-    this.highlighted?.classList.remove("tutorial-target");
-    next?.classList.add("tutorial-target");
-    this.highlighted = next;
   }
 }

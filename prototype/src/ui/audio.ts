@@ -33,6 +33,13 @@ type Playback = {
   dest?: AudioNode;
 };
 
+export type SpeechPlayback = {
+  state: "queued" | "playing" | "finished" | "unavailable";
+  cancelPending: () => void;
+};
+
+type SpeechJob = { text: string; band: Band; playback: SpeechPlayback; signal: AbortSignal };
+
 export class Sound {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
@@ -59,7 +66,7 @@ export class Sound {
   private speechPan!: StereoPannerNode;
   private speechDuck!: GainNode;
   private speechView: View = "DESK";
-  private speechQueue: { text: string; band: Band }[] = [];
+  private speechQueue: SpeechJob[] = [];
   private speechRun: AbortController | null = null;
   private speechSource: AudioBufferSourceNode | null = null;
 
@@ -517,10 +524,20 @@ export class Sound {
     this.speechPan.pan.setTargetAtTime(pan, this.ctx.currentTime, 0.06);
   }
 
-  speak(text: string, band: Band): void {
-    if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift();
-    this.speechQueue.push({ text, band });
+  speak(text: string, band: Band): SpeechPlayback {
+    const request = new AbortController();
+    const playback: SpeechPlayback = {
+      state: "queued",
+      cancelPending: () => {
+        if (playback.state !== "queued") return;
+        playback.state = "unavailable";
+        request.abort();
+      },
+    };
+    if (this.speechQueue.length >= CHUD_SPEECH.MAX_WAITING_LINES) this.speechQueue.shift()?.playback.cancelPending();
+    this.speechQueue.push({ text, band, playback, signal: request.signal });
     this.startSpeech();
+    return playback;
   }
 
   private startSpeech(): void {
@@ -532,6 +549,7 @@ export class Sound {
   }
 
   stopSpeech(): void {
+    for (const line of this.speechQueue) line.playback.cancelPending();
     this.speechQueue.length = 0;
     this.speechRun?.abort();
     this.speechRun = null;
@@ -543,24 +561,25 @@ export class Sound {
     const timeout = import.meta.env.DEV ? CHUD_SPEECH.REQUEST_TIMEOUT_MS : CHUD_SPEECH.HOSTED_TIMEOUT_MS;
     while (!run.signal.aborted && this.speechQueue.length > 0) {
       const line = this.speechQueue.shift()!;
+      const signal = AbortSignal.any([run.signal, line.signal]);
       try {
         const voiceIndex = await import("./audioDialogue").catch(() => undefined);
-        if (run.signal.aborted) break;
+        if (signal.aborted) continue;
         const clip = voiceIndex?.cannedClip(line.text, line.band);
         let buffer = clip ? await this.loadClip(clip.name, clip.url) : undefined;
-        if (!buffer && !run.signal.aborted) {
+        if (!buffer && !signal.aborted) {
           const response = await fetch("/api/tts", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(line),
-            signal: AbortSignal.any([run.signal, AbortSignal.timeout(timeout)]),
+            body: JSON.stringify({ text: line.text, band: line.band }),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
           });
           if (!response.ok || response.headers.get("content-type") !== "audio/wav") continue;
           buffer = await ctx.decodeAudioData(await response.arrayBuffer());
         }
         if (!buffer) continue;
         if (this.radioFinished) await this.radioFinished;
-        if (run.signal.aborted) break;
+        if (signal.aborted) continue;
 
         const source = ctx.createBufferSource();
         this.speechSource = source;
@@ -570,11 +589,15 @@ export class Sound {
           source.onended = () => resolve();
         });
         source.start();
+        line.playback.state = "playing";
         await ended;
         source.disconnect();
         if (this.speechSource === source) this.speechSource = null;
+        if (!signal.aborted) line.playback.state = "finished";
       } catch {
         // Keep the existing subtitle and chime if Piper or audio decoding fails.
+      } finally {
+        if (line.playback.state !== "finished") line.playback.state = "unavailable";
       }
     }
     if (this.speechRun === run) this.speechRun = null;

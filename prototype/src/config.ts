@@ -3,6 +3,8 @@
 
 import type { Band, Entry, InsideTrigger, QuestionType } from "./sim/types";
 
+export const PRACTICE_BRACE_TIME = 2;
+
 export interface NightParams {
   activeEntries: Entry[];
   firstVisitDelay: number;
