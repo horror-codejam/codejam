@@ -91,10 +91,13 @@ export class Scene {
   private rt: RenderTexture;
   private rtPrev: RenderTexture;
   private views = new Container();
-  private warp: Mesh;
-  private flatGeometry = new PlaneGeometry({ width: W, height: H });
-  private curvedGeometry: PlaneGeometry;
-  private warpPrev: Mesh;
+  private warpCurved: Mesh;
+  private warpFlat: Sprite;
+  private warpPrevCurved: Mesh;
+  private warpPrevFlat: Sprite;
+  private warpIsFlat = false;
+  private warpPrevIsFlat = false;
+  private warpX = 0;
   private turnBlur = new BlurFilter({ strengthX: 0, strengthY: 0, quality: 2 });
   private turnSlide = false;
   private turnDir = 1;
@@ -271,11 +274,14 @@ export class Scene {
       pos[i + 1] = H / 2 + (pos[i + 1] - H / 2) * (1 + WARP_S * nx * nx);
     }
     geo.positions = pos;
-    this.curvedGeometry = geo;
-    this.warp = new Mesh({ geometry: geo, texture: this.rt });
-    this.warpPrev = new Mesh({ geometry: geo, texture: this.rtPrev });
-    this.warpPrev.visible = false;
-    this.views.addChild(this.warpPrev, this.warp);
+    this.warpCurved = new Mesh({ geometry: geo, texture: this.rt });
+    this.warpFlat = new Sprite(this.rt);
+    this.warpFlat.visible = false;
+    this.warpPrevCurved = new Mesh({ geometry: geo, texture: this.rtPrev });
+    this.warpPrevCurved.visible = false;
+    this.warpPrevFlat = new Sprite(this.rtPrev);
+    this.warpPrevFlat.visible = false;
+    this.views.addChild(this.warpPrevCurved, this.warpPrevFlat, this.warpCurved, this.warpFlat);
     app.stage.addChild(this.views);
 
     this.rain = new TilingSprite({ texture: makeRainTexture(), width: W + 2 * PAN_X * 1.6, height: H });
@@ -394,7 +400,7 @@ export class Scene {
   plateRect(r: { x: number; y: number; w: number; h: number }): { x: number; y: number; w: number; h: number } {
     const k = this.cam.scale.x;
     return {
-      x: this.warp.x + this.cam.x + (r.x - PLATE_W / 2) * k,
+      x: this.warpX + this.cam.x + (r.x - PLATE_W / 2) * k,
       y: this.cam.y + (r.y - PLATE_H / 2) * k,
       w: r.w * k,
       h: r.h * k,
@@ -467,12 +473,14 @@ export class Scene {
         this.turnDur = this.lastView === "BALCONY" || view === "BALCONY" ? CONTROLS.TURN_TIME_BALCONY : CONTROLS.TURN_TIME;
         if (this.turnSlide) {
           [this.rt, this.rtPrev] = [this.rtPrev, this.rt];
-          this.warp.texture = this.rt;
-          this.warpPrev.texture = this.rtPrev;
-          this.warpPrev.geometry = this.warp.geometry;
+          this.warpCurved.texture = this.rt;
+          this.warpFlat.texture = this.rt;
+          this.warpPrevCurved.texture = this.rtPrev;
+          this.warpPrevFlat.texture = this.rtPrev;
+          this.warpPrevIsFlat = this.warpIsFlat;
         }
       }
-      this.warp.geometry = view === "DESK" ? this.flatGeometry : this.curvedGeometry;
+      this.warpIsFlat = view === "DESK";
       this.lastView = view;
     }
     this.lastDashing = dashing;
@@ -682,15 +690,21 @@ export class Scene {
     if (sliding) {
       const e = turnK < 0.5 ? 2 * turnK * turnK : 1 - 2 * (1 - turnK) * (1 - turnK);
       const bump = Math.sin(Math.PI * turnK);
-      this.warpPrev.x = this.turnDir * W * e;
-      this.warp.x = this.turnDir * W * (e - 1);
+      const prevX = this.turnDir * W * e;
+      this.warpX = this.turnDir * W * (e - 1);
+      this.warpPrevCurved.x = this.warpPrevFlat.x = prevX;
+      this.warpCurved.x = this.warpFlat.x = this.warpX;
       this.turnBlur.strengthX = CONTROLS.TURN_BLUR * bump;
       black = Math.max(black, CONTROLS.TURN_DIM * bump);
     } else {
-      this.warp.x = 0;
+      this.warpX = 0;
+      this.warpCurved.x = this.warpFlat.x = 0;
       if (!transition && turnK < 1) black = Math.max(black, 1 - turnK);
     }
-    this.warpPrev.visible = sliding;
+    this.warpFlat.visible = this.warpIsFlat;
+    this.warpCurved.visible = !this.warpIsFlat;
+    this.warpPrevFlat.visible = sliding && this.warpPrevIsFlat;
+    this.warpPrevCurved.visible = sliding && !this.warpPrevIsFlat;
     this.views.visible = !transition;
     this.views.filters = sliding ? [this.turnBlur] : null;
     if (t < this.snapUntil) black = Math.max(black, (this.snapUntil - t) / SCARE.SNAP_TIME);
