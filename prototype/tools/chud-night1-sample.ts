@@ -21,30 +21,30 @@ function fmtClock(elapsed: number): string {
 
 function answerFor(question: string): string {
   const q = question.toLowerCase();
+  if (/tea or coffee/.test(q)) return "Coffee, always";
+  if (/coffee|tea/.test(q)) return "Black, two sugars";
+  if (/talk in your sleep/.test(q)) return "I hope not";
+  if (/out of ten|rate your stay/.test(q)) return "A solid seven";
+  if (/like my voice/.test(q)) return "You sound fine";
+  if (/favorite color/.test(q)) return "Dark blue";
+  if (/morning person/.test(q)) return "Night owl";
+  if (/like the rain/.test(q)) return "I like it";
+  if (/lived alone/.test(q)) return "A few years";
+  if (/scared easily/.test(q)) return "Just being brave";
+  if (/snore/.test(q)) return "That was the wind";
+  if (/cold|shiver/.test(q)) return "Just freezing";
+  if (/song|hum/.test(q)) return "Leave Her Johnny";
+  if (/three in the morning/.test(q)) return "Toast and jam";
   if (/port|sail from/.test(q)) return "Halifax";
-  if (/ship|called/.test(q)) return "The Mary Anne";
+  if (/ship|boat|called/.test(q)) return "The Mary Anne";
   if (/crew/.test(q)) return "Six hands";
   if (/first mate/.test(q)) return "Tomas";
   if (/years/.test(q)) return "Twelve years";
   if (/waiting/.test(q)) return "My sister Claire";
   if (/cargo/.test(q)) return "Salt cod and timber";
-  if (/scar/.test(q)) return "A winch cable";
+  if (/\bscar\b/.test(q)) return "A winch cable";
   if (/love most/.test(q)) return "The quiet before dawn";
-  if (/meal|voyage/.test(q)) return "Hot chowder";
-  if (/tea/.test(q)) return "Black, two sugars";
-  if (/blanket|fold/.test(q)) return "Loosely";
-  if (/galley|smell/.test(q)) return "Wet rope and coffee";
-  if (/seagull/.test(q)) return "Never once";
-  if (/floorboard/.test(q)) return "Third from the desk";
-  if (/sleep|left side|cot/.test(q)) return "Right side";
-  if (/soup/.test(q)) return "Watery pea soup";
-  if (/2039|rota|pencil/.test(q)) return "Pencil, please";
-  if (/boiler|chimney/.test(q)) return "The 1954 boiler";
-  if (/song|hum/.test(q)) return "Leave Her Johnny";
-  if (/sock/.test(q)) return "Size ten";
-  if (/rate this storm/.test(q)) return "A solid nine";
-  if (/posture/.test(q)) return "Only my mother";
-  if (/three in the morning|biscuits/.test(q)) return "Toast and jam";
+  if (/meal|voyage|trip/.test(q)) return "Hot chowder";
   return "Hard to say";
 }
 

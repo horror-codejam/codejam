@@ -752,7 +752,7 @@ const ANSWER_PASS: Record<QuestionType, Pool> = {
 };
 const ANSWER_PASS_V: Record<QuestionType, Pool> = {
   SEED: [
-    "{v} sounds nice, and I'll save that for our quieter nights next winter.",
+    "{v}, good to know, I'll save that for our quieter nights next winter.",
     "{v}, I'll remember that, because I remember everything you tell me.",
     "{v}, noted, and I'm already getting to know you so well.",
     "{v}, thank you for telling me, I hate having to guess.",
