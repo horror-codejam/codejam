@@ -648,13 +648,11 @@ describe("desk artifacts (section 6.6)", () => {
 });
 
 describe("night 1 hints and CHUD's warnings", () => {
-  it("night 1 hints come at fixed times before the first visit, never tied to Ram", () => {
+  it("night 1 emits no timed hints before the first visit", () => {
     const e = playing();
-    const hints: [number, string][] = [];
-    run(e, CONFIG.nights[0].firstVisitDelay, (ev) => ev.type === "HINT" && hints.push([e.state.clock.elapsed, ev.text]));
-    expect(hints.map((h) => h[1])).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it", "The more ChudGPT suspects you, the more it lies."]);
-    hints.forEach(([t], i) => expect(t).toBeCloseTo(CONFIG.NIGHT_ONE_HINT_TIMES[i], 6));
-    for (const [t] of hints) expect(t).toBeLessThan(CONFIG.nights[0].firstVisitDelay);
+    const events: GameEvent["type"][] = [];
+    run(e, CONFIG.nights[0].firstVisitDelay, (ev) => events.push(ev.type));
+    expect(events).not.toContain("HINT");
   });
 
   it("CHUD never warns unprompted about an arrival or a departure", () => {

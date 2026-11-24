@@ -139,8 +139,6 @@ export interface GameState {
       refusedEntry: Entry | null; // CHUD refused to lock this entry (his target) during this visit
     };
     scriptedFired: string[];
-    nightOneHintsShown: number; // how many of the night 1 hints have been shown
-    paperHintShown: boolean; // the first paper drop of the run showed its on-screen hint
   };
   decoy: { nextAt: number; count: number }; // decoy noise schedule (own RNG stream, never reads Ram)
   loss: LossInfo | null;
@@ -277,7 +275,6 @@ export type GameEvent =
   | { type: "HOLD_ENDED"; entry: Entry; reason: "manual" | "arms" }
   | { type: "VIEW"; view: View }
   | { type: "RADIO"; text: string }
-  | { type: "HINT"; text: string }
   | { type: "SABOTAGE"; entry: Entry }
   | { type: "FURIOUS_START" }
   | { type: "FURIOUS_CUT"; entry: Entry }

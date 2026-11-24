@@ -58,3 +58,4 @@ Append only. One line per decision: date, decision, why. Newest at the bottom.
 - 2026-11-22: Two endings. Code found: the keeper gets on the coast guard boat and leaves. 5 nights survived without the code: the keeper sees the boat through the window, blacks out, wakes caged in the cage hall, and the run starts over (still a fail). Why: makes the code the only real way out and turns surviving alone into a twist, not a win.
 - 2026-11-22: Show the Coast Guard boat after the trapped ending's text, then fade to black before Title. Keep the watch-room ambience playing as the player watches the boat.
 - 2026-11-23: Make entry lights independent of the single lock slot and require light to see threats from the desk. Why: checking an entry should clearly show what is there while keeping the lock engaged.
+- 2026-11-23: Keep the night caption channel for CHUD and radio dialogue. Why: put control instructions in practice and let clues appear in the room during play.

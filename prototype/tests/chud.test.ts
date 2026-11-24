@@ -4,7 +4,6 @@ import { offlineJudge, sameFact, cleanFactValue } from "../src/chud/offlineJudge
 import {
   allLineTemplates,
   cannedLine,
-  NIGHT_ONE_HINTS,
   RADIO_LINES,
   RADIO_TOPIC,
   SEED_TOPICS,
@@ -508,10 +507,9 @@ describe("scripted lines", () => {
     for (const t of allLineTemplates()) expect(t, t).not.toMatch(/^RAM:/);
   });
 
-  it("keeps the radio beats and night 1 tutorial hints", () => {
+  it("keeps the radio beats", () => {
     expect(RADIO_LINES[2]).toBe("Coast guard, pickup in 3 days.");
     expect(RADIO_LINES[5]).toBe("Helicopter at first light.");
-    expect(NIGHT_ONE_HINTS).toEqual(["Look around. You won't hear him.", "Ask ChudGPT where he is", "Lock it or hold it", "The more ChudGPT suspects you, the more it lies."]);
   });
 });
 

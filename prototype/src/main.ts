@@ -81,8 +81,6 @@ let breachShown = false;
 type Caption = { text: string; until: number };
 let chudCaption: Caption | undefined;
 let radioCaption: Caption | undefined;
-let hintCaption: Caption | undefined;
-let braceHintShown = false; // one-time "hold the mouse button" caption on the first arrival at an entry
 let powerAlarmUntil = 0;
 let powerAlarmEntry: Entry | null = null;
 let previousPowerSlot: PowerSlot = "NONE";
@@ -233,7 +231,7 @@ function onEvent(ev: GameEvent, t: number): void {
       if (engine.state.phase === "NIGHT_CARD") sound.nightStart();
       terminal.clear();
       convo = [];
-      chudCaption = radioCaption = hintCaption = undefined;
+      chudCaption = radioCaption = undefined;
       breachShown = false;
       endScare();
       artifacts?.read(null);
@@ -319,17 +317,9 @@ function onEvent(ev: GameEvent, t: number): void {
       sound.radio(ev.text);
       radioCaption = { text: ev.text, until: t + 4 };
       break;
-    case "HINT":
-      if (engine.state.run.night === 1 || ev.text.startsWith("He left")) hintCaption = { text: ev.text, until: t + 6 };
-      break;
     case "PLAYER_MOVED":
       if (ev.position.kind === "TRAVELING" || ev.position.kind === "RETURNING") sound.footsteps(CONFIG.TRAVEL_TIME);
       if (ev.position.kind === "HOLDING") sound.braceStart();
-      // At an entry there is no lock: the only defense is holding the mouse button. Say it once.
-      if (ev.position.kind === "STANDING" && !braceHintShown && !engine.isPracticing) {
-        braceHintShown = true;
-        hintCaption = { text: "Hold the mouse button to hold it shut.", until: t + 5 };
-      }
       break;
     case "HOLD_ENDED":
       sound.braceEnd(ev.reason === "arms");
@@ -421,7 +411,7 @@ function renderHud(t: number): void {
 
   const deskView = playing && atDesk && view === "DESK";
   const caption = playing
-    ? [radioCaption, deskView ? undefined : chudCaption, hintCaption].find((line) => line && line.until > t)
+    ? [radioCaption, deskView ? undefined : chudCaption].find((line) => line && line.until > t)
     : undefined;
   if (caption) setText(ui.subtitle, caption.text);
   ui.subtitle.classList.toggle("visible", !!caption);
@@ -552,7 +542,7 @@ function startRun(saved?: SavedRun): void {
   devRun = false;
   terminal.chat.value = "";
   terminal.clear();
-  chudCaption = radioCaption = hintCaption = undefined;
+  chudCaption = radioCaption = undefined;
   sound.unlock();
 
   if (!saved && !params.has("nointro")) {
@@ -954,7 +944,7 @@ function devSkipClock(): void {
   const t = now();
   const evs = engine.drainEvents();
   const mute = new Set<GameEvent["type"]>([
-    "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "HINT", "SILENCE_PULL",
+    "CHUD_SAY", "RADIO", "RAM_APPROACH", "RAM_AT_ENTRY", "RAM_RETREAT", "RAM_FAKE_OUT", "RAM_AWAY", "RAM_INSIDE", "SILENCE_PULL",
     "DECOY", "LIGHT_CHANGED", "LIGHT_CUT", "LOCK_REFUSED", "POWER_CHANGED",
   ]);
   sound.stopCues();

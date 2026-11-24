@@ -89,11 +89,11 @@ describe("paper drops", () => {
     expect(e.floorPaper()).toBeNull();
   });
 
-  it("drops at the entry after a locked defense on night 2, with the first-drop hint", () => {
+  it("drops a slip at the entry after a locked defense on night 2 without a hint", () => {
     const e = playing(2);
     const evs = lockedVisit(e, "HATCH");
     expect(evs).toContainEqual({ type: "PAPER_DROPPED", entry: "HATCH", index: 0 });
-    expect(evs).toContainEqual({ type: "HINT", text: "He left something at the hatch." });
+    expect(evs.map((ev) => ev.type)).not.toContain("HINT");
     expect(e.floorPaper()).toEqual({ entry: "HATCH", index: 0 });
   });
 

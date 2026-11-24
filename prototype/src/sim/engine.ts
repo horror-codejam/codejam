@@ -11,7 +11,6 @@ import {
   SEED_TOPICS,
   RADIO_TOPIC,
   STAY_QUESTIONS,
-  NIGHT_ONE_HINTS,
   type SeedTopic,
 } from "../chud/lines";
 import { Rng } from "./rng";
@@ -403,7 +402,7 @@ export class GameEngine implements IGameEngine {
         usedSeedKeys: [],
       },
       timers: { lastRealMessageAt: 0, lastWarmBonusAt: -Infinity, silenceTicks: 0, locationRequests: [], locationRefusedUntil: -Infinity, warmTimes: [] },
-      log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [], nightOneHintsShown: 0, paperHintShown: false },
+      log: { recentMessages: [], visit: freshVisitLog(), scriptedFired: [] },
       decoy: { nextAt: Infinity, count: 0 }, // set by startNight from the decoy stream
       loss: null,
       ending: null,
@@ -596,24 +595,12 @@ export class GameEngine implements IGameEngine {
       else this.winNight();
       return;
     }
-    this.stepHints();
     this.stepDecoys();
     this.stepQuestionTimeouts();
     this.stepSilence();
     this.stepQuestions();
     this.tryFuriousCut();
     this.stepSabotage();
-  }
-
-  // Night 1 tutorial hints at fixed times before the first visit (section 10). Never tied to Ram.
-  private stepHints(): void {
-    const s = this.state;
-    const times = this.cfg.NIGHT_ONE_HINT_TIMES;
-    if (s.run.night !== 1) return;
-    while (s.log.nightOneHintsShown < Math.min(times.length, NIGHT_ONE_HINTS.length) && this.due(times[s.log.nightOneHintsShown])) {
-      this.emit({ type: "HINT", text: NIGHT_ONE_HINTS[s.log.nightOneHintsShown] });
-      s.log.nightOneHintsShown++;
-    }
   }
 
   // Decoy noises (section 7.4). Reads only the clock, the night's interval and the decoy stream. Never Ram.
@@ -1050,10 +1037,6 @@ export class GameEngine implements IGameEngine {
     if (night === ENDING.CODE_NIGHT && pp.collected === total - 1 && this.now < ENDING.LAST_PAPER_AFTER) return;
     pp.floor = { entry, index: pp.collected, droppedAt: this.now };
     this.emit({ type: "PAPER_DROPPED", entry, index: pp.collected });
-    if (!s.log.paperHintShown && pp.collected === 0 && s.run.papersCheckpoint === 0) {
-      s.log.paperHintShown = true;
-      this.emit({ type: "HINT", text: `He left something at the ${entry.toLowerCase()}.` });
-    }
   }
 
   // Section 7.6: quick return first; else the base range times the hour ramp, then the lull roll; then silence pulls.

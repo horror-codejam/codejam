@@ -40,7 +40,6 @@ export interface Config {
   // Silent breach (GAME_LOGIC 7.7): the extra scare trigger rolled per breach, as weights, and the TIMER delay.
   INSIDE_TRIGGER_WEIGHTS: Record<InsideTrigger, number>;
   INSIDE_TIMER: [number, number];
-  NIGHT_ONE_HINT_TIMES: number[]; // elapsed seconds of the night 1 tutorial hints (before the first visit)
   TICK: number; // fixed simulation step
   MESSAGE_RATE_LIMIT: number;
   QUICK_BUTTON_COOLDOWN: number;
@@ -182,7 +181,6 @@ export const CONFIG: Config = {
   QUICK_RETURN_GAP: [4, 7],
   INSIDE_TRIGGER_WEIGHTS: { TIMER: 0.4, NONE: 0.3, MOVE: 0.3 },
   INSIDE_TIMER: [4, 12],
-  NIGHT_ONE_HINT_TIMES: [8, 24, 40, 56],
   TICK: 0.05,
   MESSAGE_RATE_LIMIT: 1.5,
   QUICK_BUTTON_COOLDOWN: 0.5,

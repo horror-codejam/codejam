@@ -353,14 +353,6 @@ export const RADIO_LINES: Record<number, string> = {
   5: "Helicopter at first light.",
 };
 
-// Night 1 tutorial hints, shown at CONFIG.NIGHT_ONE_HINT_TIMES (before the first visit).
-export const NIGHT_ONE_HINTS: string[] = [
-  "Look around. You won't hear him.",
-  "Ask ChudGPT where he is",
-  "Lock it or hold it",
-  "The more ChudGPT suspects you, the more it lies.",
-];
-
 // Every raw template in this file, for content checks in tests (word counts, em dashes).
 export function allLineTemplates(): string[] {
   const out: string[] = [];
@@ -374,6 +366,6 @@ export function allLineTemplates(): string[] {
   Object.values(ANSWER_FAIL).forEach((p) => out.push(...p));
   out.push(...REFUSE_LOCK, ...STAY_QUESTIONS);
   for (const t of [...SEED_TOPICS, RADIO_TOPIC]) out.push(t.question, t.memoryQuestion);
-  out.push(...Object.values(RADIO_LINES), ...NIGHT_ONE_HINTS);
+  out.push(...Object.values(RADIO_LINES));
   return out.filter((s) => s.length > 0);
 }
