@@ -1,4 +1,6 @@
 import { getRequestListener } from "@hono/node-server";
+import { rm } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -27,6 +29,19 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       chudApi(env.ANTHROPIC_API_KEY || undefined),
+      {
+        name: "exclude-window-lab",
+        apply: "build",
+        async writeBundle({ dir }) {
+          if (!dir) return;
+          const output = resolve(dir);
+          const lab = resolve(output, "beam-lab");
+          // Vite copies public assets before writing the application bundle.
+          if (dirname(lab) === output && lab !== resolve(root, "public", "beam-lab")) {
+            await rm(lab, { force: true, recursive: true });
+          }
+        },
+      },
       // Final stills and clips live outside the Vite root. Include new conversions in the art globs.
       {
         name: "watch-final-renders",
