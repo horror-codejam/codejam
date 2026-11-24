@@ -230,6 +230,9 @@ export type Outcome =
   | { kind: "location_claim"; entry: LocationClaim } // never told whether it is a lie
   | { kind: "entry_warning"; entry: Entry } // Night 1 arrival, independent of location questions
   | { kind: "entry_repelled" }
+  | { kind: "return_from_entry"; entry: Entry } // player ran to an entry and came back to the desk
+  | { kind: "night_slip" } // Night 1 3 to 4 AM quiet creepy slip
+  | { kind: "night_dawn" } // Night 1 pre-dawn sign-off before 6:00 AM
   | { kind: "question"; question: string; type: QuestionType }
   | { kind: "answer_ack"; pass: boolean; type: QuestionType; value?: string } // value: a stored fact to echo back
   | { kind: "question_timeout" }

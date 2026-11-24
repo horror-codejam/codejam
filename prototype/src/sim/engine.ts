@@ -4,6 +4,7 @@
 // Every tuning number comes from the Config. The few constants below are rule constants, not tuning knobs.
 
 import { CONFIG, ENDING, nightLength, type Config, type NightParams } from "../config";
+import { cleanFactValue } from "../chud/offlineJudge";
 import { normalize, parseCommand } from "../chud/parser";
 import {
   cannedLine,
@@ -74,11 +75,11 @@ const LINE_SEED_SALT = 0x1f3d5b79; // line wording has its own stream, so changi
 
 // Pacing (GAME_LOGIC 8.10). Priority 1 and 2 lines play at once. Priority 3 (questions) wait for a free moment.
 // Priority 4 lines are dropped if they cannot play within LOW_DROP_AFTER seconds.
-const LOW_PRIORITY = new Set<Outcome["kind"]>(["entry_repelled"]);
+const LOW_PRIORITY = new Set<Outcome["kind"]>(["entry_repelled", "return_from_entry"]);
 // Lines ChudGPT starts on its own (everything else answers the keeper). They count for the unprompted gap.
 const UNPROMPTED = new Set<Outcome["kind"]>([
   "entry_warning", "entry_repelled", "light_cut", "sabotage", "furious_start", "furious_cut", "reboot_back",
-  "radio_reaction", "night_opener", "question_timeout", "silence", "question",
+  "radio_reaction", "night_opener", "night_slip", "night_dawn", "question_timeout", "silence", "question",
 ]);
 const COAST_RE = /coast|guard|rescue|helicopter|pickup|pick up|chopper/i;
 const BOAT_RE = /\b(boat|ship|sail|sailing|yacht|vessel)\b/i;
@@ -759,6 +760,7 @@ export class GameEngine implements IGameEngine {
     this.stepQuestionTimeouts();
     this.stepSilence();
     this.stepLowLines();
+    this.stepNight1Beats();
     this.stepQuestions();
     this.tryFuriousCut();
     this.stepSabotage();
@@ -1093,6 +1095,7 @@ export class GameEngine implements IGameEngine {
     } else if (p.kind === "HOLDING" && this.due(p.since + this.cfg.HOLD_MAX)) {
       this.endHold("arms");
     } else if (p.kind === "RETURNING" && this.due(p.until)) {
+      const from = p.from;
       s.player.position = { kind: "DESK" };
       this.emit({ type: "PLAYER_MOVED", position: { kind: "DESK" } });
       if (s.player.view !== "DESK") {
@@ -1100,6 +1103,7 @@ export class GameEngine implements IGameEngine {
         s.power.lightCutAt = null;
         this.emit({ type: "VIEW", view: "DESK" });
       }
+      if (!this.isPracticing && s.power.chudOnline) this.say({ kind: "return_from_entry", entry: from });
     }
   }
 
@@ -1515,6 +1519,22 @@ export class GameEngine implements IGameEngine {
     return true;
   }
 
+  // Night 1 scripted character beats: a quiet creepy slip between 3 and 4 AM, and a pre-dawn sign-off before 6:00 AM.
+  // Uses only lineRng (via emitLine) and scriptedFired so Ram's RNG stream is untouched.
+  private stepNight1Beats(): void {
+    const s = this.state;
+    if (s.run.night !== 1 || !s.power.chudOnline || !this.calm) return;
+    if (s.clock.hour === 3 && !s.log.scriptedFired.includes("night1_slip") && this.questionFree("QUIET")) {
+      s.log.scriptedFired.push("night1_slip");
+      this.emitLine({ kind: "night_slip" });
+      return;
+    }
+    if (this.now >= nightLength(this.cfg) - 18 - EPS && !s.log.scriptedFired.includes("night1_dawn") && this.canStartUnprompted(true)) {
+      s.log.scriptedFired.push("night1_dawn");
+      this.emitLine({ kind: "night_dawn" });
+    }
+  }
+
   private stepQuestions(): void {
     const s = this.state;
     if (!s.power.chudOnline || s.chud.pendingQuestion) return;
@@ -1905,7 +1925,11 @@ export class GameEngine implements IGameEngine {
       if (seedPassed && pq.factKey) {
         this.storeFact(pq.factKey, r.new_fact?.value ?? t.text.trim().slice(0, FACT_VALUE_MAX));
       }
-      const echo = pq.factKey && (seedPassed || pq.type === "MEMORY") ? s.chud.facts[pq.factKey] : undefined;
+      const echo = pq.factKey && (seedPassed || pq.type === "MEMORY")
+        ? s.chud.facts[pq.factKey]
+        : seedPassed && pq.origin === "QUIET"
+          ? cleanFactValue(t.text)
+          : undefined;
       answerOutcome = { kind: "answer_ack", pass: qResult === "pass", type: pq.type, value: echo };
     }
     if (r.new_fact && !seedPassed) this.storeFact(r.new_fact.key, r.new_fact.value);
@@ -1953,12 +1977,13 @@ export class GameEngine implements IGameEngine {
     this.stepLowLines();
   }
 
-  // Lowest priority lines (idle silence remark, "it's gone" after a repel) play only in a free moment, else are dropped.
+  // Lowest priority lines ("it's gone" after a repel, returning from an entry) play only in a free moment, else drop.
   private stepLowLines(): void {
     if (this.lowQueue.length === 0) return;
     const keep: typeof this.lowQueue = [];
     for (const item of this.lowQueue) {
-      if (this.canStartUnprompted(false)) this.emitLine(item.outcome);
+      const ready = item.outcome.kind === "return_from_entry" ? this.calm && this.canStartUnprompted(false) : this.canStartUnprompted(false);
+      if (ready) this.emitLine(item.outcome);
       else if (this.now < item.dropAt - EPS && this.state.power.chudOnline) keep.push(item);
     }
     this.lowQueue = keep;

@@ -30,6 +30,6 @@ it("keeps the fixed-seed night simulation identical to the repel baseline", asyn
   }
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(trace.join("\n")));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  // Updated for playtest fixes + chud-pass canned-pool variety merge (Ram RNG stream untouched).
-  expect(hash).toBe("7c9f1f93d728077a9e2a4369f3a61a050230bf5a70e939d99db5ece0010511a0");
+  // Updated for Night 1 personality rewrite and Night 1 beats (return_from_entry, 3-4 AM slip, pre-dawn sign-off; Ram RNG untouched).
+  expect(hash).toBe("68c3acd0b292d175d147fa56d384f877cc3d637cce1b06d5f020a7a3c9ca2be5");
 });

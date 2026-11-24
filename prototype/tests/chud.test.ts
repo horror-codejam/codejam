@@ -354,14 +354,33 @@ describe("canned lines", () => {
     }
   });
 
-  it("location_claim INSIDE says someone is in the room and names no entry; WARM says it plainly", () => {
+  it("location_claim INSIDE says someone is in the room and names no entry; WARM tells the truth in character", () => {
     for (const band of BANDS) {
       for (const line of sweep({ kind: "location_claim", entry: "INSIDE" }, band)) {
         expect(line, line).toMatch(/\b(in the room|inside)\b/i);
         for (const e of ENTRIES) expect(line, line).not.toMatch(ENTRY_WORDS[e]);
       }
     }
-    expect(sweep({ kind: "location_claim", entry: "INSIDE" }, "WARM")).toContain("Someone's in the room, keeper.");
+    const warm = sweep({ kind: "location_claim", entry: "INSIDE" }, "WARM");
+    expect(warm.length).toBeGreaterThanOrEqual(3);
+    expect(warm.every((l) => /\b(in the room|inside)\b/i.test(l))).toBe(true);
+  });
+
+  it("Night 1 WARM pools meet variety and character rules (no 'only waves', >= 12 light questions, >= 8 location-none, warnings < 15 words)", async () => {
+    const { LIGHT_QUESTIONS } = await import("../src/chud/lines");
+    expect(LIGHT_QUESTIONS.WARM.length).toBeGreaterThanOrEqual(12);
+    for (const q of LIGHT_QUESTIONS.WARM) {
+      expect(q.endsWith("?"), q).toBe(true);
+      expect(words(q), q).toBeLessThanOrEqual(16);
+    }
+    const locNone = sweep({ kind: "location_claim", entry: "NONE" }, "WARM");
+    expect(locNone.length).toBeGreaterThanOrEqual(8);
+    for (const l of locNone) expect(l.toLowerCase(), l).not.toContain("only waves");
+    for (const entry of ENTRIES) {
+      for (const w of sweep({ kind: "entry_warning", entry }, "WARM")) {
+        expect(words(w), w).toBeLessThan(15);
+      }
+    }
   });
 
   it("entry outcomes name the entry", () => {
@@ -502,6 +521,10 @@ describe("canned lines", () => {
       { kind: "radio_reaction" },
       { kind: "reboot_back" },
       { kind: "busy_holding" },
+      { kind: "entry_repelled" },
+      ...ENTRIES.map((entry): Outcome => ({ kind: "return_from_entry", entry })),
+      { kind: "night_slip" },
+      { kind: "night_dawn" },
     ];
     for (const o of outcomes) {
       for (const band of BANDS) {

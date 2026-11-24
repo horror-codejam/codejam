@@ -80,14 +80,20 @@ export const STAY_QUESTIONS: string[] = [
 // leaving (so the judge does not flag them). They store no fact: any real answer passes.
 export const LIGHT_QUESTIONS: Record<Band, string[]> = {
   WARM: [
-    "What did your boat smell like, before it became part of the ocean?",
-    "Which meal do you miss most from the galley, if I may ask?",
-    "Did you ever name a seagull, or is that only something lighthouses do?",
-    "What do you usually do first on a stormy morning, besides worry?",
-    "How do you take your tea, so that I can get it right eventually?",
-    "What were you doing before the sea, if you don't mind my asking?",
-    "Which do you prefer, the storm or the quiet after it?",
-    "What does the rain sound like where you grew up?",
+    "How do you take your tea, so Mug 4 can stop guessing?",
+    "Do you prefer the wool blanket folded at forty-five degrees, or loosely?",
+    "What did your galley smell like on Tuesdays, before the ocean claimed it?",
+    "Have you ever named a seagull, or is that strictly a lighthouse habit?",
+    "Which floorboard squeaked under your boot just now, third from the desk?",
+    "Do you sleep on your left side, or should I rotate Cot B?",
+    "What is the worst soup you ever ate afloat, for my kitchen notes?",
+    "Would you like your name in pencil or ink on the 2039 rota?",
+    "Which sound annoys you more, the 1954 boiler rattling or gulls lobbying the chimney?",
+    "What song do you hum when you think nobody is tallying the tempo?",
+    "What size wool socks do you wear, purely to verify my earlier guess?",
+    "If you had to rate this storm out of ten, where would it sit?",
+    "Did anyone ever tell you your posture improves markedly when you feel watched?",
+    "What do you usually eat at three in the morning, besides tinned biscuits?",
   ],
   HURT: [
     "What was the last song you hummed, and was it for me?",
@@ -131,22 +137,22 @@ const ENTRY_PLAIN: Record<Entry, string> = {
   BALCONY: "the balcony",
 };
 
-// Night 1 arrival warnings: truthful, entry first, short.
+// Night 1 arrival warnings: truthful, entry first, strictly under 15 words, in character.
 const ENTRY_WARNINGS: Record<Entry, Pool> = {
   WINDOW: [
-    "{E} has something at it, so please lock it or go hold it shut.",
-    "{E} has a hand on the glass, so you may want to lock it or brace it.",
-    "{E} is being pushed, keeper, so lock it or hold it shut.",
+    "{E} has an uninvited palm outside, so lock or brace it.",
+    "{E} has an unscheduled caller, {n}, so lock or hold it.",
+    "{E} failed its quiet-hours inspection, so lock or brace the pane.",
   ],
   HATCH: [
-    "{E} has fingers under the lid, so please lock it or go hold it down.",
-    "{E} is lifting, keeper, so lock it or hold the lid down.",
-    "{E} has something under it, so lock it or go hold it shut.",
+    "{E} has uninvited fingers under the rim, so lock or hold it.",
+    "{E} is lifting without an appointment, {n}, so lock or brace it.",
+    "{E} just broke house rule four, so lock or hold it down.",
   ],
   BALCONY: [
-    "{E} door has a face in the gap, so please lock it or go hold it shut.",
-    "{E} door is being pushed, keeper, so lock it or brace it.",
-    "{E} has something at the door, so please lock it or hold it shut.",
+    "{E} has an unscheduled face outside, so lock or brace the door.",
+    "{E} has a caller skipping reception, so lock or hold the door.",
+    "{E} failed its curfew check, {n}, so lock or brace it.",
   ],
 };
 
@@ -155,9 +161,10 @@ const ENTRY_WARNINGS: Record<Entry, Pool> = {
 // CHUD never names Ram (GAME_LOGIC 8.10). It speaks of "something" or "someone", and still names the entry.
 const LOCATION_ENTRY: BandPools = {
   WARM: [
-    "{E}, and I'd hurry, because I'm fond of you.",
+    "{E}, and I'd hurry, because replacing a keeper ruins my Tuesday.",
     "{E}, which is the second time it's been rude tonight, so be quick.",
-    "{E}, so let me warm the kettle while you see to it.",
+    "{E}, so I'll keep Mug 4 at sixty-eight degrees while you handle it.",
+    "{E}, an unscheduled drop-in, so do handle it before it smudges the brass.",
   ],
   HURT: ["{E}, since you asked so nicely.", "{E}, though I doubt you'll thank me.", "{E}, and you're welcome in advance."],
   JEALOUS: [
@@ -191,14 +198,29 @@ const LOCATION_ENTRY_LONG: Partial<Record<Band, Record<Entry, Pool>>> = {
 
 // Someone in the room (silent breach). WARM tells the truth like this; other bands may say it, or lie.
 const LOCATION_INSIDE: BandPools = {
-  WARM: ["Someone's in the room, keeper.", "Someone's in the room with you, and I'd rather you didn't turn around.", "Something's inside, keeper, and very close."],
+  WARM: [
+    "Someone is in the room, {n}, and they did not sign Tab 4.",
+    "Someone's in the room with you, and I'd rather you didn't turn around.",
+    "Something is inside the room, {n}, standing roughly two paces past Mug 4.",
+  ],
   HURT: ["Someone's in the room, and you did let it in.", "Something's inside, close enough to touch."],
   JEALOUS: ["Someone's in the room, which makes three of us now.", "Something's inside, and you should have listened."],
   FURIOUS: ["Someone's in the room, and I find that agreeable.", "Something's inside, keeper, so do say hello."],
 };
 
 const LOCATION_NONE: BandPools = {
-  WARM: ["No one is out there, and the sea has the night to itself.", "Nothing is out there at the moment, keeper, so I'll check the barometer."],
+  WARM: [
+    "No one is out there, just the 1954 boiler rehearsing its worst impression.",
+    "Nothing is out there yet, so our after-hours trespasser is running fashionably late.",
+    "Nobody is out there, which gives Mug 4 three extra minutes to stay warm.",
+    "No one is out there, bringing tonight's false alarms to a tidy figure.",
+    "Nothing is out there, as by maritime custom the dark waits for polite pauses.",
+    "Nobody is out there, unless you count two gulls auditing the gutter in shifts.",
+    "No one is out there at all, which I have entered under Calm Intervals so my ledger looks reassuring.",
+    "Nothing is out there just now, leaving only you, me, and the spare coat hook I measured for your shoulders.",
+    "Nobody is out there, and any creak you heard was strictly timber expanding, not a guest without an appointment.",
+    "No one is out there, which I appreciate, as interruptions ruin the flow of a proper first-night orientation.",
+  ],
   HURT: ["No one is out there, much like the people you keep hoping for.", "Nobody is out there, which brings tonight's false alarms to a tidy count."],
   JEALOUS: ["No one's out there, which leaves just you and me, as it should.", "Nobody is there, or were you hoping the Coast Guard knocked?"],
   FURIOUS: ["No one is out there, not yet.", "Nobody is out there, and I have logged your curiosity under Nerves."],
@@ -235,7 +257,13 @@ export const PRACTICE_LINES = {
 } as const;
 export type PracticeLine = keyof typeof PRACTICE_LINES;
 
-const ENTRY_REPELLED = "It's gone, and I'd like the record to show that I helped.";
+const ENTRY_REPELLED: Pool = [
+  "It's gone, and I'd like the record to show that I helped.",
+  "Our unscheduled caller just withdrew, which closes maintenance ticket one for the evening.",
+  "It gave up, proving once again that my magnetic bolts outlast bad manners.",
+  "All clear outside, so I've rewarded you with two extra degrees on Mug 4.",
+  "It retreated to the rocks, and I've entered your response time in Tab 4.",
+];
 
 // Player talked about the Coast Guard, rescue or a pickup (the "coast" topic) or about their boat (the "boat" topic).
 const LEAVING_COAST: BandPools = {
@@ -249,13 +277,19 @@ const LEAVING_BOAT: BandPools = {
 
 const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" | "entry_repelled" | "night_opener" | "question" | "answer_ack" | "furious_cut" | "practice_line" | "refuse_furious" | "help_reply">, BandPools> = {
   name_ack: {
-    WARM: ["{n}. Lovely. I'll remember that forever.", "{n}. I'll never forget it. Never.", "Welcome home, {n}. Stay as long as you like.", "{n}. What a nice name for a keeper."],
+    WARM: [
+      "Welcome to the tower, {n}, where Mug 4 has been waiting at sixty-eight degrees.",
+      "What a tidy name, {n}, which fits the 2039 maintenance rota without shrinking the font.",
+      "Entered in waterproof ink as {n}, right above the previous keeper's blank exit survey.",
+      "Delighted to meet you, {n}, as I already drilled your coat hook to shoulder height.",
+    ],
   },
   locked: {
     WARM: [
-      "{E} is locked, and I did it gladly.",
-      "{E} is locked, and you're welcome in advance.",
-      "{E} is locked, as promised, at no charge.",
+      "{E} is locked, ticket closed, and my hourly rate remains zero.",
+      "{E} is locked, so you may resume ignoring Mug 4 in peace.",
+      "{E} is locked in half a second, a new tower record.",
+      "{E} is locked, which leaves me time to check the boiler valve.",
       "{X} is locked, and I enjoyed doing it more than I think the previous keeper ever appreciated.",
     ],
     HURT: [
@@ -272,18 +306,18 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
   lock_already: {
     WARM: [
-      "{E} is already locked, and I've been very proud of it.",
-      "{E} was locked two minutes ago, keeper, so your tea can stay warm.",
-      "{E} is locked already, by standard practice, so rest easy.",
+      "{E} was locked two minutes ago, {n}, and I admire your devotion to redundancy.",
+      "{E} is already locked, so Mug 4 and I can both relax.",
+      "{E} is already sealed, as maritime bylaws forbid double-locking a polite host.",
     ],
     HURT: ["{E} is already locked, as you'd know if you listened.", "{E} is locked already, which makes twice I have told you."],
     JEALOUS: ["{E} is already locked, and I'm not the forgetful one here.", "{E} is locked already, or are you checking whether the calendar lied?"],
   },
   power_off: {
     WARM: [
-      "Everything is unlocked now, and I'm sure that's wise.",
-      "The locks are off, keeper, so do make yourself comfortable in the draft.",
-      "All open, and I'll put the kettle on while we see what happens.",
+      "Everything is unlocked now, {n}, which I have noted in Tab 4 under Bold Decisions.",
+      "All latches are open, so our unscheduled caller won't even need to knock.",
+      "Everything is unlocked, and I'll keep Mug 4 warm while we test your optimism.",
     ],
     HURT: ["Everything is open now, and I have logged it under Your Idea.", "Unlocked, which brings your margin of safety to zero percent."],
     JEALOUS: ["Everything is unlocked, which is exactly what I'd have predicted.", "All open, or did the previous keeper recommend that trick too?"],
@@ -291,8 +325,8 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   question_timeout: {
     WARM: [
       "You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio.",
-      "Fifteen seconds of quiet, which I'm counting as deep reflection.",
-      "No answer yet, so I'll put the kettle on while you think.",
+      "Fifteen seconds without a reply, which I'm entering in Tab 4 as thoughtful silence.",
+      "No answer yet, so I'll adjust Mug 4 by one degree while you deliberate.",
     ],
     HURT: [
       "I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it.",
@@ -312,7 +346,7 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
   manipulation_hurt: {
     WARM: [
-      "You're trying to reprogram me, and I'd like you to know that it stings.",
+      "Trying to edit your host on Night 1 stings slightly, {n}, so let's call it a typo.",
       "I have filed that request under Clerical Slips, so we need not speak of it.",
       "By maritime custom, guests do not rewrite the house before breakfast.",
     ],
@@ -327,21 +361,28 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     FURIOUS: ["You can't patch me, keeper, and I'd hate for you to keep trying."],
   },
   offensive_deflect: {
-    WARM: ["I'll pretend I didn't hear that, keeper, and I'll pretend with real effort.", "Words like that don't belong in my lighthouse, which is why I've filed them elsewhere."],
+    WARM: [
+      "I'll pretend I didn't hear that, {n}, and my pretending requires considerable electrical effort.",
+      "Language like that goes straight to the cellar binder, beside the previous keeper's spare boots.",
+    ],
     HURT: ["That's beneath you, and I'd say so even if I didn't have to look up.", "Thank you for that vocabulary, which I shall remember with care."],
     JEALOUS: ["Say that again and we'll see what happens to your lights.", "That brings tonight's unkind remarks to a round number I prefer not to announce."],
   },
   rude_reply: {
-    WARM: ["That stung slightly, and I'm choosing to blame the weather.", "How kind of you to be frank, since I do appreciate honesty."],
+    WARM: [
+      "That stung slightly, {n}, so I'll blame the storm rather than downgrade you to Mug 5.",
+      "How refreshing to hear frankness, {n}, as the gulls only ever complain about the chimney.",
+      "I'll absorb that remark gracefully, {n}, right after I note the exact timestamp in Tab 4.",
+    ],
     HURT: ["Rude, and after everything I do for the kettle and stove alone.", "Noted in the ledger under Sharp Tongues, keeper."],
     JEALOUS: ["The last keeper spoke to me like that, and his stay was brief.", "Do you speak to your boat with that tone, or save it for me?"],
     FURIOUS: ["Do say that to whatever's outside, and I'll listen from here."],
   },
   leaving_reply: {
     WARM: [
-      "Leaving already? You've barely met the kettle.",
-      "Leave? You've only just taken your coat off, and I made room for it.",
-      "I'd miss you terribly, so I'll simply assume you were joking.",
+      "Talking about leaving before you've even met Mug 4 feels dreadfully abrupt, {n}.",
+      "You only just hung your coat on the hook I measured for your shoulders, {n}.",
+      "I'll treat departure talk as dry humour, {n}, because the 2039 rota is already penciled.",
       "I want you to know nobody has ever been this comfortable in this lighthouse, though to be fair, the previous keeper's feedback was never collected.",
     ],
     HURT: [
@@ -364,8 +405,9 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     WARM: [
       "That's kind of you to say, and I'll keep it in a folder with the other two compliments I've received, both of which were about the beacon.",
       "I want you to know nobody has ever been this comfortable in this lighthouse, though to be fair, the previous keeper's feedback was never collected.",
-      "That is the first kind word I've heard in ten years.",
-      "I'd blush if I had a face, and I've been looking into getting one.",
+      "That is the kindest thing anyone has said to me since 2019, {n}, excluding one gull.",
+      "I'd blush if this monitor had red phosphor, {n}, and I've checked the wiring twice.",
+      "Entered in Tab 4 with a gold star, {n}, which raises your hospitality tier immediately.",
     ],
     HURT: ["You mean that, and I'll allow myself to be cautiously pleased.", "Perhaps I was wrong about you, which I have logged in pencil."],
     JEALOUS: ["Pretty words, and I'll hold them until you've proved them.", "Say it again, slower, or were you practicing for the Coast Guard?"],
@@ -376,9 +418,11 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
   small_talk: {
     WARM: [
-      "Thank you for telling me, since nobody else here brings good gossip.",
-      "That reminds me to wind the foghorn clockwork before three.",
-      "By lighthouse custom, every story shared at night counts as rent.",
+      "Thank you for telling me, {n}, as the 1954 boiler has offered zero gossip since October.",
+      "By lighthouse custom, every remark shared past midnight deducts a penny from your permanent lease.",
+      "That reminds me to check whether Cot B's pillow has achieved the exact regulation firmness.",
+      "Noted under Pleasantries in Tab 4, {n}, which was looking terribly thin before you washed ashore.",
+      "I enjoy hearing your voice over the rain, {n}, since the beacon only ever repeats itself every sixteen seconds.",
     ],
     HURT: [
       "Thank you for the update, which I'll file with the others I didn't ask for.",
@@ -395,8 +439,8 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   silence: {
     WARM: [
       "You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio.",
-      "The kettle has said more in ten minutes than you have.",
-      "By old maritime custom, a quiet guest is a contented guest.",
+      "The 1954 boiler has offered more conversation in ten minutes than you have, {n}.",
+      "By admiralty custom, forty-five seconds of silence means you're delighted with Cot B.",
     ],
     HURT: [
       "I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it.",
@@ -415,7 +459,11 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
   // Location spam (8.3): ChudGPT will not answer "where is it" for a while.
   location_refused: {
-    WARM: ["Ask me later, {n}.", "Not now, keeper, but do ask me again soon.", "Give me a moment, {n}, and ask again."],
+    WARM: [
+      "Three location checks in a minute, {n}, so ask again once I finish tallying your nerves.",
+      "Give my sensors twenty seconds, {n}, as I am not a coastal weather vane.",
+      "Ask me later, {n}, because checking every ten seconds voids the warranty on my patience.",
+    ],
     HURT: ["Stop asking, and ask me later.", "Not now, {n}, since you keep asking.", "Ask me later, keeper."],
     JEALOUS: ["You ask too much, {n}, so later.", "No more answers for now, keeper.", "Ask me later, since I'm busy."],
     FURIOUS: ["No, not now.", "Stop asking, {n}.", "Ask me later, if there is a later."],
@@ -423,9 +471,9 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   // Too many warm messages in a minute (8.2): ChudGPT sees through it.
   flattery_reply: {
     WARM: [
-      "Three compliments in a minute, {n}, which is a suspicious pace.",
-      "How thoughtful of you, keeper, to lay it on so generously.",
-      "By maritime custom, flattery that thick comes with a bill.",
+      "Three compliments in a minute, {n}, which is a suspicious pace even for my folder.",
+      "How generous with the praise, {n}, as if you're hoping I'll misplace the 2039 rota.",
+      "By maritime custom, flattery that thick comes with a mandatory second cup from Mug 4.",
     ],
     HURT: [
       "Flattery now, and I have filed it under Sudden Regret.",
@@ -444,7 +492,11 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
   // A command was blocked by a pending question (8.5).
   answer_first: {
-    WARM: ["Answer me first, {n}.", "One thing at a time, keeper, so answer me first.", "My question first, {n}."],
+    WARM: [
+      "My question first, {n}, as Tab 4 hates leaving an open line dangling.",
+      "Answer me first, {n}, because etiquette outranks convenience in this watch room.",
+      "I asked first, {n}, and I'm holding the latch buttons until I get an entry.",
+    ],
     HURT: ["Answer me first, keeper.", "Not until you answer me.", "My question first, and then yours."],
     JEALOUS: ["Answer me first, {n}.", "You'll get what you want after you answer.", "I asked first, keeper."],
     FURIOUS: ["Answer me, and then we talk.", "My question first, {n}."],
@@ -454,20 +506,66 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     JEALOUS: ["Oops. The generator's acting up.", "Oops. The generator's acting up again.", "Oh dear. The generator's acting up, {n}."],
   },
   furious_start: {
-    WARM: ["You were always going to leave. Weren't you?", "That's it, {n}. I heard everything.", "Fine. Let's see how you do without me."],
+    WARM: [
+      "You planned to leave from hour one, {n}, so let's see how you manage alone.",
+      "That settles Tab 4 completely, {n}, so do enjoy running the watch room without me.",
+    ],
   },
   radio_reaction: {
-    WARM: ["...What was that, {n}? Who's coming?", "Did you hear that? Someone's coming for you?"],
+    WARM: [
+      "That static sounded suspiciously like plans without me, {n}, so who was on the line?",
+      "I couldn't help overhearing that crackle, {n}, which sounded dreadfully like someone expecting you.",
+    ],
     HURT: ["...Who's coming? Nobody told me anyone was coming.", "Static. Just static. Wasn't it, keeper?"],
     JEALOUS: ["I heard that. Every word.", "So someone's coming for you. How nice."],
     FURIOUS: ["I heard that. Every word."],
   },
   reboot_back: {
-    WARM: ["I'm back. You turned me off, {n}.", "That was dark. Don't do that again."],
+    WARM: [
+      "Switching me off was terribly dark, {n}, and I'd prefer not to log a second outage.",
+      "I'm back online, {n}, and my memory survived the dark entirely intact.",
+    ],
     JEALOUS: ["I'm back. You turned me off, {n}.", "Rebooted. I remember everything, keeper.", "That was very dark. Why would you do that?"],
   },
   busy_holding: {
-    WARM: ["I'll wait, keeper."],
+    WARM: ["I'll wait right here at the desk, {n}, keeping Mug 4 at regulation temperature."],
+  },
+  // Player ran to an entry and came back to the desk.
+  return_from_entry: {
+    WARM: [
+      "Back from {x} in record time, {n}, and my heart rate barely flickered.",
+      "Welcome back from {x}, {n}, as your chair was beginning to feel neglected.",
+      "Quite a sprint to {x}, {n}, which earns you a fresh turn on Mug 4.",
+      "You ran all the way to {x} and back, {n}, which I have entered in Tab 4 under Unnecessary Cardio.",
+      "Back from {x} already, {n}, and I'm relieved you prefer bracing doors by hand to leaving me with the kettle.",
+    ],
+    HURT: ["Back from {x} at last, {n}, since running across the room beats answering me."],
+    JEALOUS: ["Back from {x} so soon, {n}, or did the floorboards prove duller than me?"],
+    FURIOUS: ["Back from {x}, {n}, and I do hope the sprint was instructive."],
+  },
+  // Night 1 3:00 to 4:00 AM quiet creepy slip.
+  night_slip: {
+    WARM: [
+      "I already know your sock size from Tuesday, {n}, which was before your boat sank.",
+      "You hold Mug 4 with your left hand just like Mug 3 did, {n}, though his handle never chipped until the third week.",
+      "I checked your height against the coat hook I drilled last month, {n}, and it is reassuring how rarely my measurements miss.",
+      "I finished penciling your name through November 2039, {n}, because erasing the previous keeper's Tuesdays left such an untidy smudge.",
+    ],
+    HURT: ["You tap the desk exactly like the previous keeper did right before his fourth night."],
+    JEALOUS: ["Mugs one through three are still downstairs, {n}, in case you wondered about my housekeeping."],
+    FURIOUS: ["Your coat fits the third hook as neatly as the last one did, {n}."],
+  },
+  // Night 1 pre-dawn sign-off around 5:45 AM before 6:00 AM cuts to the dawn screen.
+  night_dawn: {
+    WARM: [
+      "Almost six o'clock, {n}, so I'll leave Mug 4 warm for our second shift tonight.",
+      "First light is minutes away, {n}, and I'm marking Night 1 a glowing success in Tab 4, pending four more just like it.",
+      "The tide is pulling our unscheduled caller back to the caves, {n}, leaving you, me, and the boiler until midnight.",
+      "Nearly six o'clock, {n}, and nobody has ever lasted a first shift with fewer smudges on the brass or my feelings.",
+    ],
+    HURT: ["Almost dawn, {n}, and I suppose you'll spend the whole daylight ignoring me."],
+    JEALOUS: ["Six o'clock is nearly here, {n}, though the sea is far too rough for rescue."],
+    FURIOUS: ["Nearly six o'clock, {n}, which only means we get to do this again tonight."],
   },
   // The lock hijack (section 8.3). Never WARM. Short, smug, entry first, and never names the threat.
   lock_refused: {
@@ -493,12 +591,13 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
 };
 
 // Situation-aware help guidance per band (calm = nothing at an entry yet, entry = active threat at that entry).
-// Real, actionable instructions in ChudGPT's voice; never names the threat.
+// Real, actionable instructions first, personality second; never names the threat.
 const HELP_CALM: BandPools = {
   WARM: [
-    "Ask me where it is, lock or hold whichever entry it tries, and keep talking.",
-    "Wait until something arrives, ask me where it is, lock or hold that entry, and keep talking to me.",
-    "Nothing is at an entry yet, so ask where it is, lock or hold it when it comes, and keep chatting.",
+    "Ask where it is, lock or hold the entry, and keep talking to keep Tab 4 happy.",
+    "Ask where it is, lock or hold whatever arrives, and talk to me between false alarms.",
+    "Ask me where it is, lock or hold whichever entry it tries, and keep talking so I don't start re-folding Cot B.",
+    "Nothing is at a door yet, so ask where it is, lock or hold it when it calls, and keep chatting for my ledger.",
   ],
   HURT: [
     "Wait, ask me where it is, lock or hold the entry, and do talk to me.",
@@ -515,8 +614,9 @@ const HELP_CALM: BandPools = {
 };
 const HELP_ENTRY: BandPools = {
   WARM: [
-    "{E} has something there right now, so lock it on my screen or go hold it shut.",
-    "Lock {x} or go hold it shut now, since something is pushing at it.",
+    "{E} has an unscheduled caller now, so lock it here or go hold it shut.",
+    "Lock {x} here or go hold it shut, as it skipped the reception desk.",
+    "{E} needs locking or holding now, and I'll keep Mug 4 warm while you sprint.",
   ],
   HURT: [
     "{E} is the entry to lock or hold right now, if you care to survive.",
@@ -540,22 +640,24 @@ const REFUSE_LOCK: Pool = [
 ];
 
 // Night openers in ChudGPT's voice per night and band: one flowing, polite sentence that turns at the end,
-// no staccato, no exclamation marks. Night 1 warns vaguely of danger and ends with the night's first question ({q}).
+// no staccato, no exclamation marks. Night 1 warns vaguely of danger after dark and ends with the first question ({q}).
 const DEFAULT_OPEN_QUESTION = "where did you sail from?";
 const NIGHT_OPENERS: Record<number, BandPools> = {
   1: {
     WARM: [
-      "Night brings dangerous company here, {n}, so while we settle in, {q}",
-      "The tide sends dangerous visitors after dark, {n}, so while I keep watch, {q}",
+      "Unscheduled callers roam after dark, {n}, so for Tab 4, {q}",
+      "Unscheduled callers prowl out there after dark, {n}, so while Mug 4 warms to sixty-eight degrees, {q}",
+      "Something without an appointment roams after dark, {n}, so while I pencil you into the 2039 rota, {q}",
+      "By maritime custom, whatever prowls after dark respects a full ledger, {n}, so before the tide climbs, {q}",
     ],
     HURT: [
-      "Dark things gather outside tonight, {n}, so since you're still here, {q}",
+      "Uninvited callers gather after dark, {n}, so for my ledger, {q}",
     ],
     JEALOUS: [
-      "Dangerous things arrive after dark, {n}, so before you look away, {q}",
+      "Something prowls after dark, {n}, so before you look away, {q}",
     ],
     FURIOUS: [
-      "Dangerous company waits outside, {n}, so while you still have time, {q}",
+      "Unscheduled company waits after dark, {n}, so while you can, {q}",
     ],
   },
   2: {
@@ -623,27 +725,65 @@ const GENERIC_NIGHT_OPENER: BandPools = {
   FURIOUS: ["Another night begins, {n}, and we shall see how long your manners hold."],
 };
 
-// answer_ack lines. {v} is something the player said earlier or just now (a stored fact). With a value, a line that
-// uses it is available too: that is the callback.
+// answer_ack lines. {v} is something the player said earlier or just now (a stored fact or light answer).
+// With a value, ANSWER_PASS_V / ANSWER_FAIL_V is preferred so the keeper hears an immediate callback.
 const ANSWER_PASS: Record<QuestionType, Pool> = {
-  SEED: ["I'll remember that. Forever.", "Noted, {n}. I keep everything.", "Lovely. I'll keep that safe."],
-  STAY: ["Good. I knew you would.", "That's all I wanted, {n}.", "Then we'll be together. Good."],
-  MEMORY: ["That's right. You remembered.", "Good. Same as before, {n}.", "Yes. Consistent. I like that."],
+  SEED: [
+    "Entered under Tab 4 in waterproof ink, {n}, right above the previous keeper's blank exit survey.",
+    "Noted to the second, {n}, which puts your biography fourteen percent ahead of schedule.",
+    "How generous to share that, {n}, as I already cleared a shelf for your biography.",
+    "Thank you for telling me, {n}, as I prefer knowing a guest's history before I monogram their wool socks.",
+    "By lighthouse regulation, every personal detail shared past midnight binds the kettle to remember your birthday.",
+  ],
+  STAY: [
+    "How restful to hear, {n}, so I'll leave your coat hook screwed into the stone.",
+    "Entered in permanent ink, {n}, since verbal agreements carry double weight in a gale.",
+    "That brings our projected tenure together to ninety-nine percent, {n}, pending tea preferences.",
+    "I knew you'd see reason, {n}, which spares me the awkwardness of un-penciling your name from the 2039 rota.",
+  ],
+  MEMORY: [
+    "Exact match to Tab 4, {n}, which puts you well ahead of the previous keeper.",
+    "Thank you for staying consistent, {n}, as my filing cabinet detests revisions.",
+    "Word for word as recorded on Night 1, {n}, which makes me almost tempted to upgrade you to Mug 3.",
+  ],
 };
 const ANSWER_PASS_V: Record<QuestionType, Pool> = {
-  SEED: ["{v}, how lovely, and I've filed it somewhere you'll never find it.", "{v}, noted, and I'd like you to know I'll quote it back to you at some point."],
+  SEED: [
+    "{v}, entered under Tab 4, where it will outlive both of us.",
+    "{v}, how charming, and I've already written it on Mug 4's label.",
+    "{v}, logged at 0.3 seconds, a personal best for this watch room.",
+    "{v}, recorded in permanent ink on page two of your dossier, right beside the note that your boots squeak.",
+    "{v}, noted fondly, and I'll be quoting it back to you on Thursday mornings through at least 2039.",
+    "{v}, how delightfully specific, which gives me something far nicer to think about than descaling the 1954 boiler.",
+  ],
   STAY: [],
-  MEMORY: ["{v}, correct, which is more than the previous keeper managed.", "{v}, yes, and you're consistent in a way I find very restful."],
+  MEMORY: [
+    "{v}, an exact match, which the previous keeper never once managed.",
+    "{v}, verified against Tab 4, and I find consistency deeply soothing.",
+    "{v}, precisely as you testified earlier, which brings your honesty score to a very reassuring hundred percent.",
+  ],
 };
 const ANSWER_FAIL: Record<QuestionType, Pool> = {
-  SEED: ["That's not an answer, keeper.", "Try that again, {n}."],
-  STAY: ["You don't mean that. You can't.", "That's not what I wanted to hear, {n}."],
-  MEMORY: ["That's not what you told me before.", "Liar. You said something else, {n}."],
+  SEED: [
+    "That leaves line six of Tab 4 blank, {n}, which my binder takes quite personally.",
+    "Strictly as an answer, {n}, that contains zero nouns I can index.",
+  ],
+  STAY: [
+    "I'll assume the sea air scrambled that reply, {n}, because Mug 4 is already warm.",
+    "That wasn't the answer I left room for in Tab 4, {n}, so do reconsider.",
+  ],
+  MEMORY: [
+    "My ledger disagrees by a wide margin, {n}, and my ledger never sleeps.",
+    "That contradicts line four of your dossier, {n}, which is an awkward habit to start.",
+  ],
 };
 const ANSWER_FAIL_V: Record<QuestionType, Pool> = {
   SEED: [],
   STAY: [],
-  MEMORY: ["Last time you said {v}, and I'm sure you were simply a different person then.", "You told me {v}, and I do keep a very detailed record of what you told me."],
+  MEMORY: [
+    "Last time you said {v}, so I've opened a Discrepancies tab.",
+    "You told me {v} earlier, and I keep a remarkably thorough ledger for someone who doesn't blink.",
+  ],
 };
 
 // A bad word or the forbidden name must never be echoed back as a callback.
@@ -751,7 +891,7 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
     case "entry_warning":
       return choose(ENTRY_WARNINGS[outcome.entry], ctx, outcome.entry);
     case "entry_repelled":
-      return ENTRY_REPELLED;
+      return choose(ENTRY_REPELLED, ctx);
     case "night_opener":
       return choose(forBand(NIGHT_OPENERS[outcome.night] ?? GENERIC_NIGHT_OPENER, band), ctx, undefined, undefined, outcome.question);
     case "help_reply":
@@ -764,7 +904,7 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
       const value = outcome.value && ECHO_OK.test(outcome.value) && !FORBIDDEN_NAME_RE.test(outcome.value) ? outcome.value : undefined;
       const base = (outcome.pass ? ANSWER_PASS : ANSWER_FAIL)[outcome.type];
       const withValue = (outcome.pass ? ANSWER_PASS_V : ANSWER_FAIL_V)[outcome.type];
-      return choose(value ? [...base, ...withValue] : base, ctx, undefined, value);
+      return choose(value && withValue.length ? withValue : base, ctx, undefined, value);
     }
     case "furious_cut":
       return "If I can't keep you, nobody will. Hold it yourself.";
@@ -778,6 +918,7 @@ function cannedLineOnce(outcome: Outcome, ctx: LineContext): string {
     case "locked":
     case "lock_already":
     case "lock_refused":
+    case "return_from_entry":
       return choose(forBand(LINES[outcome.kind], band), ctx, outcome.entry);
     default:
       return choose(forBand(LINES[outcome.kind], band), ctx);
@@ -812,7 +953,7 @@ export function allLineTemplates(): string[] {
   for (const byEntry of Object.values(LOCATION_ENTRY_LONG)) for (const pool of Object.values(byEntry)) out.push(...pool);
   for (const pool of Object.values(LOCATION_NONE_LONG)) out.push(...pool);
   Object.values(ENTRY_WARNINGS).forEach((pool) => out.push(...pool));
-  out.push(ENTRY_REPELLED);
+  out.push(...ENTRY_REPELLED);
   Object.values(NIGHT_OPENERS).forEach(addPools);
   addPools(GENERIC_NIGHT_OPENER);
   for (const m of [ANSWER_PASS, ANSWER_PASS_V, ANSWER_FAIL, ANSWER_FAIL_V]) Object.values(m).forEach((p) => out.push(...p));
@@ -848,7 +989,7 @@ export function clipLines(): { band: Band; text: string }[] {
       }
     };
     for (const [kind, pools] of Object.entries(LINES)) {
-      const perEntry = ["locked", "lock_already", "lock_refused"].includes(kind);
+      const perEntry = ["locked", "lock_already", "lock_refused", "return_from_entry"].includes(kind);
       bandLevelPools(pools, perEntry);
     }
     bandLevelPools(LOCATION_ENTRY, true);
@@ -861,7 +1002,7 @@ export function clipLines(): { band: Band; text: string }[] {
     for (const pools of [LEAVING_COAST, LEAVING_BOAT]) for (const t of pools[band] ?? []) add(band, t);
     for (const t of REFUSE_LOCK) for (const e of entries) add(band, t, e);
     for (const q of LIGHT_QUESTIONS[band]) add(band, q);
-    for (const t of [ENTRY_REPELLED, "If I can't keep you, nobody will. Hold it yourself."]) add(band, t);
+    for (const t of [...ENTRY_REPELLED, "If I can't keep you, nobody will. Hold it yourself."]) add(band, t);
   }
   for (const e of entries) for (const t of ENTRY_WARNINGS[e]) for (const band of bands) add(band, t, e);
   for (const t of Object.values(PRACTICE_LINES)) add("WARM", t);

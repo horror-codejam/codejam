@@ -291,6 +291,25 @@ describe("the quiet limit", () => {
     expect(e.state.chud.suspicion - before).toBe(CONFIG.LIGHT_QUESTION_TIMEOUT_PENALTY);
   });
 
+  it("night 1 plays a 3 to 4 AM creepy slip, a pre-dawn line, and reacts when returning from an entry", () => {
+    const e = quiet(1, { QUIET_LIMIT: [1e9, 1e9, 1e9, 1e9, 1e9], NIGHT1_EARLY_QUIET_LIMIT: 1e9, SILENCE_LIMIT: 1e9 });
+    // Let the Night 1 opener finish speaking, then run to the hatch and come back while calm.
+    run(e, 12);
+    e.turn("HATCH");
+    e.goToEntry("HATCH");
+    run(e, CONFIG.TRAVEL_TIME + 0.5);
+    e.returnToDesk();
+    const retEvs = run(e, CONFIG.TRAVEL_TIME + 1);
+    expect(lines(retEvs).some((l) => l.outcome.kind === "return_from_entry")).toBe(true);
+
+    // Advance across the rest of Night 1 to verify the 3 to 4 AM slip and pre-dawn line both fire once.
+    const rest = run(e, CONFIG.HOUR_LENGTH * CONFIG.NIGHT_HOURS);
+    const slips = lines(rest).filter((l) => l.outcome.kind === "night_slip");
+    const dawns = lines(rest).filter((l) => l.outcome.kind === "night_dawn");
+    expect(slips).toHaveLength(1);
+    expect(dawns).toHaveLength(1);
+  });
+
   it("night 1 opener asks the night's first question at 12:00 AM so the keeper has something to answer", () => {
     const e = new GameEngine({ seed: 7, skipNamePrompt: true, startNight: 1, facts: { name: "Sam" } });
     e.beginNight();
