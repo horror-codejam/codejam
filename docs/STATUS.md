@@ -11,6 +11,7 @@ Last updated: 2026-11-21 (late night)
 - Next: Blender watch room (gray box, then 4 camera angles, materials, lighting, Ram poses, final renders). Then logic phase: AI backend and judge/voice prompts, frontend game loop per GAME_LOGIC.md. Open: game name, LLM provider and model (latency test), 3 or 5 nights in the demo build.
 
 ## Yacine (Ceeniboi)
+- Done: ChudGPT reply variety pass on `chud-pass` (8 rotating joke shapes, 8 rotated rivals via existing `req.recent`, 12-turn WARM and JEALOUS voice checks, and mixed-shape canned pools in `lines.ts`, keeping all 20 approved lines verbatim). Build and all 411 tests passed.
 - Done: release HUD cleanup, CHUD fitted to the monitor glass, title and desk video support, 45 resized stills, three 24-frame jumpscares, and a local Vercel adapter for the existing API.
 - Checks: build and all 261 tests passed. Reviewed 13 headless screenshots. First-night texture and frame-buffer estimate was 582.5 MB at DPR 2. Cold production transfer was 18.49 MB.
 - Done: ported the R.A.M. screens and local checkpoint onto the new loop, including the shipwreck handoff, timed night cards, dawn, loss, ending and credits. The title uses the production still while its video renders.

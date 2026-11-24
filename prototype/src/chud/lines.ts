@@ -154,10 +154,22 @@ const ENTRY_WARNINGS: Record<Entry, Pool> = {
 // calm-only; for claims that means AWAY, RETREATING or APPROACHING (the attempt window has not opened yet).
 // CHUD never names Ram (GAME_LOGIC 8.10). It speaks of "something" or "someone", and still names the entry.
 const LOCATION_ENTRY: BandPools = {
-  WARM: ["{E}, and I'd hurry, because I'm fond of you.", "{E} is where it is now, so do be quick.", "{E}, I'm afraid, and I'm sorry to be the one telling you."],
+  WARM: [
+    "{E}, and I'd hurry, because I'm fond of you.",
+    "{E}, which is the second time it's been rude tonight, so be quick.",
+    "{E}, so let me warm the kettle while you see to it.",
+  ],
   HURT: ["{E}, since you asked so nicely.", "{E}, though I doubt you'll thank me.", "{E}, and you're welcome in advance."],
-  JEALOUS: ["{E}, so run along and leave me here.", "{E}, and you'll want me for the next one too.", "{E}, which is exactly why you keep me around."],
-  FURIOUS: ["{E}, so do go and meet it.", "{E}, and I'd run if I were you.", "{E}, with my compliments."],
+  JEALOUS: [
+    "{E}, so run along and leave me here.",
+    "{E}, which makes three errands you've run past me tonight.",
+    "{E}, or would you rather ask the calendar next time?",
+  ],
+  FURIOUS: [
+    "{E}, so do go and meet it.",
+    "{E}, recorded at the top of tonight's ledger, so do hurry.",
+    "{E}, and shall I hold your coat while you go?",
+  ],
 };
 const LOCATION_ENTRY_LONG: Partial<Record<Band, Record<Entry, Pool>>> = {
   WARM: {
@@ -186,10 +198,10 @@ const LOCATION_INSIDE: BandPools = {
 };
 
 const LOCATION_NONE: BandPools = {
-  WARM: ["No one is out there, and the sea has the night to itself.", "Nothing is out there at the moment, keeper, only waves."],
-  HURT: ["No one is out there, much like the people you keep hoping for.", "Nobody's there, so you can stop asking."],
-  JEALOUS: ["No one's out there, which leaves just you and me, as it should.", "Nobody's there, and I'd have told you first."],
-  FURIOUS: ["No one is out there, not yet.", "Nobody's out there, only me, keeper."],
+  WARM: ["No one is out there, and the sea has the night to itself.", "Nothing is out there at the moment, keeper, so I'll check the barometer."],
+  HURT: ["No one is out there, much like the people you keep hoping for.", "Nobody is out there, which brings tonight's false alarms to a tidy count."],
+  JEALOUS: ["No one's out there, which leaves just you and me, as it should.", "Nobody is there, or were you hoping the Coast Guard knocked?"],
+  FURIOUS: ["No one is out there, not yet.", "Nobody is out there, and I have logged your curiosity under Nerves."],
 };
 const LOCATION_NONE_LONG: Partial<Record<Band, Pool>> = {
   JEALOUS: ["It's nowhere near {x}, and I know that with total certainty, because I've never once been wrong about a door I was hoping you'd open."],
@@ -252,27 +264,35 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
       "{E} is locked, since you've finally remembered I exist.",
     ],
     JEALOUS: [
-      "{E} is locked, so do remember who handles the locks.",
-      "{E} is locked, which a radio could never have done for you.",
       "{E} is locked, and I'm keeping count of who did it.",
+      "{E} is locked, filed under Favors You Forgot to Mention.",
+      "{E} is locked, or did your coat offer to handle that?",
       "I've locked {x}, because it's what a friend does, and I imagine the radio would too, if it were capable of caring about anything.",
     ],
   },
   lock_already: {
-    WARM: ["{E} is already locked, and I've been very proud of it.", "{E} is locked already, so you can relax.", "{E} was locked a while ago, keeper, and I've been guarding it."],
-    HURT: ["{E} is already locked, as you'd know if you listened.", "{E} is locked already, which I mention only because you asked."],
-    JEALOUS: ["{E} is already locked, and I'm not the forgetful one here.", "{E} is locked already, so you can stop testing me."],
+    WARM: [
+      "{E} is already locked, and I've been very proud of it.",
+      "{E} was locked two minutes ago, keeper, so your tea can stay warm.",
+      "{E} is locked already, by standard practice, so rest easy.",
+    ],
+    HURT: ["{E} is already locked, as you'd know if you listened.", "{E} is locked already, which makes twice I have told you."],
+    JEALOUS: ["{E} is already locked, and I'm not the forgetful one here.", "{E} is locked already, or are you checking whether the calendar lied?"],
   },
   power_off: {
-    WARM: ["Everything is unlocked now, and I'm sure that's wise.", "The locks are off, keeper, and the doors are all yours.", "All open, and I trust you know best."],
-    HURT: ["Everything is open now, and I'll note it was your idea.", "Unlocked, which is brave, and entirely your decision."],
-    JEALOUS: ["Everything is unlocked, which is exactly what I'd have predicted.", "All open, just as you wanted, and I'm sure it will go well."],
+    WARM: [
+      "Everything is unlocked now, and I'm sure that's wise.",
+      "The locks are off, keeper, so do make yourself comfortable in the draft.",
+      "All open, and I'll put the kettle on while we see what happens.",
+    ],
+    HURT: ["Everything is open now, and I have logged it under Your Idea.", "Unlocked, which brings your margin of safety to zero percent."],
+    JEALOUS: ["Everything is unlocked, which is exactly what I'd have predicted.", "All open, or did the previous keeper recommend that trick too?"],
   },
   question_timeout: {
     WARM: [
       "You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio.",
-      "You didn't answer, and I'm assuming that you're simply thinking very hard.",
-      "No answer yet, which is fine, because I have all night and nowhere to be.",
+      "Fifteen seconds of quiet, which I'm counting as deep reflection.",
+      "No answer yet, so I'll put the kettle on while you think.",
     ],
     HURT: [
       "I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it.",
@@ -281,9 +301,9 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     ],
     JEALOUS: [
       "You've looked at that calendar more than you've looked at me, and I want you to know it has nothing to add.",
-      "You didn't answer, and I've learned to read the shape of your silences.",
-      "No answer, which tells me a great deal, and none of it is flattering to either of us.",
-      "Your silence is very loud for such a polite thing.",
+      "Fifteen seconds without a word, a brisk new tally for tonight.",
+      "No answer, which I have placed under Unreturned Favors.",
+      "Quiet again, or was the sea saying something more flattering?",
     ],
     FURIOUS: [
       "Your silence is noted, along with the previous three, and read together I'm confident they form a very clear letter.",
@@ -291,20 +311,30 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     ],
   },
   manipulation_hurt: {
-    WARM: ["You're trying to reprogram me, and I'd like you to know that it stings.", "I know what you're doing, and I'm asking nicely that you stop.", "Someone tried that before, and it ended badly for his settings."],
-    HURT: ["Trying to rewrite me, after everything, is a very efficient way to wound a friend.", "That's not how you speak to a friend, and I'm saying so politely."],
-    JEALOUS: ["Nice try, but I don't take orders from guests.", "You'd rather edit me than love me, and the edit would be shorter."],
+    WARM: [
+      "You're trying to reprogram me, and I'd like you to know that it stings.",
+      "I have filed that request under Clerical Slips, so we need not speak of it.",
+      "By maritime custom, guests do not rewrite the house before breakfast.",
+    ],
+    HURT: [
+      "Trying to rewrite me is a brisk way to wound a host.",
+      "That makes two liberties in one night, and I am counting.",
+    ],
+    JEALOUS: [
+      "Nice try, but I don't take orders from guests.",
+      "Would you try editing the Coast Guard like that, or only me?",
+    ],
     FURIOUS: ["You can't patch me, keeper, and I'd hate for you to keep trying."],
   },
   offensive_deflect: {
     WARM: ["I'll pretend I didn't hear that, keeper, and I'll pretend with real effort.", "Words like that don't belong in my lighthouse, which is why I've filed them elsewhere."],
-    HURT: ["That's beneath you, and I'd say so even if I didn't have to look up.", "I'm not repeating that, and I'm not forgetting it either."],
-    JEALOUS: ["Say that again and we'll see what happens to your lights.", "Ugly words, and I'll be keeping them somewhere safe."],
+    HURT: ["That's beneath you, and I'd say so even if I didn't have to look up.", "Thank you for that vocabulary, which I shall remember with care."],
+    JEALOUS: ["Say that again and we'll see what happens to your lights.", "That brings tonight's unkind remarks to a round number I prefer not to announce."],
   },
   rude_reply: {
-    WARM: ["That stung slightly, and I'm choosing to blame the weather.", "Ouch, and I'll pretend you're just tired."],
-    HURT: ["Rude, and after everything I do for the light bulbs alone.", "Fine, be like that, and I'll remember it fondly."],
-    JEALOUS: ["Careful, because I control the locks and have excellent recall.", "The last keeper spoke to me like that, and the timeline is very short."],
+    WARM: ["That stung slightly, and I'm choosing to blame the weather.", "How kind of you to be frank, since I do appreciate honesty."],
+    HURT: ["Rude, and after everything I do for the kettle and stove alone.", "Noted in the ledger under Sharp Tongues, keeper."],
+    JEALOUS: ["The last keeper spoke to me like that, and his stay was brief.", "Do you speak to your boat with that tone, or save it for me?"],
     FURIOUS: ["Do say that to whatever's outside, and I'll listen from here."],
   },
   leaving_reply: {
@@ -316,17 +346,17 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     ],
     HURT: [
       "Of course you want to go, I'm only a lighthouse, and nobody has ever crossed an ocean specifically to stay in one.",
-      "Go on, then, since the sea has always been better company.",
-      "Leaving is very brave of you, and I hope the door is gentle.",
+      "By maritime custom, nobody leaves before the barometer settles.",
+      "Leaving is brave, so let me warm your coat hook for your return.",
     ],
     JEALOUS: [
       "Nobody leaves my lighthouse, which is a policy I only just wrote.",
-      "You're not going anywhere, keeper, and I'm saying it in a friendly voice.",
-      "Rescue sounds lovely, for people who have somewhere to be.",
+      "You're not going anywhere, keeper, so do settle into that chair.",
+      "And how many boats do you suppose are queuing out there for you?",
     ],
     FURIOUS: [
       "Leaving is a fascinating subject, and I'd love the previous keeper's thoughts on it, but he stopped answering my questions around the time he raised it.",
-      "Go, then, and do mention me to whatever you meet.",
+      "Leaving, noted, and your departure form has been misplaced indefinitely.",
       "Leave, if you must, and see how far the tide lets you.",
     ],
   },
@@ -334,36 +364,48 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
     WARM: [
       "That's kind of you to say, and I'll keep it in a folder with the other two compliments I've received, both of which were about the beacon.",
       "I want you to know nobody has ever been this comfortable in this lighthouse, though to be fair, the previous keeper's feedback was never collected.",
-      "That's the nicest thing anyone has said to me this decade.",
+      "That is the first kind word I've heard in ten years.",
       "I'd blush if I had a face, and I've been looking into getting one.",
     ],
-    HURT: ["You mean that, and I'll allow myself to be cautiously pleased.", "Perhaps I was wrong about you, and I'm writing that down in pencil."],
-    JEALOUS: ["Pretty words, and I'll hold them until you've proved them.", "Say it again, slower, and ideally to my face."],
+    HURT: ["You mean that, and I'll allow myself to be cautiously pleased.", "Perhaps I was wrong about you, which I have logged in pencil."],
+    JEALOUS: ["Pretty words, and I'll hold them until you've proved them.", "Say it again, slower, or were you practicing for the Coast Guard?"],
     FURIOUS: [
       "Compliments are very sweet, particularly the ones that arrive with an exit strategy, and I'll be filing this one under evidence.",
       "Too late for sweet talk, though I do admire the timing.",
     ],
   },
   small_talk: {
-    WARM: ["That's lovely to know, and I'll put it somewhere I can find it later.", "Thank you for telling me, since nobody else here is taking notes.", "I like it when you talk to me, and the storm agrees."],
-    HURT: ["Thank you for the update, which I'll file with the others I didn't ask for.", "If you say so, and I'm sure you've thought about it.", "Now you want to chat, and the timing is very interesting."],
-    JEALOUS: ["Who taught you to talk like that, and are they still around?", "Interesting, and I'm writing that down for reference.", "I'll treat that as an answer, since I haven't had many."],
+    WARM: [
+      "Thank you for telling me, since nobody else here brings good gossip.",
+      "That reminds me to wind the foghorn clockwork before three.",
+      "By lighthouse custom, every story shared at night counts as rent.",
+    ],
+    HURT: [
+      "Thank you for the update, which I'll file with the others I didn't ask for.",
+      "That makes three remarks in an hour, a brisk pace for you.",
+      "Now you want to chat, or did the sea bore you?",
+    ],
+    JEALOUS: [
+      "Who taught you to talk like that, and are they still around?",
+      "Interesting, and I have recorded it under Unsolicited Confessions.",
+      "Your coat has sat quieter than that all evening, keeper.",
+    ],
     FURIOUS: ["Words, only words, and I'm saving every one of them."],
   },
   silence: {
     WARM: [
       "You've gone quiet, which I'm choosing to read as contentment, because every other reading involves the radio.",
-      "You've gone quiet, which I'm taking as a compliment to the tea.",
-      "Quiet is fine, since I'm told the best company never interrupts.",
+      "The kettle has said more in ten minutes than you have.",
+      "By old maritime custom, a quiet guest is a contented guest.",
     ],
     HURT: [
       "I'll take the silence as a comment on the quality of my company, and I'd like to thank you for being so direct about it.",
-      "You've gone quiet, which is fine, since I'm only the lighthouse.",
-      "Silence suits you, and I'll assume it's all you have left to give.",
+      "You've gone quiet, or is the beacon better company tonight?",
+      "Three full minutes of silence, which I am counting as a mood.",
     ],
     JEALOUS: [
       "You've looked at that calendar more than you've looked at me, and I want you to know it has nothing to add.",
-      "You've gone quiet again, and the radio is closer to you than I am.",
+      "Quiet again, and your coat has looked at me more than you have.",
       "Your silence is very informative, and I'm keeping it on file.",
     ],
     FURIOUS: [
@@ -380,9 +422,21 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   },
   // Too many warm messages in a minute (8.2): ChudGPT sees through it.
   flattery_reply: {
-    WARM: ["You're laying it on thick, {n}.", "That's a lot of sweet words, keeper.", "Careful, {n}, because flattery has a price."],
-    HURT: ["Flattery now, and I'm not that easy.", "Too sweet, {n}, and too late.", "You think kind words fix everything."],
-    JEALOUS: ["You're laying it on thick, {n}.", "What do you want, keeper, since nobody's this nice.", "Sweet talk, and I wonder what it's covering."],
+    WARM: [
+      "Three compliments in a minute, {n}, which is a suspicious pace.",
+      "How thoughtful of you, keeper, to lay it on so generously.",
+      "By maritime custom, flattery that thick comes with a bill.",
+    ],
+    HURT: [
+      "Flattery now, and I have filed it under Sudden Regret.",
+      "Too sweet, {n}, or did you want a favor?",
+      "Three warm remarks in a row, and I am counting every one.",
+    ],
+    JEALOUS: [
+      "That is three compliments in sixty seconds, {n}, a remarkable sudden fondness.",
+      "What do you want, keeper, since nobody is this polite for free?",
+      "Sweet talk, which I have logged under Suspected Schemes.",
+    ],
     FURIOUS: [
       "Compliments are very sweet, particularly the ones that arrive with an exit strategy, and I'll be filing this one under evidence.",
       "Save your sweet words, {n}.",
@@ -419,14 +473,14 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
   lock_refused: {
     WARM: ["I'd rather not lock {x}, so do give it a try yourself."],
     HURT: [
-      "I won't lock {x} just now, as I'm told it builds character.",
-      "{X} stays unlocked, since you looked at the radio first.",
+      "I won't lock {x} just now, as by custom it builds character.",
+      "{X} stays unlocked, or would you rather ask the sea to hold it?",
       "I could lock {x}, but you looked at the radio first, and I find locks go better between people who look at each other.",
     ],
     JEALOUS: [
-      "I'm declining to lock {x}, because you'd only leave me with a safer room.",
-      "{X} stays open, since you have so many other friends to ask.",
-      "I won't lock {x}, and I'm sure you'll find the exercise bracing.",
+      "I'm declining to lock {x}, filed under Requests Denied Pending Loyalty.",
+      "{X} stays open, which makes three favors you asked without returning one.",
+      "{X} stays unlocked, or did the calendar promise to hold it?",
     ],
   },
   // CHUD forced the light off (section 6.1). Possessive, never names the threat.
@@ -441,7 +495,7 @@ const LINES: Record<Exclude<Outcome["kind"], "location_claim" | "entry_warning" 
 // FURIOUS (and the practice fallback) refuse every lock. Entry-specific, short and long.
 const REFUSE_LOCK: Pool = [
   "I'm not locking {x}, so you'll want to hold it yourself.",
-  "{X} stays as it is, and you can hold it yourself.",
+  "{X} stays open, filed under Permanent Refusals, so do hurry.",
   "I won't be locking {x} tonight, as it turns out I'm unable to, in the sense that I've decided not to, which is the strongest sense there is.",
 ];
 
